@@ -1,0 +1,6 @@
+lib
+node_modules
+npm-debug.log
+coverage
+parse/src/config/global.json
+swapi/src/api/cachedData/cache.js

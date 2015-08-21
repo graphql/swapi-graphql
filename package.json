@@ -1,0 +1,98 @@
+{
+  "name": "swapi-graphql",
+  "description": "A GraphQL wrapper for swapi.com",
+  "contributors": [
+    "Nicholas Schrock <schrockn@fb.com>",
+    "Daniel Schafer <dschafer@fb.com>"
+  ],
+  "license": "BSD-3-Clause",
+  "homepage": "https://github.com/graphql/swapi-graphql",
+  "bugs": {
+    "url": "https://github.com/graphql/swapi-graphql/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/graphql/swapi-graphql.git"
+  },
+  "main": "swapi/lib/index.js",
+  "directories": {
+    "lib": "./swapi/lib"
+  },
+  "files": [
+    "swapi/lib",
+    "README.md",
+    "LICENSE",
+    "PATENTS"
+  ],
+  "options": {
+    "mocha": "--require scripts/mocha-bootload swapi/src/**/__tests__/*.js"
+  },
+  "babel": {
+    "optional": [
+      "runtime",
+      "es7.asyncFunctions"
+    ]
+  },
+  "browserify": {
+    "transform": [
+      "babelify"
+    ]
+  },
+  "browserify-shim": {
+    "react": "global:React"
+  },
+  "scripts": {
+    "build": "npm run build-swapi",
+    "test": "npm run test-swapi",
+    "download-swapi": "if [ ! -f swapi/src/api/cachedData/cache.js ]; then echo 'Downloading cache...' && node swapi/src/api/cachedData/downloadCache.js > swapi/src/api/cachedData/cache.js && echo 'Done!'; fi;",
+    "build-swapi": "npm run download-swapi && mkdir -p swapi/lib && rm -rf swapi/lib/* && babel swapi/src --ignore __tests__ --out-dir swapi/lib",
+    "test-swapi": "npm run build-swapi && npm run lint-swapi && npm run check-swapi && mocha $npm_package_options_mocha",
+    "lint-swapi": "eslint swapi/src",
+    "check-swapi": "flow check",
+    "watch-swapi": "babel scripts/watch.js | node",
+    "cover-swapi": "babel-node node_modules/.bin/isparta cover --root swapi/src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
+    "coveralls-swapi": "babel-node node_modules/.bin/isparta cover --root swapi/src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+
+    "start": "node server/lib/server.js",
+    "prestart": "npm run build-server",
+    "build-server": "npm run build-swapi && npm run build-server-app && npm run build-server-css && npm run build-server-html && npm run build-server-server",
+    "build-server-app": "mkdir -p server/lib/graphiql && browserify --global-transform browserify-shim server/src/graphiql/index.js -o server/lib/graphiql/index.js",
+    "build-server-css": "mkdir -p server/lib/graphiql/ && cat node_modules/graphiql/dist/*.css > server/lib/graphiql/index.css",
+    "build-server-html": "mkdir -p server/lib/graphiql/ && cat server/src/graphiql/index.html > server/lib/graphiql/index.html",
+    "build-server-server": "mkdir -p server/lib && babel server/src/server.js --optional runtime -o server/lib/server.js",
+
+    "predeploy": "npm run build-parse",
+    "deploy": "cd parse/lib && parse deploy",
+    "build-parse": "npm run build-swapi && npm run build-parse-cloud && npm run build-parse-public && npm run build-parse-config",
+    "build-parse-cloud": "mkdir -p parse/lib/cloud && browserify -p ./scripts/parseify.js --outfile parse/lib/cloud/main.js parse/src/cloud/main.js",
+    "build-parse-public": "mkdir -p parse/lib/public/graphiql && cp parse/src/public/graphiql/index.html parse/lib/public/graphiql/index.html && cat node_modules/graphiql/dist/*.css > parse/lib/public/graphiql/index.css & browserify -t --outfile parse/lib/public/graphiql/index.js parse/src/public/graphiql/index.js",
+    "build-parse-config": "mkdir -p parse/lib/config && cp parse/src/config/* parse/lib/config/"
+  },
+  "dependencies": {
+    "babel-runtime": "^5.8.20",
+    "express": "^4.13.3",
+    "express-graphql": "^0.2.0",
+    "graphiql": "^0.1.0",
+    "graphql": "^0.3.0",
+    "graphql-relay": "^0.2.0",
+    "isomorphic-fetch": "^2.1.1",
+    "react": "^0.13.3"
+  },
+  "devDependencies": {
+    "babel": "^5.8.3",
+    "babel-core": "^5.8.3",
+    "babel-eslint": "^4.0.5",
+    "babelify": "^6.1.1",
+    "browserify": "^10.2.0",
+    "browserify-shim": "^3.8.10",
+    "chai": "^3.0.0",
+    "chai-subset": "^1.0.1",
+    "coveralls": "^2.11.2",
+    "eslint": "^0.24.0",
+    "eslint-plugin-react": "^3.2.2",
+    "flow-bin": "^0.13.1",
+    "isparta": "^3.0.3",
+    "mocha": "^2.2.5",
+    "sane": "^1.1.3"
+  }
+}
