@@ -37,8 +37,12 @@ export function connectionFromUrls(
     type: connectionType,
     args: connectionArgs,
     resolve: (obj, args) => {
+      var promisedArray = [];
+      if (obj[prop]) {
+        promisedArray = obj[prop].map(getObjectFromUrl);
+      }
       return connectionFromPromisedArray(
-        Promise.all(obj[prop].map(getObjectFromUrl)),
+        Promise.all(promisedArray),
         args
       );
     },
