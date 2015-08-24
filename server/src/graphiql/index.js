@@ -9,7 +9,7 @@
 /*eslint-env browser */
 
 import React from 'react';
-import { GraphiQL } from 'graphiql';
+import GraphiQL from 'graphiql';
 import 'isomorphic-fetch'; /* global fetch */
 
 function graphQLFetcher(graphQLParams) {
