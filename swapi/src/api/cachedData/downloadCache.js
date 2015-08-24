@@ -1,4 +1,6 @@
-/*eslint-disable no-sync */
+/* eslint-disable no-sync */
+
+global.Promise = require('babel-runtime/core-js/promise').default;
 
 var fetch = require('isomorphic-fetch');
 

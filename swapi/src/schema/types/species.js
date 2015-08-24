@@ -106,8 +106,8 @@ have skin.`
     },
     people: connectionFromUrls('SpeciesPeople', 'people', PersonType),
     films: connectionFromUrls('SpeciesFilms', 'films', FilmType),
-    created: createdField,
-    edited: editedField,
+    created: createdField(),
+    edited: editedField(),
     id: globalIdField('species')
   }),
   interfaces: () => [nodeInterface],

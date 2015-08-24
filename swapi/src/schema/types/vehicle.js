@@ -101,8 +101,8 @@ entire crew without having to resupply.`
     },
     pilots: connectionFromUrls('VehiclePilots', 'pilots', PersonType),
     films: connectionFromUrls('VehicleFilms', 'films', FilmType),
-    created: createdField,
-    edited: editedField,
+    created: createdField(),
+    edited: editedField(),
     id: globalIdField('vehicles')
   }),
   interfaces: () => [nodeInterface],

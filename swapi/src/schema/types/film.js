@@ -81,8 +81,8 @@ var FilmType = new GraphQLObjectType({
       PersonType
     ),
     planets: connectionFromUrls('FilmPlants', 'planets', PlanetType),
-    created: createdField,
-    edited: editedField,
+    created: createdField(),
+    edited: editedField(),
     id: globalIdField('films')
   }),
   interfaces: () => [nodeInterface],

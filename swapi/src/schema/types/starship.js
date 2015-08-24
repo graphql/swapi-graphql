@@ -122,8 +122,8 @@ entire crew without having to resupply.`
     },
     pilots: connectionFromUrls('StarshipPilots', 'pilots', PersonType),
     films: connectionFromUrls('StarshipFilms', 'films', FilmType),
-    created: createdField,
-    edited: editedField,
+    created: createdField(),
+    edited: editedField(),
     id: globalIdField('starships')
   }),
   interfaces: () => [nodeInterface],

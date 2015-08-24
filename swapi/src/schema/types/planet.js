@@ -95,8 +95,8 @@ of water.`
     },
     residents: connectionFromUrls('PlanetResidents', 'residents', PersonType),
     films: connectionFromUrls('PlanetFilms', 'films', FilmType),
-    created: createdField,
-    edited: editedField,
+    created: createdField(),
+    edited: editedField(),
     id: globalIdField('planets')
   }),
   interfaces: () => [nodeInterface],

@@ -109,8 +109,8 @@ person does not have hair.`
       StarshipType
     ),
     vehicles: connectionFromUrls('PersonVehicles', 'vehicles', VehicleType),
-    created: createdField,
-    edited: editedField,
+    created: createdField(),
+    edited: editedField(),
     id: globalIdField('people')
   }),
   interfaces: () => [nodeInterface],
