@@ -26,33 +26,6 @@ describe('Planet type', async () => {
     expect(result.data.planet.name).to.equal('Alderaan');
   });
 
-  it('Gets an object by global ID', async () => {
-    var query = `{ planet(planetID: 1) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{ planet(id: "${result.data.planet.id}") { id, name } }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.planet.name).to.equal('Tatooine');
-    expect(nextResult.data.planet.name).to.equal('Tatooine');
-    expect(result.data.planet.id).to.equal(nextResult.data.planet.id);
-  });
-
-  it('Gets an object by global ID with node', async () => {
-    var query = `{ planet(planetID: 1) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{
-      node(id: "${result.data.planet.id}") {
-        ... on Planet {
-          id
-          name
-        }
-      }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.planet.name).to.equal('Tatooine');
-    expect(nextResult.data.node.name).to.equal('Tatooine');
-    expect(result.data.planet.id).to.equal(nextResult.data.node.id);
-  });
-
   it('Gets all properties', async () => {
     var query = `
 {
@@ -88,28 +61,17 @@ describe('Planet type', async () => {
   });
 
   it('All objects query', async() => {
-    var query = `{ allPlanets { edges { cursor, node { name } } } }`;
+    var query = `{ allPlanets { name } }`;
     var result = await swapi(query);
-    expect(result.data.allPlanets.edges.length).to.equal(60);
+    expect(result.data.allPlanets.length).to.equal(60);
   });
 
-  it('Pagination query', async() => {
-    var query = `{ allPlanets(first: 2) { edges { cursor, node { name } } } }`;
+  it('first query', async() => {
+    var query = `{ allPlanets(first: 2) { name } }`;
     var result = await swapi(query);
-    expect(result.data.allPlanets.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allPlanets.map(e => e.name)).to.deep.equal([
       'Tatooine',
       'Alderaan',
-    ]);
-    var nextCursor = result.data.allPlanets.edges[1].cursor;
-
-    var nextQuery = `{ allPlanets(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { name } } }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allPlanets.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'Yavin IV',
-      'Hoth',
     ]);
   });
 });

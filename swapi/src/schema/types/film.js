@@ -14,11 +14,6 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
-
-import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
 
@@ -83,9 +78,7 @@ var FilmType = new GraphQLObjectType({
     planets: connectionFromUrls('FilmPlants', 'planets', PlanetType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('films')
   }),
-  interfaces: () => [nodeInterface],
 });
 
 export default FilmType;

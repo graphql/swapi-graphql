@@ -26,33 +26,6 @@ describe('Vehicle type', async () => {
     expect(result.data.vehicle.name).to.equal('T-16 skyhopper');
   });
 
-  it('Gets an object by global ID', async () => {
-    var query = `{ vehicle(vehicleID: 4) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{ vehicle(id: "${result.data.vehicle.id}") { id, name } }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.vehicle.name).to.equal('Sand Crawler');
-    expect(nextResult.data.vehicle.name).to.equal('Sand Crawler');
-    expect(result.data.vehicle.id).to.equal(nextResult.data.vehicle.id);
-  });
-
-  it('Gets an object by global ID with node', async () => {
-    var query = `{ vehicle(vehicleID: 4) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{
-      node(id: "${result.data.vehicle.id}") {
-        ... on Vehicle {
-          id
-          name
-        }
-      }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.vehicle.name).to.equal('Sand Crawler');
-    expect(nextResult.data.node.name).to.equal('Sand Crawler');
-    expect(result.data.vehicle.id).to.equal(nextResult.data.node.id);
-  });
-
   it('Gets all properties', async () => {
     var query = `
 {
@@ -92,28 +65,17 @@ describe('Vehicle type', async () => {
   });
 
   it('All objects query', async() => {
-    var query = `{ allVehicles { edges { cursor, node { name } } } }`;
+    var query = `{ allVehicles { name } }`;
     var result = await swapi(query);
-    expect(result.data.allVehicles.edges.length).to.equal(39);
+    expect(result.data.allVehicles.length).to.equal(39);
   });
 
   it('Pagination query', async() => {
-    var query = `{ allVehicles(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{ allVehicles(first: 2) { name } }`;
     var result = await swapi(query);
-    expect(result.data.allVehicles.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allVehicles.map(e => e.name)).to.deep.equal([
       'Sand Crawler',
       'T-16 skyhopper',
-    ]);
-    var nextCursor = result.data.allVehicles.edges[1].cursor;
-
-    var nextQuery = `{ allVehicles(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { name } } }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allVehicles.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'X-34 landspeeder',
-      'TIE/LN starfighter',
     ]);
   });
 });

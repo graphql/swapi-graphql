@@ -15,11 +15,6 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
-
-import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
 
@@ -124,9 +119,7 @@ entire crew without having to resupply.`
     films: connectionFromUrls('StarshipFilms', 'films', FilmType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('starships')
   }),
-  interfaces: () => [nodeInterface],
 });
 
 export default StarshipType;

@@ -26,33 +26,6 @@ describe('Film type', async () => {
     expect(result.data.film.title).to.equal('The Empire Strikes Back');
   });
 
-  it('Gets an object by global ID', async () => {
-    var query = `{ film(filmID: 1) { id, title } }`;
-    var result = await swapi(query);
-    var nextQuery = `{ film(id: "${result.data.film.id}") { id, title } }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.film.title).to.equal('A New Hope');
-    expect(nextResult.data.film.title).to.equal('A New Hope');
-    expect(result.data.film.id).to.equal(nextResult.data.film.id);
-  });
-
-  it('Gets an object by global ID with node', async () => {
-    var query = `{ film(filmID: 1) { id, title } }`;
-    var result = await swapi(query);
-    var nextQuery = `{
-      node(id: "${result.data.film.id}") {
-        ... on Film {
-          id
-          title
-        }
-      }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.film.title).to.equal('A New Hope');
-    expect(nextResult.data.node.title).to.equal('A New Hope');
-    expect(result.data.film.id).to.equal(nextResult.data.node.id);
-  });
-
   it('Gets all properties', async () => {
     var query = `
 {
@@ -88,28 +61,55 @@ describe('Film type', async () => {
   });
 
   it('All objects query', async() => {
-    var query = `{ allFilms { edges { cursor, node { title } } } }`;
+    var query = `{ allFilms {  title } }`;
     var result = await swapi(query);
-    expect(result.data.allFilms.edges.length).to.equal(6);
+    expect(result.data.allFilms.length).to.equal(6);
   });
 
-  it('Pagination query', async() => {
-    var query = `{ allFilms(first: 2) { edges { cursor, node { title } } } }`;
+  it('first query', async() => {
+    var query = `{ allFilms(first: 2) { title } }`;
     var result = await swapi(query);
-    expect(result.data.allFilms.edges.map(e => e.node.title)).to.deep.equal([
+    expect(result.data.allFilms.map(e => e.title)).to.deep.equal([
       'A New Hope',
       'The Empire Strikes Back'
     ]);
-    var nextCursor = result.data.allFilms.edges[1].cursor;
+  });
 
-    var nextQuery = `{ allFilms(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { title } } }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allFilms.edges.map(e => e.node.title)).to.deep.equal(
-    [
-      'Return of the Jedi',
+  it('skip query', async() => {
+    var query = `{ allFilms(skip: 3) { title } }`;
+    var result = await swapi(query);
+    expect(result.data.allFilms.map(e => e.title)).to.deep.equal([
       'The Phantom Menace',
+      'Attack of the Clones',
+      'Revenge of the Sith'
     ]);
   });
+
+  it('first/skip query', async() => {
+    var query = `{ allFilms(skip: 3, first: 1) { title } }`;
+    var result = await swapi(query);
+    expect(result.data.allFilms.map(e => e.title)).to.deep.equal([
+      'The Phantom Menace'
+    ]);
+    var queryTwo = `{ allFilms(skip: 4, first: 2) { title } }`;
+    var resultTwo = await swapi(queryTwo);
+    expect(resultTwo.data.allFilms.map(e => e.title)).to.deep.equal([
+      'Attack of the Clones',
+      'Revenge of the Sith'
+    ]);
+  });
+
+
+    // TODO implement with skip
+    // var nextCursor = result.data.allFilms.edges[1].cursor;
+
+    // var nextQuery = `{ allFilms(first: 2, after:"${nextCursor}") {
+    //   edges { cursor, node { title } } }
+    // }`;
+    // var nextResult = await swapi(nextQuery);
+    // expect(nextResult.data.allFilms.edges.map(e => e.node.title)).to.deep.equal(
+    // [
+    //   'Return of the Jedi',
+    //   'The Phantom Menace',
+    // ]);
 });

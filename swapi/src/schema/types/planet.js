@@ -15,11 +15,6 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
-
-import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
 
@@ -97,8 +92,6 @@ of water.`
     films: connectionFromUrls('PlanetFilms', 'films', FilmType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('planets')
   }),
-  interfaces: () => [nodeInterface],
 });
 export default PlanetType;

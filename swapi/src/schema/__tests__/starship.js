@@ -26,33 +26,6 @@ describe('Starship type', async () => {
     expect(result.data.starship.name).to.equal('Death Star');
   });
 
-  it('Gets an object by global ID', async () => {
-    var query = `{ starship(starshipID: 5) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{ starship(id: "${result.data.starship.id}") { id, name } }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
-    expect(nextResult.data.starship.name).to.equal('Sentinel-class landing craft');
-    expect(result.data.starship.id).to.equal(nextResult.data.starship.id);
-  });
-
-  it('Gets an object by global ID with node', async () => {
-    var query = `{ starship(starshipID: 5) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{
-      node(id: "${result.data.starship.id}") {
-        ... on Starship {
-          id
-          name
-        }
-      }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
-    expect(nextResult.data.node.name).to.equal('Sentinel-class landing craft');
-    expect(result.data.starship.id).to.equal(nextResult.data.node.id);
-  });
-
   it('Gets all properties', async () => {
     var query = `
 {
@@ -96,28 +69,17 @@ describe('Starship type', async () => {
   });
 
   it('All objects query', async() => {
-    var query = `{ allStarships { edges { cursor, node { name } } } }`;
+    var query = `{ allStarships { name } }`;
     var result = await swapi(query);
-    expect(result.data.allStarships.edges.length).to.equal(36);
+    expect(result.data.allStarships.length).to.equal(36);
   });
 
   it('Pagination query', async() => {
-    var query = `{ allStarships(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{ allStarships(first: 2) { name } }`;
     var result = await swapi(query);
-    expect(result.data.allStarships.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allStarships.map(e => e.name)).to.deep.equal([
       'CR90 corvette',
       'Star Destroyer',
-    ]);
-    var nextCursor = result.data.allStarships.edges[1].cursor;
-
-    var nextQuery = `{ allStarships(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { name } } }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allStarships.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'Sentinel-class landing craft',
-      'Death Star',
     ]);
   });
 
