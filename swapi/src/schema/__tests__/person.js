@@ -26,33 +26,6 @@ describe('Person type', async () => {
     expect(result.data.person.name).to.equal('C-3PO');
   });
 
-  it('Gets an object by global ID', async () => {
-    var query = `{ person(personID: 1) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{ person(id: "${result.data.person.id}") { id, name } }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.person.name).to.equal('Luke Skywalker');
-    expect(nextResult.data.person.name).to.equal('Luke Skywalker');
-    expect(result.data.person.id).to.equal(nextResult.data.person.id);
-  });
-
-  it('Gets an object by global ID with node', async () => {
-    var query = `{ person(personID: 1) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{
-      node(id: "${result.data.person.id}") {
-        ... on Person {
-          id
-          name
-        }
-      }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.person.name).to.equal('Luke Skywalker');
-    expect(nextResult.data.node.name).to.equal('Luke Skywalker');
-    expect(result.data.person.id).to.equal(nextResult.data.node.id);
-  });
-
   it('Gets all properties', async () => {
     var query = `
 {
@@ -92,28 +65,17 @@ describe('Person type', async () => {
   });
 
   it('All objects query', async() => {
-    var query = `{ allPeople { edges { cursor, node { name } } } }`;
+    var query = `{ allPeople { name } }`;
     var result = await swapi(query);
-    expect(result.data.allPeople.edges.length).to.equal(82);
+    expect(result.data.allPeople.length).to.equal(82);
   });
 
   it('Pagination query', async() => {
-    var query = `{ allPeople(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{ allPeople(first: 2) { name } }`;
     var result = await swapi(query);
-    expect(result.data.allPeople.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allPeople.map(e => e.name)).to.deep.equal([
       'Luke Skywalker',
       'C-3PO',
-    ]);
-    var nextCursor = result.data.allPeople.edges[1].cursor;
-
-    var nextQuery = `{ allPeople(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { name } } }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allPeople.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'R2-D2',
-      'Darth Vader',
     ]);
   });
 

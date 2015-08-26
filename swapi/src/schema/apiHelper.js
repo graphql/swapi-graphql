@@ -55,7 +55,8 @@ export async function getObjectFromTypeAndId(
  * fetching once we have that many items.
  */
 function doneFetching(objects: Array<Object>, args?: ?Object): boolean {
-  if (!args || args.after || args.before || args.last || !args.first) {
+  if (!args || args.after || args.before
+    || args.last || args.skip || !args.first) {
     return false;
   }
   return objects.length >= args.first;

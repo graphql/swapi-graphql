@@ -9,16 +9,11 @@
 
 import {
   GraphQLID,
+  GraphQLInt,
   GraphQLObjectType,
   GraphQLSchema,
+  GraphQLList,
 } from 'graphql';
-
-import {
-  fromGlobalId,
-  connectionFromPromisedArray,
-  connectionArgs,
-  connectionDefinitions,
-} from 'graphql-relay';
 
 import {
   getObjectsByType,
@@ -27,60 +22,44 @@ import {
 
 import {
   swapiTypeToGraphQLType,
-  nodeField,
 } from './relayNode';
 
 
-/**
- * Creates a root field to get an object of a given type.
- * Accepts either `id`, the globally unique ID used in GraphQL,
- * or `idName`, the per-type ID used in SWAPI.
- */
-function rootFieldByID(idName, swapiType) {
+function rootField(idName, swapiType) {
   var getter = (id) => getObjectFromTypeAndId(swapiType, id);
   var argDefs = {};
-  argDefs.id = { type: GraphQLID };
   argDefs[idName] = { type: GraphQLID };
   return {
     type: swapiTypeToGraphQLType(swapiType),
     args: argDefs,
     resolve: (_, args) => {
-      if (args[idName] !== undefined && args[idName] !== null) {
-        return getter(args[idName]);
+      if (!args[idName]) {
+        throw new Error('must provide ' + idName);
       }
-
-      if (args.id !== undefined && args.id !== null) {
-        var globalId = fromGlobalId(args.id);
-        if (globalId.id === null ||
-            globalId.id === undefined ||
-            globalId.id === '') {
-          throw new Error('No valid ID extracted from ' + args.id);
-        }
-        return getter(globalId.id);
-      }
-      throw new Error('must provide id or ' + idName);
-    },
+      return getter(args[idName]);
+    }
   };
 }
 
-/**
- * Creates a connection that will return all objects of the given
- * `swapiType`; the connection will be named using `name`.
- */
-function rootConnection(name, swapiType) {
-  var {connectionType} = connectionDefinitions({
-    name: name,
-    nodeType: swapiTypeToGraphQLType(swapiType)
-  });
+function rootList(swapiType) {
   return {
-    type: connectionType,
-    args: connectionArgs,
-    resolve: (_, args) => {
-      return connectionFromPromisedArray(
-        getObjectsByType(swapiType, args),
-        args
-      );
-    }
+    type: new GraphQLList(swapiTypeToGraphQLType(swapiType)),
+    args: {
+      first: { type: GraphQLInt },
+      skip: { type: GraphQLInt },
+    },
+    resolve: async (_, args) => {
+      var objects = await getObjectsByType(swapiType, args);
+      if (args.first && args.skip) {
+        return objects.slice(args.skip, args.first + args.skip);
+      } else if (args.first) {
+        return objects.slice(0, args.first);
+      } else if (args.skip) {
+        return objects.slice(args.skip);
+      } else {
+        return objects;
+      }
+    },
   };
 }
 
@@ -90,19 +69,18 @@ function rootConnection(name, swapiType) {
 var rootType = new GraphQLObjectType({
   name: 'Root',
   fields: () => ({
-    allFilms: rootConnection('Films', 'films'),
-    film: rootFieldByID('filmID', 'films'),
-    allPeople: rootConnection('People', 'people'),
-    person: rootFieldByID('personID', 'people'),
-    allPlanets: rootConnection('Planets', 'planets'),
-    planet: rootFieldByID('planetID', 'planets'),
-    allSpecies: rootConnection('Species', 'species'),
-    species: rootFieldByID('speciesID', 'species'),
-    allStarships: rootConnection('Starships', 'starships'),
-    starship: rootFieldByID('starshipID', 'starships'),
-    allVehicles: rootConnection('Vehicles', 'vehicles'),
-    vehicle: rootFieldByID('vehicleID', 'vehicles'),
-    node: nodeField,
+    allFilms: rootList('films'),
+    film: rootField('filmID', 'films'),
+    allPeople: rootList('people'),
+    person: rootField('personID', 'people'),
+    allPlanets: rootList('planets'),
+    planet: rootField('planetID', 'planets'),
+    allSpecies: rootList('species'),
+    species: rootField('speciesID', 'species'),
+    allStarships: rootList('starships'),
+    starship: rootField('starshipID', 'starships'),
+    allVehicles: rootList('vehicles'),
+    vehicle: rootField('vehicleID', 'vehicles'),
   }),
 });
 

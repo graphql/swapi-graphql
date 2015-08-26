@@ -13,11 +13,6 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
-
-import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
 import { getObjectFromUrl } from '../apiHelper';
@@ -111,9 +106,7 @@ person does not have hair.`
     vehicles: connectionFromUrls('PersonVehicles', 'vehicles', VehicleType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('people')
   }),
-  interfaces: () => [nodeInterface],
 });
 
 export default PersonType;

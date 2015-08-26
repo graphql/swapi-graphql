@@ -26,33 +26,6 @@ describe('Species type', async () => {
     expect(result.data.species.name).to.equal('Yoda\'s species');
   });
 
-  it('Gets an object by global ID', async () => {
-    var query = `{ species(speciesID: 4) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{ species(id: "${result.data.species.id}") { id, name } }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.species.name).to.equal('Rodian');
-    expect(nextResult.data.species.name).to.equal('Rodian');
-    expect(result.data.species.id).to.equal(nextResult.data.species.id);
-  });
-
-  it('Gets an object by global ID with node', async () => {
-    var query = `{ species(speciesID: 4) { id, name } }`;
-    var result = await swapi(query);
-    var nextQuery = `{
-      node(id: "${result.data.species.id}") {
-        ... on Species {
-          id
-          name
-        }
-      }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(result.data.species.name).to.equal('Rodian');
-    expect(nextResult.data.node.name).to.equal('Rodian');
-    expect(result.data.species.id).to.equal(nextResult.data.node.id);
-  });
-
   it('Gets all properties', async () => {
     var query = `
 {
@@ -90,28 +63,17 @@ describe('Species type', async () => {
   });
 
   it('All objects query', async() => {
-    var query = `{ allSpecies { edges { cursor, node { name } } } }`;
+    var query = `{ allSpecies { name } }`;
     var result = await swapi(query);
-    expect(result.data.allSpecies.edges.length).to.equal(37);
+    expect(result.data.allSpecies.length).to.equal(37);
   });
 
   it('Pagination query', async() => {
-    var query = `{ allSpecies(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{ allSpecies(first: 2) { name } }`;
     var result = await swapi(query);
-    expect(result.data.allSpecies.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allSpecies.map(e => e.name)).to.deep.equal([
       'Human',
       'Droid',
-    ]);
-    var nextCursor = result.data.allSpecies.edges[1].cursor;
-
-    var nextQuery = `{ allSpecies(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { name } } }
-    }`;
-    var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allSpecies.edges.map(e => e.node.name))
-    .to.deep.equal([
-      'Wookie', // [sic]
-      'Rodian'
     ]);
   });
 

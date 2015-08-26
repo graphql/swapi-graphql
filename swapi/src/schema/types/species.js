@@ -15,11 +15,6 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
-
-import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
 import { getObjectFromUrl } from '../apiHelper';
@@ -108,9 +103,7 @@ have skin.`
     films: connectionFromUrls('SpeciesFilms', 'films', FilmType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('species')
   }),
-  interfaces: () => [nodeInterface],
 });
 
 export default SpeciesType;
