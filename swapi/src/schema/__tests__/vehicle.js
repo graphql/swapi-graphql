@@ -68,8 +68,8 @@ describe('Vehicle type', async () => {
     maxAtmospheringSpeed
     cargoCapacity
     consumables
-    films(first:1) { edges { node { title } } }
-    pilots(first:1) { edges { node { name } } }
+    filmConnection(first:1) { edges { node { title } } }
+    pilotConnection(first:1) { edges { node { name } } }
   }
 }`;
     var result = await swapi(query);
@@ -84,8 +84,8 @@ describe('Vehicle type', async () => {
       model: 'Digger Crawler',
       name: 'Sand Crawler',
       passengers: '30',
-      pilots: { edges: [] },
-      films: { edges: [ { node: { title: 'A New Hope' } } ] },
+      pilotConnection: { edges: [] },
+      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
       vehicleClass: 'wheeled'
     };
     expect(result.data.vehicle).to.deep.equal(expected);
@@ -98,22 +98,25 @@ describe('Vehicle type', async () => {
   });
 
   it('Pagination query', async() => {
-    var query = `{ allVehicles(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{
+      allVehicles(first: 2) { edges { cursor, node { name } } }
+    }`;
     var result = await swapi(query);
-    expect(result.data.allVehicles.edges.map(e => e.node.name)).to.deep.equal([
-      'Sand Crawler',
-      'T-16 skyhopper',
-    ]);
+    expect(result.data.allVehicles.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'Sand Crawler',
+        'T-16 skyhopper',
+      ]);
     var nextCursor = result.data.allVehicles.edges[1].cursor;
 
     var nextQuery = `{ allVehicles(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allVehicles.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'X-34 landspeeder',
-      'TIE/LN starfighter',
-    ]);
+    expect(nextResult.data.allVehicles.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'X-34 landspeeder',
+        'TIE/LN starfighter',
+      ]);
   });
 });

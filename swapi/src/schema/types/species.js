@@ -104,8 +104,16 @@ have skin.`
       description:
 `A planet that this species originates from.`
     },
-    people: connectionFromUrls('SpeciesPeople', 'people', PersonType),
-    films: connectionFromUrls('SpeciesFilms', 'films', FilmType),
+    personConnection: connectionFromUrls(
+      'SpeciesPeople',
+      'people',
+      PersonType
+    ),
+    filmConnection: connectionFromUrls(
+      'SpeciesFilms',
+      'films',
+      FilmType
+    ),
     created: createdField(),
     edited: editedField(),
     id: globalIdField('species')

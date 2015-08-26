@@ -120,8 +120,16 @@ distance between our Sun (Sol) and Earth.`
 `The maximum length of time that this starship can provide consumables for its
 entire crew without having to resupply.`
     },
-    pilots: connectionFromUrls('StarshipPilots', 'pilots', PersonType),
-    films: connectionFromUrls('StarshipFilms', 'films', FilmType),
+    pilotConnection: connectionFromUrls(
+      'StarshipPilots',
+      'pilots',
+      PersonType
+    ),
+    filmConnection: connectionFromUrls(
+      'StarshipFilms',
+      'films',
+      FilmType
+    ),
     created: createdField(),
     edited: editedField(),
     id: globalIdField('starships')

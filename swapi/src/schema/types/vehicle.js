@@ -99,8 +99,16 @@ Transport".`
 `The maximum length of time that this vehicle can provide consumables for its
 entire crew without having to resupply.`
     },
-    pilots: connectionFromUrls('VehiclePilots', 'pilots', PersonType),
-    films: connectionFromUrls('VehicleFilms', 'films', FilmType),
+    pilotConnection: connectionFromUrls(
+      'VehiclePilots',
+      'pilots',
+      PersonType
+    ),
+    filmConnection: connectionFromUrls(
+      'VehicleFilms',
+      'films',
+      FilmType
+    ),
     created: createdField(),
     edited: editedField(),
     id: globalIdField('vehicles')

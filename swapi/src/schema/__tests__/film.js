@@ -63,11 +63,11 @@ describe('Film type', async () => {
     director
     producers
     releaseDate
-    species(first:1) { edges { node { name } } }
-    starships(first:1) { edges { node { name } } }
-    vehicles(first:1) { edges { node { name } } }
-    characters(first:1) { edges { node { name } } }
-    planets(first:1) { edges { node { name } } }
+    speciesConnection(first:1) { edges { node { name } } }
+    starshipConnection(first:1) { edges { node { name } } }
+    vehicleConnection(first:1) { edges { node { name } } }
+    characterConnection(first:1) { edges { node { name } } }
+    planetConnection(first:1) { edges { node { name } } }
   }
 }`;
     var result = await swapi(query);
@@ -78,11 +78,11 @@ describe('Film type', async () => {
       director: 'George Lucas',
       producers: [ 'Gary Kurtz', 'Rick McCallum' ],
       releaseDate: '1977-05-25',
-      species: { edges: [ { node: { name: 'Human' } } ] },
-      starships: { edges: [ { node: { name: 'CR90 corvette' } } ] },
-      vehicles: { edges: [ { node: { name: 'Sand Crawler' } } ] },
-      characters: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
-      planets: { edges: [ { node: { name: 'Tatooine' } } ] }
+      speciesConnection: { edges: [ { node: { name: 'Human' } } ] },
+      starshipConnection: { edges: [ { node: { name: 'CR90 corvette' } } ] },
+      vehicleConnection: { edges: [ { node: { name: 'Sand Crawler' } } ] },
+      characterConnection: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
+      planetConnection: { edges: [ { node: { name: 'Tatooine' } } ] }
     };
     expect(result.data.film).to.deep.equal(expected);
   });
@@ -94,22 +94,25 @@ describe('Film type', async () => {
   });
 
   it('Pagination query', async() => {
-    var query = `{ allFilms(first: 2) { edges { cursor, node { title } } } }`;
+    var query = `{
+      allFilms(first: 2) { edges { cursor, node { title } } }
+    }`;
     var result = await swapi(query);
-    expect(result.data.allFilms.edges.map(e => e.node.title)).to.deep.equal([
-      'A New Hope',
-      'The Empire Strikes Back'
-    ]);
+    expect(result.data.allFilms.edges.map(e => e.node.title))
+      .to.deep.equal([
+        'A New Hope',
+        'The Empire Strikes Back'
+      ]);
     var nextCursor = result.data.allFilms.edges[1].cursor;
 
     var nextQuery = `{ allFilms(first: 2, after:"${nextCursor}") {
       edges { cursor, node { title } } }
     }`;
     var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allFilms.edges.map(e => e.node.title)).to.deep.equal(
-    [
-      'Return of the Jedi',
-      'The Phantom Menace',
-    ]);
+    expect(nextResult.data.allFilms.edges.map(e => e.node.title))
+      .to.deep.equal([
+        'Return of the Jedi',
+        'The Phantom Menace',
+      ]);
   });
 });

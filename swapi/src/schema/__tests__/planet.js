@@ -66,20 +66,20 @@ describe('Planet type', async () => {
     climates
     terrains
     surfaceWater
-    residents(first:1) { edges { node { name } } }
-    films(first:1) { edges { node { title } } }
+    residentConnection(first:1) { edges { node { name } } }
+    filmConnection(first:1) { edges { node { title } } }
   }
 }`;
     var result = await swapi(query);
     var expected = {
       climates: [ 'arid' ],
       diameter: 10465,
-      films: { edges: [ { node: { title: 'A New Hope' } } ] },
+      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
       gravity: '1 standard',
       name: 'Tatooine',
       orbitalPeriod: 304,
       population: 200000,
-      residents: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
+      residentConnection: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
       rotationPeriod: 23,
       surfaceWater: 1,
       terrains: [ 'dessert' ] // [sic]
@@ -94,22 +94,25 @@ describe('Planet type', async () => {
   });
 
   it('Pagination query', async() => {
-    var query = `{ allPlanets(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{
+      allPlanets(first: 2) { edges { cursor, node { name } } }
+    }`;
     var result = await swapi(query);
-    expect(result.data.allPlanets.edges.map(e => e.node.name)).to.deep.equal([
-      'Tatooine',
-      'Alderaan',
-    ]);
+    expect(result.data.allPlanets.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'Tatooine',
+        'Alderaan',
+      ]);
     var nextCursor = result.data.allPlanets.edges[1].cursor;
 
     var nextQuery = `{ allPlanets(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allPlanets.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'Yavin IV',
-      'Hoth',
-    ]);
+    expect(nextResult.data.allPlanets.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'Yavin IV',
+        'Hoth',
+      ]);
   });
 });

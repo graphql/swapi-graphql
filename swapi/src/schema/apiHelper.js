@@ -61,20 +61,27 @@ function doneFetching(objects: Array<Object>, args?: ?Object): boolean {
   return objects.length >= args.first;
 }
 
+type ObjectsByType = {
+  objects: Array<Object>,
+  totalCount: number
+}
+
 /**
  * Given a type, fetch all of the pages, and join the objects together
  */
 export async function getObjectsByType(
   type: string,
   args?: ?Object
-): Promise<Array<Object>> {
+): Promise<ObjectsByType> {
   var objects = [];
+  var totalCount = 0;
   var nextUrl = `http://swapi.co/api/${type}/`;
   while (nextUrl && !doneFetching(objects, args)) {
     var pageData = await memoizeFromUrl(nextUrl);
     var parsedPageData = JSON.parse(pageData);
+    totalCount = parsedPageData.count;
     objects = objects.concat(parsedPageData.results.map(objectWithId));
     nextUrl = parsedPageData.next;
   }
-  return objects;
+  return {objects, totalCount};
 }

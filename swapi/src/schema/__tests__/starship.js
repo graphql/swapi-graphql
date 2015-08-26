@@ -70,8 +70,8 @@ describe('Starship type', async () => {
     MGLT
     cargoCapacity
     consumables
-    films(first:1) { edges { node { title } } }
-    pilots(first:1) { edges { node { name } } }
+    filmConnection(first:1) { edges { node { title } } }
+    pilotConnection(first:1) { edges { node { name } } }
   }
 }`;
     var result = await swapi(query);
@@ -81,7 +81,7 @@ describe('Starship type', async () => {
       consumables: '3 years',
       costInCredits: 1000000000000,
       crew: '342,953',
-      films: { edges: [ { node: { title: 'A New Hope' } } ] },
+      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
       hyperdriveRating: 4,
       length: 120000,
       manufacturers: [ 'Imperial Department of Military Research', 'Sienar Fleet Systems' ],
@@ -89,7 +89,7 @@ describe('Starship type', async () => {
       model: 'DS-1 Orbital Battle Station',
       name: 'Death Star',
       passengers: '843,342',
-      pilots: { edges: [] },
+      pilotConnection: { edges: [] },
       starshipClass: 'Deep Space Mobile Battlestation'
     };
     expect(result.data.starship).to.deep.equal(expected);
@@ -102,30 +102,34 @@ describe('Starship type', async () => {
   });
 
   it('Pagination query', async() => {
-    var query = `{ allStarships(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{
+      allStarships(first: 2) { edges { cursor, node { name } } }
+    }`;
     var result = await swapi(query);
-    expect(result.data.allStarships.edges.map(e => e.node.name)).to.deep.equal([
-      'CR90 corvette',
-      'Star Destroyer',
-    ]);
+    expect(result.data.allStarships.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'CR90 corvette',
+        'Star Destroyer',
+      ]);
     var nextCursor = result.data.allStarships.edges[1].cursor;
 
     var nextQuery = `{ allStarships(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     var nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allStarships.edges.map(e => e.node.name)).to.deep.equal(
-    [
-      'Sentinel-class landing craft',
-      'Death Star',
-    ]);
+    expect(nextResult.data.allStarships.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'Sentinel-class landing craft',
+        'Death Star',
+      ]);
   });
 
   describe('Edge cases', () => {
     it('Returns real speed when set to not n/a', async () => {
       var query = `{ starship(starshipID: 5) { name, maxAtmospheringSpeed } }`;
       var result = await swapi(query);
-      expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
+      expect(result.data.starship.name)
+        .to.equal('Sentinel-class landing craft');
       expect(result.data.starship.maxAtmospheringSpeed).to.equal(1000);
     });
   });
