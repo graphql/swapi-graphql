@@ -93,8 +93,16 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`
 `The percentage of the planet surface that is naturally occuring water or bodies
 of water.`
     },
-    residents: connectionFromUrls('PlanetResidents', 'residents', PersonType),
-    films: connectionFromUrls('PlanetFilms', 'films', FilmType),
+    residentConnection: connectionFromUrls(
+      'PlanetResidents',
+      'residents',
+      PersonType
+    ),
+    filmConnection: connectionFromUrls(
+      'PlanetFilms',
+      'films',
+      FilmType
+    ),
     created: createdField(),
     edited: editedField(),
     id: globalIdField('planets')

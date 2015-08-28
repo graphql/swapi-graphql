@@ -25,9 +25,19 @@ describe('API Helper', () => {
   });
 
   it('Gets all pages at once', async () => {
-    var people = await getObjectsByType('people');
-    expect(people.length).to.equal(82);
-    expect(people[0].name).to.equal('Luke Skywalker');
+    var {objects, totalCount} = await getObjectsByType('people');
+    expect(objects.length).to.equal(82);
+    expect(totalCount).to.equal(82);
+    expect(objects[0].name).to.equal('Luke Skywalker');
+  });
+
+  it('Gets first page and correct count', async () => {
+    var {objects, totalCount} = await getObjectsByType('people', {first: 5});
+    // Should only fetch the first page which has 10 items
+    expect(objects.length).to.equal(10);
+    // Count should still be accurate, though
+    expect(totalCount).to.equal(82);
+    expect(objects[0].name).to.equal('Luke Skywalker');
   });
 
   it('Gets a person by ID', async () => {

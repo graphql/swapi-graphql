@@ -91,7 +91,11 @@ person does not have hair.`
       description:
 `A planet that this person was born on or inhabits.`
     },
-    films: connectionFromUrls('PersonFilms', 'films', FilmType),
+    filmConnection: connectionFromUrls(
+      'PersonFilms',
+      'films',
+      FilmType
+    ),
     species: {
       type: SpeciesType,
       resolve: (person) => {
@@ -103,12 +107,16 @@ person does not have hair.`
       description:
 `The species that this person belongs to, or null if unknown.`
     },
-    starships: connectionFromUrls(
+    starshipConnection: connectionFromUrls(
       'PersonStarships',
       'starships',
       StarshipType
     ),
-    vehicles: connectionFromUrls('PersonVehicles', 'vehicles', VehicleType),
+    vehicleConnection: connectionFromUrls(
+      'PersonVehicles',
+      'vehicles',
+      VehicleType
+    ),
     created: createdField(),
     edited: editedField(),
     id: globalIdField('people')

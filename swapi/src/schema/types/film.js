@@ -72,15 +72,31 @@ var FilmType = new GraphQLObjectType({
       description:
 `The ISO 8601 date format of film release at original creator country.`
     },
-    species: connectionFromUrls('FilmSpecies', 'species', SpeciesType),
-    starships: connectionFromUrls('FilmStarships', 'starships', StarshipType),
-    vehicles: connectionFromUrls('FilmVehicles', 'vehicles', VehicleType),
-    characters: connectionFromUrls(
+    speciesConnection: connectionFromUrls(
+      'FilmSpecies',
+      'species',
+      SpeciesType
+    ),
+    starshipConnection: connectionFromUrls(
+      'FilmStarships',
+      'starships',
+      StarshipType
+    ),
+    vehicleConnection: connectionFromUrls(
+      'FilmVehicles',
+      'vehicles',
+      VehicleType
+    ),
+    characterConnection: connectionFromUrls(
       'FilmCharacters',
       'characters',
       PersonType
     ),
-    planets: connectionFromUrls('FilmPlants', 'planets', PlanetType),
+    planetConnection: connectionFromUrls(
+      'FilmPlants',
+      'planets',
+      PlanetType
+    ),
     created: createdField(),
     edited: editedField(),
     id: globalIdField('films')

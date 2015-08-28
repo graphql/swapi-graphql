@@ -67,8 +67,8 @@ describe('Species type', async () => {
     skinColors
     language
     homeworld { name }
-    people(first:1) { edges { node { name } } }
-    films(first:1) { edges { node { title } } }
+    personConnection(first:1) { edges { node { name } } }
+    filmConnection(first:1) { edges { node { title } } }
   }
 }`;
     var result = await swapi(query);
@@ -82,8 +82,8 @@ describe('Species type', async () => {
       homeworld: { name: 'Rodia' },
       language: 'Galatic Basic', // [sic]
       name: 'Rodian',
-      people: { edges: [ { node: { name: 'Greedo' } } ] },
-      films: { edges: [ { node: { title: 'A New Hope' } } ] },
+      personConnection: { edges: [ { node: { name: 'Greedo' } } ] },
+      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
       skinColors: ['green', 'blue']
     };
     expect(result.data.species).to.deep.equal(expected);
@@ -96,12 +96,15 @@ describe('Species type', async () => {
   });
 
   it('Pagination query', async() => {
-    var query = `{ allSpecies(first: 2) { edges { cursor, node { name } } } }`;
+    var query = `{
+      allSpecies(first: 2) { edges { cursor, node { name } } }
+    }`;
     var result = await swapi(query);
-    expect(result.data.allSpecies.edges.map(e => e.node.name)).to.deep.equal([
-      'Human',
-      'Droid',
-    ]);
+    expect(result.data.allSpecies.edges.map(e => e.node.name))
+      .to.deep.equal([
+        'Human',
+        'Droid',
+      ]);
     var nextCursor = result.data.allSpecies.edges[1].cursor;
 
     var nextQuery = `{ allSpecies(first: 2, after:"${nextCursor}") {
@@ -109,10 +112,10 @@ describe('Species type', async () => {
     }`;
     var nextResult = await swapi(nextQuery);
     expect(nextResult.data.allSpecies.edges.map(e => e.node.name))
-    .to.deep.equal([
-      'Wookie', // [sic]
-      'Rodian'
-    ]);
+      .to.deep.equal([
+        'Wookie', // [sic]
+        'Rodian'
+      ]);
   });
 
   describe('Edge cases', () => {
