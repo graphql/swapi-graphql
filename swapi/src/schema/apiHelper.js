@@ -7,21 +7,16 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
+import DataLoader from 'dataloader';
+
 import {
   getFromLocalUrl
 } from '../api';
 
-/**
- * A method to get data from the URL provided, memoizing the result.
- */
-var memo = {};
-async function memoizeFromUrl(url: string): Promise<string> {
-  if (memo[url]) {
-    return memo[url];
-  }
-  memo[url] = await getFromLocalUrl(url);
-  return memo[url];
-}
+var localUrlLoader = new DataLoader(
+  urls => Promise.all(urls.map(getFromLocalUrl)),
+  {batch: false, cache: true} // No point in batching since it's an HTTP request
+);
 
 /**
  * Objects returned from SWAPI don't have an ID field, so add one.
@@ -35,7 +30,7 @@ function objectWithId(obj: Object): Object {
  * Given an object URL, fetch it, append the ID to it, and return it.
  */
 export async function getObjectFromUrl(url: string): Promise<Object> {
-  var dataString = await memoizeFromUrl(url);
+  var dataString = await localUrlLoader.load(url);
   var data = JSON.parse(dataString);
   return objectWithId(data);
 }
@@ -77,7 +72,7 @@ export async function getObjectsByType(
   var totalCount = 0;
   var nextUrl = `http://swapi.co/api/${type}/`;
   while (nextUrl && !doneFetching(objects, args)) {
-    var pageData = await memoizeFromUrl(nextUrl);
+    var pageData = await localUrlLoader.load(nextUrl);
     var parsedPageData = JSON.parse(pageData);
     totalCount = parsedPageData.count;
     objects = objects.concat(parsedPageData.results.map(objectWithId));
