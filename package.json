@@ -64,7 +64,7 @@
     "predeploy": "npm run build-parse",
     "deploy": "cd parse/lib && parse deploy",
     "build-parse": "npm run build-swapi && npm run build-parse-cloud && npm run build-parse-public && npm run build-parse-config",
-    "build-parse-cloud": "mkdir -p parse/lib/cloud && browserify -p ./scripts/parseify.js --outfile parse/lib/cloud/main.js parse/src/cloud/main.js",
+    "build-parse-cloud": "mkdir -p parse/lib/cloud && browserify -p ./scripts/parseify.js node_modules/babel/polyfill parse/src/cloud/main.js > parse/lib/cloud/main.js",
     "build-parse-public": "mkdir -p parse/lib/public/graphiql && cp parse/src/public/graphiql/index.html parse/lib/public/graphiql/index.html && cp node_modules/graphiql/graphiql.min.js parse/lib/public/graphiql/graphiql.min.js && cp node_modules/graphiql/graphiql.css parse/lib/public/graphiql/graphiql.css",
     "build-parse-config": "mkdir -p parse/lib/config && cp parse/src/config/* parse/lib/config/"
   },
