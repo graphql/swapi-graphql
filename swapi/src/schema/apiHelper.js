@@ -7,6 +7,8 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
+require("babel/register");
+
 import DataLoader from 'dataloader';
 
 import {
