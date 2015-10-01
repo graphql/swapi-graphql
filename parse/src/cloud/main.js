@@ -11,14 +11,13 @@ import graphqlHTTP from 'express-graphql';
 import swapiSchema from '../../../swapi/lib/';
 
 var app = express();
-app.use('/graphql', graphqlHTTP(() => ({
-  schema: swapiSchema
+
+// Requests to /graphql redirect to /
+app.all('/graphql', (req, res) => res.redirect('/'));
+
+app.use('/', graphqlHTTP(() => ({
+  schema: swapiSchema,
+  graphiql: true
 })));
-var server = app.listen(8080, () => {
-  console.log(
-    `GraphQL available at /graphql`
-  );
-  console.log(
-    `GraphiQL available at /graphiql`
-  );
-});
+
+app.listen();
