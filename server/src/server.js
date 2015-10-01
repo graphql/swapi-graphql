@@ -11,15 +11,17 @@ import graphqlHTTP from 'express-graphql';
 import swapiSchema from '../../swapi/lib/';
 
 var app = express();
-app.use('/graphiql', express.static(path.join(__dirname, 'graphiql')));
-app.use('/graphql', graphqlHTTP(() => ({
-  schema: swapiSchema
+
+// Requests to /graphql redirect to /
+app.all('/graphql', (req, res) => res.redirect('/'));
+
+app.use('/', graphqlHTTP(() => ({
+  schema: swapiSchema,
+  graphiql: true
 })));
+
 var server = app.listen(8080, () => {
   console.log(
-    `GraphQL running on http://localhost:${server.address().port}/graphql`
-  );
-  console.log(
-    `GraphiQL running on http://localhost:${server.address().port}/graphiql`
+    `GraphQL running on http://localhost:${server.address().port}/`
   );
 });
