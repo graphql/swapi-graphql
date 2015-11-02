@@ -45,7 +45,7 @@
     "download": "if [ ! -f src/api/cachedData/cache.js ]; then echo 'Downloading cache...' && node src/api/cachedData/downloadCache.js > src/api/cachedData/cache.js && echo 'Cached!'; fi;",
     "build-cloud": "mkdir -p lib/cloud && browserify -p ./scripts/parseify.js node_modules/babel/polyfill src/cloud/main.js > lib/cloud/main.js",
     "build-config": "mkdir -p lib/config && cp src/config/* lib/config/",
-    "build-public": "mkdir -p lib/public"
+    "build-public": "mkdir -p lib/public && cp src/public/* lib/public/"
   },
   "dependencies": {
     "babel-runtime": "^5.8.20",
