@@ -6,7 +6,7 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import swapiSchema from '../schema';
+import swapiSchema from '../';
 import { graphql } from 'graphql';
 
 export async function swapi(query) {

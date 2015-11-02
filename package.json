@@ -14,18 +14,8 @@
     "type": "git",
     "url": "http://github.com/graphql/swapi-graphql.git"
   },
-  "main": "swapi/lib/index.js",
-  "directories": {
-    "lib": "./swapi/lib"
-  },
-  "files": [
-    "swapi/lib",
-    "README.md",
-    "LICENSE",
-    "PATENTS"
-  ],
   "options": {
-    "mocha": "--require scripts/mocha-bootload swapi/src/**/__tests__/*.js"
+    "mocha": "--require scripts/mocha-bootload src/**/__tests__/*.js"
   },
   "babel": {
     "optional": [
@@ -42,33 +32,27 @@
     "react": "global:React"
   },
   "scripts": {
-    "build": "npm run build-swapi",
-    "test": "npm run test-swapi",
-    "download-swapi": "if [ ! -f swapi/src/api/cachedData/cache.js ]; then echo 'Downloading cache...' && node swapi/src/api/cachedData/downloadCache.js > swapi/src/api/cachedData/cache.js && echo 'Done!'; fi;",
-    "build-swapi": "npm run download-swapi && mkdir -p swapi/lib && rm -rf swapi/lib/* && babel swapi/src --ignore __tests__ --out-dir swapi/lib",
-    "test-swapi": "npm run build-swapi && npm run lint-swapi && npm run check-swapi && mocha $npm_package_options_mocha",
-    "lint-swapi": "eslint swapi/src",
-    "check-swapi": "flow check",
-    "watch-swapi": "babel scripts/watch.js | node",
-    "cover-swapi": "babel-node node_modules/.bin/isparta cover --root swapi/src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
-    "coveralls-swapi": "babel-node node_modules/.bin/isparta cover --root swapi/src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-
-    "start": "node server/lib/server.js",
-    "prestart": "npm run build-server",
-    "build-server": "npm run build-swapi && mkdir -p server/lib && babel server/src/server.js --optional runtime -o server/lib/server.js",
-
-    "predeploy": "npm run build-parse",
-    "deploy": "cd parse/lib && parse deploy",
-    "build-parse": "npm run build-swapi && npm run build-parse-cloud && npm run build-parse-config",
-    "build-parse-cloud": "mkdir -p parse/lib/cloud && browserify -p ./scripts/parseify.js node_modules/babel/polyfill parse/src/cloud/main.js > parse/lib/cloud/main.js",
-    "build-parse-config": "mkdir -p parse/lib/config && cp parse/src/config/* parse/lib/config/"
+    "test": "npm run lint && npm run check && npm run testonly",
+    "start": "npm run download && babel-node src/cloud/main.js",
+    "deploy": "npm run build && cd lib && parse deploy",
+    "watch": "babel scripts/watch.js | node",
+    "testonly": "mocha $npm_package_options_mocha",
+    "lint": "eslint src",
+    "check": "flow check",
+    "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
+    "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+    "build": "npm run download && npm run build-cloud && npm run build-config && npm run build-public",
+    "download": "if [ ! -f src/api/cachedData/cache.js ]; then echo 'Downloading cache...' && node src/api/cachedData/downloadCache.js > src/api/cachedData/cache.js && echo 'Cached!'; fi;",
+    "build-cloud": "mkdir -p lib/cloud && browserify -p ./scripts/parseify.js node_modules/babel/polyfill src/cloud/main.js > lib/cloud/main.js",
+    "build-config": "mkdir -p lib/config && cp src/config/* lib/config/",
+    "build-public": "mkdir -p lib/public"
   },
   "dependencies": {
     "babel-runtime": "^5.8.20",
     "dataloader": "^1.0.0",
     "express": "^4.13.3",
-    "express-graphql": "^0.4.0",
-    "graphql": "^0.4.5",
+    "express-graphql": "^0.4.2",
+    "graphql": "^0.4.7",
     "graphql-relay": "^0.3.0",
     "isomorphic-fetch": "^2.1.1",
     "react": "^0.13.3"

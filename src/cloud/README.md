@@ -1,5 +1,5 @@
-SWAPI Local GraphQL Server
+SWAPI GraphQL Server
 ==========================
 
 This directory contains cloud code to run a Parse server, running
-`/graphql` and `/graphiql` in cloud code with the SWAPI schema.
+`/` and `/graphql` in cloud code with the SWAPI schema.

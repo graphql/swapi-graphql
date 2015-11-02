@@ -8,7 +8,7 @@
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import swapiSchema from '../schema';
+import swapiSchema from '../';
 import { graphql } from 'graphql';
 
 // 80+ char lines are useful in describe/it, so ignore in this file.
@@ -29,7 +29,7 @@ describe('Schema', () => {
     var result = await graphql(swapiSchema, query);
     expect(result.errors.length).to.equal(1);
     expect(result.errors[0].message).to.equal(
-      'No valid ID extracted from notanid'
+      'No entry in local cache for'
     );
     expect(result.data).to.deep.equal({species: null});
   });
