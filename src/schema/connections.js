@@ -40,6 +40,7 @@ export function connectionFromUrls(
   var {connectionType} = connectionDefinitions({
     name: name,
     nodeType: type,
+    resolveNode: edge => getObjectFromUrl(edge.node),
     connectionFields: () => ({
       totalCount: {
         type: GraphQLInt,
@@ -53,7 +54,7 @@ for example.`
       // $FlowIssue Computed propertes
       [prop]: {
         type: new GraphQLList(type),
-        resolve: (conn) => conn.edges.map((edge) => edge.node),
+        resolve: (conn) => conn.edges.map(edge => getObjectFromUrl(edge.node)),
         description:
 `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
@@ -67,12 +68,8 @@ full "{ edges { node } }" version should be used instead.`
   return {
     type: connectionType,
     args: connectionArgs,
-    resolve: async (obj, args) => {
-      var promisedArray = [];
-      if (obj[prop]) {
-        promisedArray = obj[prop].map(getObjectFromUrl);
-      }
-      var array = await Promise.all(promisedArray);
+    resolve: (obj, args) => {
+      var array = obj[prop] || [];
       return {
         ...connectionFromArray(array, args),
         totalCount: array.length

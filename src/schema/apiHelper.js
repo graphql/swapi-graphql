@@ -14,8 +14,7 @@ import {
 } from '../api';
 
 var localUrlLoader = new DataLoader(
-  urls => Promise.all(urls.map(getFromLocalUrl)),
-  {batch: false, cache: true} // No point in batching since it's an HTTP request
+  urls => Promise.all(urls.map(getFromLocalUrl))
 );
 
 /**

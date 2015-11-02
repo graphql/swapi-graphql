@@ -28,7 +28,7 @@ describe('Schema', () => {
     var query = `{ species(id: "notanid") { name } }`;
     var result = await graphql(swapiSchema, query);
     expect(result.errors.length).to.equal(1);
-    expect(result.errors[0].message).to.equal(
+    expect(result.errors[0].message).to.contain(
       'No entry in local cache for'
     );
     expect(result.data).to.deep.equal({species: null});
