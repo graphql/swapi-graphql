@@ -11,7 +11,7 @@ require('babel/register')({
   optional: ['runtime', 'es7.asyncFunctions']
 });
 
-var swapiSchema = require('../swapi/lib');
+var swapiSchema = require('../src/schema');
 var printSchema = require('graphql/utilities').printSchema;
 
 try {

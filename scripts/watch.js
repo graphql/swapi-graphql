@@ -16,7 +16,7 @@ import flowBinPath from 'flow-bin';
 process.env.PATH += ':./node_modules/.bin';
 
 var cmd = resolvePath(__dirname);
-var srcDir = resolvePath(cmd, './swapi/src');
+var srcDir = resolvePath(cmd, './src');
 
 function exec(command, options) {
   return new Promise(function (resolve, reject) {
@@ -134,7 +134,7 @@ function runTests(filepaths) {
     '--reporter', 'progress',
     '--require', 'scripts/mocha-bootload'
   ].concat(
-    allTests(filepaths) ? filepaths.map(srcPath) : ['swapi/src/**/__tests__/**/*.js']
+    allTests(filepaths) ? filepaths.map(srcPath) : ['src/**/__tests__/**/*.js']
   )).catch(() => false);
 }
 

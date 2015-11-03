@@ -39,6 +39,6 @@ module.exports = function(bundle) {
     .external('parse-express-https-redirect')
     .external('parse-express-cookie-session')
     .require(
-      streamString('module.exports = { Parse : Parse } ;'),
+      streamString('module.exports = { Parse: Parse } ;'),
       { file: 'parse', expose: 'parse' });
 };

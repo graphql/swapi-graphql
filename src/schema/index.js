@@ -133,5 +133,4 @@ var rootType = new GraphQLObjectType({
   }),
 });
 
-var swapiSchema = new GraphQLSchema({query: rootType});
-export default swapiSchema;
+export default new GraphQLSchema({ query: rootType });
