@@ -2,6 +2,7 @@
 .*/coverage/.*
 .*/scripts/.*
 .*/node_modules/flow-bin/.*
+.*/node_modules/fbjs/.*
 
 [include]
 
