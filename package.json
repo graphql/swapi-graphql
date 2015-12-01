@@ -48,14 +48,14 @@
     "build-public": "mkdir -p lib/public && cp src/public/* lib/public/"
   },
   "dependencies": {
-    "babel-runtime": "^5.8.20",
-    "dataloader": "^1.0.0",
-    "express": "^4.13.3",
-    "express-graphql": "^0.4.4",
-    "graphql": "^0.4.7",
-    "graphql-relay": "^0.3.5",
-    "isomorphic-fetch": "^2.1.1",
-    "react": "^0.13.3"
+    "babel-runtime": "5.8.34",
+    "dataloader": "1.0.0",
+    "express": "4.13.3",
+    "express-graphql": "0.4.5",
+    "graphql": "0.4.13",
+    "graphql-relay": "0.3.5",
+    "isomorphic-fetch": "2.2.0",
+    "react": "0.14.3"
   },
   "devDependencies": {
     "babel": "^5.8.3",
@@ -69,7 +69,7 @@
     "coveralls": "^2.11.2",
     "eslint": "^0.24.0",
     "eslint-plugin-react": "^3.2.2",
-    "flow-bin": "^0.14.0",
+    "flow-bin": "^0.18.1",
     "isparta": "^3.0.3",
     "mocha": "^2.2.5",
     "sane": "^1.1.3"
