@@ -93,7 +93,7 @@ var FilmType = new GraphQLObjectType({
       PersonType
     ),
     planetConnection: connectionFromUrls(
-      'FilmPlants',
+      'FilmPlanets',
       'planets',
       PlanetType
     ),
