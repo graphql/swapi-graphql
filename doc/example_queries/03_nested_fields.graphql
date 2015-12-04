@@ -1,0 +1,17 @@
+{
+  person(personID: 4) {
+    name
+    gender
+    homeworld {
+      name
+    }
+    starshipConnection {
+      edges {
+        node {
+          id
+          manufacturers
+        }
+      }
+    }
+  }
+}

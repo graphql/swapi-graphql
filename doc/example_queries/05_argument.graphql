@@ -1,0 +1,22 @@
+{
+  allStarships(first: 7) {
+    edges {
+      node {
+        id
+        name
+        model
+        costInCredits
+        pilotConnection {
+          edges {
+            node {
+              name 
+              homeworld {
+                name
+              }               
+            }
+          }
+        }
+      }
+    }
+  }
+}
