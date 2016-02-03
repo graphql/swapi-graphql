@@ -61,7 +61,7 @@ Battlestation"`
 `The manufacturers of this starship.`
     },
     costInCredits: {
-      type: GraphQLInt,
+      type: GraphQLFloat,
       resolve: (ship) => ship.cost_in_credits,
       description:
 `The cost of this starship new, in galactic credits.`
@@ -109,7 +109,7 @@ the difference in speed of starships. We can assume it is similar to AU, the
 distance between our Sun (Sol) and Earth.`
     },
     cargoCapacity: {
-      type: GraphQLInt,
+      type: GraphQLFloat,
       resolve: (ship) => ship.cargo_capacity,
       description:
 `The maximum number of kilograms that this starship can transport.`
