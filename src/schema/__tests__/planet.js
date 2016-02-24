@@ -82,7 +82,7 @@ describe('Planet type', async () => {
       residentConnection: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
       rotationPeriod: 23,
       surfaceWater: 1,
-      terrains: [ 'dessert' ] // [sic]
+      terrains: [ 'desert' ]
     };
     expect(result.data.planet).to.deep.equal(expected);
   });
