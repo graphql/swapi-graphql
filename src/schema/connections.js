@@ -51,7 +51,6 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.`
       },
-      // $FlowIssue Computed propertes
       [prop]: {
         type: new GraphQLList(type),
         resolve: (conn) => conn.edges.map(edge => getObjectFromUrl(edge.node)),
