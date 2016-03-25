@@ -51,7 +51,7 @@
     "babel-runtime": "5.8.34",
     "dataloader": "1.1.0",
     "express": "4.13.4",
-    "express-graphql": "0.4.12",
+    "express-graphql": "0.4.13",
     "graphql": "0.4.18",
     "graphql-relay": "0.3.6",
     "isomorphic-fetch": "2.2.1",
