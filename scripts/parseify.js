@@ -19,13 +19,16 @@ function streamString(str) {
   return readStream;
 }
 
-module.exports = function(bundle) {
+function endsWith(str, needle) {
+  return str.slice(-needle.length) === needle;
+}
+
+module.exports = function(bundle, options) {
   bundle._options.insertGlobalVars = {
-    process: function() {
-      return 'process';
-    },
-    'process.env': function() {
-      return '{}';
+    process: function(file) {
+      if (!endsWith(file, 'process/browser.js')) {
+        return 'require("process")';
+      }
     },
     setImmediate: function() {
       return 'process.nextTick';
@@ -34,6 +37,7 @@ module.exports = function(bundle) {
       return 'process.nextTick';
     }
   };
+
   return bundle
     .external('buffer')
     .external('crypto')
@@ -41,10 +45,14 @@ module.exports = function(bundle) {
     .external('express')
     .external('stream')
     .external('moment')
-    .external('process')
     .external('querystring')
     .external('parse-express-https-redirect')
     .external('parse-express-cookie-session')
+    .require(
+      streamString(
+        'process.env = {}; process.version = "v0.10.0"; module.exports = process'
+      ),
+      { file: 'process', expose: 'process' })
     .require(
       streamString('module.exports = { Parse: Parse };'),
       { file: 'parse', expose: 'parse' });
