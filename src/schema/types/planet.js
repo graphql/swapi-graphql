@@ -29,7 +29,7 @@ import PersonType from './person';
 /**
  * The GraphQL type equivalent of the Planet resource
  */
-var PlanetType = new GraphQLObjectType({
+const PlanetType = new GraphQLObjectType({
   name: 'Planet',
   description:
 `A large mass, planet or planetoid in the Star Wars Universe, at the time of
@@ -38,23 +38,23 @@ var PlanetType = new GraphQLObjectType({
     name: {
       type: GraphQLString,
       description:
-`The name of this planet.`
+'The name of this planet.'
     },
     diameter: {
       type: GraphQLInt,
       description:
-`The diameter of this planet in kilometers.`
+'The diameter of this planet in kilometers.'
     },
     rotationPeriod: {
       type: GraphQLInt,
-      resolve: (planet) => planet.rotation_period,
+      resolve: planet => planet.rotation_period,
       description:
 `The number of standard hours it takes for this planet to complete a single
 rotation on its axis.`
     },
     orbitalPeriod: {
       type: GraphQLInt,
-      resolve: (planet) => planet.orbital_period,
+      resolve: planet => planet.orbital_period,
       description:
 `The number of standard days it takes for this planet to complete a single orbit
 of its local star.`
@@ -68,27 +68,27 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`
     population: {
       type: GraphQLInt,
       description:
-`The average population of sentient beings inhabiting this planet.`
+'The average population of sentient beings inhabiting this planet.'
     },
     climates: {
       type: new GraphQLList(GraphQLString),
-      resolve: (planet) => {
+      resolve: planet => {
         return planet.climate.split(',').map(s => s.trim());
       },
       description:
-`The climates of this planet.`
+'The climates of this planet.'
     },
     terrains: {
       type: new GraphQLList(GraphQLString),
-      resolve: (planet) => {
+      resolve: planet => {
         return planet.terrain.split(',').map(s => s.trim());
       },
       description:
-`The terrains of this planet.`
+'The terrains of this planet.'
     },
     surfaceWater: {
       type: GraphQLFloat,
-      resolve: (planet) => planet.surface_water,
+      resolve: planet => planet.surface_water,
       description:
 `The percentage of the planet surface that is naturally occuring water or bodies
 of water.`
@@ -107,6 +107,6 @@ of water.`
     edited: editedField(),
     id: globalIdField('planets')
   }),
-  interfaces: () => [nodeInterface],
+  interfaces: () => [ nodeInterface ],
 });
 export default PlanetType;

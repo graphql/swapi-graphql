@@ -31,46 +31,46 @@ import VehicleType from './vehicle';
 /**
  * The GraphQL type equivalent of the Film resource
  */
-var FilmType = new GraphQLObjectType({
+const FilmType = new GraphQLObjectType({
   name: 'Film',
   description:
-`A single film.`,
+'A single film.',
   fields: () => ({
     title: {
       type: GraphQLString,
       description:
-`The title of this film.`
+'The title of this film.'
     },
     episodeID: {
       type: GraphQLInt,
-      resolve: (film) => film.episode_id,
+      resolve: film => film.episode_id,
       description:
-`The episode number of this film.`
+'The episode number of this film.'
     },
     openingCrawl: {
       type: GraphQLString,
-      resolve: (film) => film.opening_crawl,
+      resolve: film => film.opening_crawl,
       description:
-`The opening paragraphs at the beginning of this film.`
+'The opening paragraphs at the beginning of this film.'
     },
     director: {
       type: GraphQLString,
       description:
-`The name of the director of this film.`
+'The name of the director of this film.'
     },
     producers: {
       type: new GraphQLList(GraphQLString),
-      resolve: (film) => {
+      resolve: film => {
         return film.producer.split(',').map(s => s.trim());
       },
       description:
-`The name(s) of the producer(s) of this film.`
+'The name(s) of the producer(s) of this film.'
     },
     releaseDate: {
       type: GraphQLString,
-      resolve: (film) => film.release_date,
+      resolve: film => film.release_date,
       description:
-`The ISO 8601 date format of film release at original creator country.`
+'The ISO 8601 date format of film release at original creator country.'
     },
     speciesConnection: connectionFromUrls(
       'FilmSpecies',
@@ -101,7 +101,7 @@ var FilmType = new GraphQLObjectType({
     edited: editedField(),
     id: globalIdField('films')
   }),
-  interfaces: () => [nodeInterface],
+  interfaces: () => [ nodeInterface ],
 });
 
 export default FilmType;

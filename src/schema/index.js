@@ -39,8 +39,8 @@ import {
  * or `idName`, the per-type ID used in SWAPI.
  */
 function rootFieldByID(idName, swapiType) {
-  var getter = (id) => getObjectFromTypeAndId(swapiType, id);
-  var argDefs = {};
+  const getter = id => getObjectFromTypeAndId(swapiType, id);
+  const argDefs = {};
   argDefs.id = { type: GraphQLID };
   argDefs[idName] = { type: GraphQLID };
   return {
@@ -52,7 +52,7 @@ function rootFieldByID(idName, swapiType) {
       }
 
       if (args.id !== undefined && args.id !== null) {
-        var globalId = fromGlobalId(args.id);
+        const globalId = fromGlobalId(args.id);
         if (globalId.id === null ||
             globalId.id === undefined ||
             globalId.id === '') {
@@ -70,14 +70,14 @@ function rootFieldByID(idName, swapiType) {
  * `swapiType`; the connection will be named using `name`.
  */
 function rootConnection(name, swapiType) {
-  var graphqlType = swapiTypeToGraphQLType(swapiType);
-  var {connectionType} = connectionDefinitions({
-    name: name,
+  const graphqlType = swapiTypeToGraphQLType(swapiType);
+  const {connectionType} = connectionDefinitions({
+    name,
     nodeType: graphqlType,
     connectionFields: () => ({
       totalCount: {
         type: GraphQLInt,
-        resolve: (conn) => conn.totalCount,
+        resolve: conn => conn.totalCount,
         description:
 `A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
@@ -86,7 +86,7 @@ for example.`
       },
       [swapiType]: {
         type: new GraphQLList(graphqlType),
-        resolve: (conn) => conn.edges.map((edge) => edge.node),
+        resolve: conn => conn.edges.map(edge => edge.node),
         description:
 `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
@@ -101,10 +101,10 @@ full "{ edges { node } }" version should be used instead.`
     type: connectionType,
     args: connectionArgs,
     resolve: async (_, args) => {
-      var {objects, totalCount} = await getObjectsByType(swapiType, args);
+      const {objects, totalCount} = await getObjectsByType(swapiType, args);
       return {
         ...connectionFromArray(objects, args),
-        totalCount: totalCount
+        totalCount
       };
     }
   };
@@ -113,7 +113,7 @@ full "{ edges { node } }" version should be used instead.`
 /**
  * The GraphQL type equivalent of the Root resource
  */
-var rootType = new GraphQLObjectType({
+const rootType = new GraphQLObjectType({
   name: 'Root',
   fields: () => ({
     allFilms: rootConnection('Films', 'films'),

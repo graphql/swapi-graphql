@@ -31,41 +31,41 @@ import PlanetType from './planet';
 /**
  * The GraphQL type equivalent of the Species resource
  */
-var SpeciesType = new GraphQLObjectType({
+const SpeciesType = new GraphQLObjectType({
   name: 'Species',
   description:
-`A type of person or character within the Star Wars Universe.`,
+'A type of person or character within the Star Wars Universe.',
   fields: () => ({
     name: {
       type: GraphQLString,
       description:
-`The name of this species.`
+'The name of this species.'
     },
     classification: {
       type: GraphQLString,
       description:
-`The classification of this species, such as "mammal" or "reptile".`
+'The classification of this species, such as "mammal" or "reptile".'
     },
     designation: {
       type: GraphQLString,
       description:
-`The designation of this species, such as "sentient".`
+'The designation of this species, such as "sentient".'
     },
     averageHeight: {
       type: GraphQLFloat,
-      resolve: (species) => species.average_height,
+      resolve: species => species.average_height,
       description:
-`The average height of this species in centimeters.`
+'The average height of this species in centimeters.'
     },
     averageLifespan: {
       type: GraphQLInt,
-      resolve: (species) => species.average_lifespan,
+      resolve: species => species.average_lifespan,
       description:
-`The average lifespan of this species in years.`
+'The average lifespan of this species in years.'
     },
     eyeColors: {
       type: new GraphQLList(GraphQLString),
-      resolve: (species) => {
+      resolve: species => {
         return species.eye_colors.split(',').map(s => s.trim());
       },
       description:
@@ -74,7 +74,7 @@ have eyes.`
     },
     hairColors: {
       type: new GraphQLList(GraphQLString),
-      resolve: (species) => {
+      resolve: species => {
         if (species.hair_colors === 'none') {
           return [];
         }
@@ -86,7 +86,7 @@ have hair.`
     },
     skinColors: {
       type: new GraphQLList(GraphQLString),
-      resolve: (species) => {
+      resolve: species => {
         return species.skin_colors.split(',').map(s => s.trim());
       },
       description:
@@ -96,13 +96,13 @@ have skin.`
     language: {
       type: GraphQLString,
       description:
-`The language commonly spoken by this species.`
+'The language commonly spoken by this species.'
     },
     homeworld: {
       type: PlanetType,
-      resolve: (species) => getObjectFromUrl(species.homeworld),
+      resolve: species => getObjectFromUrl(species.homeworld),
       description:
-`A planet that this species originates from.`
+'A planet that this species originates from.'
     },
     personConnection: connectionFromUrls(
       'SpeciesPeople',
@@ -118,7 +118,7 @@ have skin.`
     edited: editedField(),
     id: globalIdField('species')
   }),
-  interfaces: () => [nodeInterface],
+  interfaces: () => [ nodeInterface ],
 });
 
 export default SpeciesType;

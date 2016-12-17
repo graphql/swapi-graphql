@@ -10,7 +10,7 @@ import swapiSchema from '../';
 import { graphql } from 'graphql';
 
 export async function swapi(query) {
-  var result = await graphql(swapiSchema, query);
+  const result = await graphql(swapiSchema, query);
   if (result.errors !== undefined) {
     throw new Error(JSON.stringify(result.errors, null, 2));
   }

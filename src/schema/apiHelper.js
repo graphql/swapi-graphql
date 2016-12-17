@@ -13,7 +13,7 @@ import {
   getFromLocalUrl
 } from '../api';
 
-var localUrlLoader = new DataLoader(
+const localUrlLoader = new DataLoader(
   urls => Promise.all(urls.map(getFromLocalUrl))
 );
 
@@ -29,8 +29,8 @@ function objectWithId(obj: Object): Object {
  * Given an object URL, fetch it, append the ID to it, and return it.
  */
 export async function getObjectFromUrl(url: string): Promise<Object> {
-  var dataString = await localUrlLoader.load(url);
-  var data = JSON.parse(dataString);
+  const dataString = await localUrlLoader.load(url);
+  const data = JSON.parse(dataString);
   return objectWithId(data);
 }
 
@@ -67,12 +67,14 @@ export async function getObjectsByType(
   type: string,
   args?: ?Object
 ): Promise<ObjectsByType> {
-  var objects = [];
-  var totalCount = 0;
-  var nextUrl = `http://swapi.co/api/${type}/`;
+  let objects = [];
+  let totalCount = 0;
+  let nextUrl = `http://swapi.co/api/${type}/`;
   while (nextUrl && !doneFetching(objects, args)) {
-    var pageData = await localUrlLoader.load(nextUrl);
-    var parsedPageData = JSON.parse(pageData);
+    /* eslint-disable babel/no-await-in-loop */
+    const pageData = await localUrlLoader.load(nextUrl);
+    /* eslint-enable babel/no-await-in-loop */
+    const parsedPageData = JSON.parse(pageData);
     totalCount = parsedPageData.count;
     objects = objects.concat(parsedPageData.results.map(objectWithId));
     nextUrl = parsedPageData.next;
