@@ -15,7 +15,7 @@
     "url": "http://github.com/graphql/swapi-graphql.git"
   },
   "options": {
-    "mocha": "--require scripts/mocha-bootload src/**/__tests__/*.js"
+    "mocha": "--compilers js:babel-register --require scripts/mocha-bootload src/**/__tests__/*.js"
   },
   "babel": {
     "optional": [
@@ -38,7 +38,7 @@
     "watch": "babel scripts/watch.js | node",
     "testonly": "mocha $npm_package_options_mocha",
     "lint": "eslint src",
-    "lintfix":  "eslint --fix src",
+    "lintfix": "eslint --fix src",
     "check": "flow check",
     "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
@@ -62,6 +62,13 @@
     "babel": "^6.5.2",
     "babel-core": "^6.18.0",
     "babel-eslint": "^7.1.0",
+    "babel-plugin-add-module-exports": "0.2.1",
+    "babel-plugin-syntax-async-functions": "6.13.0",
+    "babel-plugin-transform-flow-strip-types": "6.21.0",
+    "babel-plugin-transform-object-rest-spread": "6.20.2",
+    "babel-plugin-transform-runtime": "6.15.0",
+    "babel-preset-latest": "6.16.0",
+    "babel-register": "6.18.0",
     "babelify": "^7.3.0",
     "browserify": "^13.0.0",
     "browserify-shim": "^3.8.10",
