@@ -1,0 +1,11 @@
+{
+  "presets": [
+    "latest"
+  ],
+  "plugins": [
+    "transform-flow-strip-types",
+    "transform-object-rest-spread",
+    "transform-runtime",
+    "add-module-exports"
+  ]
+}

@@ -59,9 +59,11 @@ const SpeciesType = new GraphQLObjectType({
     },
     averageLifespan: {
       type: GraphQLInt,
-      resolve: species => species.average_lifespan,
+      resolve: species => species.average_lifespan === 'unknown' ?
+        null :
+        species.average_lifespan,
       description:
-'The average lifespan of this species in years.'
+'The average lifespan of this species in years, null if unknown.'
     },
     eyeColors: {
       type: new GraphQLList(GraphQLString),

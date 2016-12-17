@@ -7,10 +7,6 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-require('babel/register')({
-  optional: ['runtime', 'es7.asyncFunctions']
-});
-
 var swapiSchema = require('../src/schema');
 var printSchema = require('graphql/utilities').printSchema;
 
