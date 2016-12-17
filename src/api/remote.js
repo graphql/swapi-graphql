@@ -6,7 +6,7 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-/*global Parse:false*/
+/* global Parse:false*/
 
 /**
  * Given a URL of an object in the SWAPI, return the data
@@ -17,7 +17,7 @@
  */
 export async function getFromRemoteUrl(url) {
   try {
-    var text = null;
+    let text = null;
     if (Parse.Cloud.httpRequest !== undefined) {
       text = await getTextFromParse(url);
     } else {
@@ -32,13 +32,13 @@ export async function getFromRemoteUrl(url) {
 }
 
 async function getTextFromParse(url) {
-  var response = await Parse.Cloud.httpRequest({url});
+  const response = await Parse.Cloud.httpRequest({url});
   return response.text;
 }
 
 async function getTextFromFetch(url) {
-  var fetch = require('isomorphic-fetch');
-  var response = await fetch(url);
-  var text = await response.text();
+  const fetch = require('isomorphic-fetch');
+  const response = await fetch(url);
+  const text = await response.text();
   return text;
 }

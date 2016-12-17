@@ -37,14 +37,14 @@ export function connectionFromUrls(
   prop: string,
   type: GraphQLOutputType
 ): GraphQLFieldConfig {
-  var {connectionType} = connectionDefinitions({
-    name: name,
+  const {connectionType} = connectionDefinitions({
+    name,
     nodeType: type,
     resolveNode: edge => getObjectFromUrl(edge.node),
     connectionFields: () => ({
       totalCount: {
         type: GraphQLInt,
-        resolve: (conn) => conn.totalCount,
+        resolve: conn => conn.totalCount,
         description:
 `A count of the total number of objects in this connection, ignoring pagination.
 This allows a client to fetch the first five objects by passing "5" as the
@@ -53,7 +53,7 @@ for example.`
       },
       [prop]: {
         type: new GraphQLList(type),
-        resolve: (conn) => conn.edges.map(edge => getObjectFromUrl(edge.node)),
+        resolve: conn => conn.edges.map(edge => getObjectFromUrl(edge.node)),
         description:
 `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
@@ -68,7 +68,7 @@ full "{ edges { node } }" version should be used instead.`
     type: connectionType,
     args: connectionArgs,
     resolve: (obj, args) => {
-      var array = obj[prop] || [];
+      const array = obj[prop] || [];
       return {
         ...connectionFromArray(array, args),
         totalCount: array.length

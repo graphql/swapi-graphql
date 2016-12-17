@@ -29,15 +29,15 @@ import PersonType from './person';
 /**
  * The GraphQL type equivalent of the Starship resource
  */
-var StarshipType = new GraphQLObjectType({
+const StarshipType = new GraphQLObjectType({
   name: 'Starship',
   description:
-`A single transport craft that has hyperdrive capability.`,
+'A single transport craft that has hyperdrive capability.',
   fields: () => ({
     name: {
       type: GraphQLString,
       description:
-`The name of this starship. The common name, such as "Death Star".`
+'The name of this starship. The common name, such as "Death Star".'
     },
     model: {
       type: GraphQLString,
@@ -47,43 +47,43 @@ Orbital Battle Station".`
     },
     starshipClass: {
       type: GraphQLString,
-      resolve: (ship) => ship.starship_class,
+      resolve: ship => ship.starship_class,
       description:
 `The class of this starship, such as "Starfighter" or "Deep Space Mobile
 Battlestation"`
     },
     manufacturers: {
       type: new GraphQLList(GraphQLString),
-      resolve: (ship) => {
+      resolve: ship => {
         return ship.manufacturer.split(',').map(s => s.trim());
       },
       description:
-`The manufacturers of this starship.`
+'The manufacturers of this starship.'
     },
     costInCredits: {
       type: GraphQLFloat,
-      resolve: (ship) => ship.cost_in_credits,
+      resolve: ship => ship.cost_in_credits,
       description:
-`The cost of this starship new, in galactic credits.`
+'The cost of this starship new, in galactic credits.'
     },
     length: {
       type: GraphQLFloat,
       description:
-`The length of this starship in meters.`
+'The length of this starship in meters.'
     },
     crew: {
       type: GraphQLString,
       description:
-`The number of personnel needed to run or pilot this starship.`
+'The number of personnel needed to run or pilot this starship.'
     },
     passengers: {
       type: GraphQLString,
       description:
-`The number of non-essential people this starship can transport.`
+'The number of non-essential people this starship can transport.'
     },
     maxAtmospheringSpeed: {
       type: GraphQLInt,
-      resolve: (ship) => {
+      resolve: ship => {
         if (ship.max_atmosphering_speed === 'n/a') {
           return null;
         }
@@ -95,9 +95,9 @@ incapable of atmosphering flight.`
     },
     hyperdriveRating: {
       type: GraphQLFloat,
-      resolve: (ship) => ship.hyperdrive_rating,
+      resolve: ship => ship.hyperdrive_rating,
       description:
-`The class of this starships hyperdrive.`
+'The class of this starships hyperdrive.'
     },
     MGLT: {
       type: GraphQLInt,
@@ -110,9 +110,9 @@ distance between our Sun (Sol) and Earth.`
     },
     cargoCapacity: {
       type: GraphQLFloat,
-      resolve: (ship) => ship.cargo_capacity,
+      resolve: ship => ship.cargo_capacity,
       description:
-`The maximum number of kilograms that this starship can transport.`
+'The maximum number of kilograms that this starship can transport.'
     },
     consumables: {
       type: GraphQLString,
@@ -134,7 +134,7 @@ entire crew without having to resupply.`
     edited: editedField(),
     id: globalIdField('starships')
   }),
-  interfaces: () => [nodeInterface],
+  interfaces: () => [ nodeInterface ],
 });
 
 export default StarshipType;

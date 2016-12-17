@@ -23,10 +23,10 @@ app.use('/', graphqlHTTP(() => ({
 
 // Listen for incoming HTTP requests
 const listener = app.listen(() => {
-  var host = listener.address().address;
+  let host = listener.address().address;
   if (host === '::') {
     host = 'localhost';
   }
-  var port = listener.address().port;
+  const port = listener.address().port;
   console.log('Listening at http://%s%s', host, port === 80 ? '' : ':' + port);
 });

@@ -2,17 +2,17 @@
 
 global.Promise = require('babel-runtime/core-js/promise').default;
 
-var fetch = require('isomorphic-fetch');
+const fetch = require('isomorphic-fetch');
 
 /**
  * The API prefix
  */
-var prefix = 'http://swapi.co/api/';
+const prefix = 'http://swapi.co/api/';
 
 /**
  * A map from field names to the SWAPI type we should map the IDs to.
  */
-var fieldTypes = {
+const fieldTypes = {
   pilots: {type: 'people'},
   starships: {type: 'starship'},
   vehicles: {type: 'vehicle'},
@@ -28,7 +28,7 @@ var fieldTypes = {
 /**
  * A map from the resource type to the "type" in the URL.
  */
-var urlTypes = {
+const urlTypes = {
   people: 'people',
   starship: 'starships',
   vehicle: 'vehicles',
@@ -51,7 +51,7 @@ function pageUrl(type, objects, num) {
   if (num !== null && isInvalidPage(objects, num)) {
     return null;
   }
-  var url = prefix + urlTypes[type] + '/';
+  let url = prefix + urlTypes[type] + '/';
   if (num !== null) {
     url += '?page=' + num;
   }
@@ -70,8 +70,8 @@ function isInvalidPage(objects, num) {
  * Notably, things that are references in the raw JSON become URLs.
  */
 function formatObject(object, type, id) {
-  var formatted = {};
-  var keys = Object.keys(object);
+  const formatted = {};
+  const keys = Object.keys(object);
   keys.forEach(function (key) {
     if (fieldTypes[key]) {
       if (Array.isArray(object[key])) {
@@ -116,8 +116,8 @@ function addTypeToCache(cache, type, objects) {
     cache[objectUrl(objectId, type)] =
       JSON.stringify(formatObject(objects[objectId], type, objectId));
   });
-  for (var i = 1; !isInvalidPage(objects, i); i++) {
-    var page = makePage(type, objects, i);
+  for (let i = 1; !isInvalidPage(objects, i); i++) {
+    const page = makePage(type, objects, i);
     cache[pageUrl(type, objects, i)] = JSON.stringify(page);
     if (i === 1) {
       cache[pageUrl(type, objects, null)] = JSON.stringify(page);
@@ -130,7 +130,7 @@ function addTypeToCache(cache, type, objects) {
  * Given the objects, construct the cache from URL to REST response.
  */
 function getCacheFromObjects(objects) {
-  var cache = {};
+  const cache = {};
   Object.keys(objects).forEach(
     function (type) {
       addTypeToCache(cache, type, objects[type]);
@@ -147,7 +147,7 @@ function addObjects(data, fixture) {
   if (fixture.model === 'resources.transport') {
     return data;
   }
-  var type = fixture.model.substr(10);
+  const type = fixture.model.substr(10);
   if (!data[type]) {
     data[type] = {};
   }
@@ -172,7 +172,7 @@ function augmentWithTransport(data, fixture) {
   if (fixture.model !== 'resources.transport') {
     return data;
   }
-  var appendObject = fixture.fields;
+  const appendObject = fixture.fields;
   if (data['starship'][fixture.pk]) {
     append(data['starship'][fixture.pk], appendObject);
   }
@@ -187,7 +187,7 @@ function augmentWithTransport(data, fixture) {
  * responses by type and ID.
  */
 function getObjectsFromFixtures(fixtures) {
-  var objectsByType = fixtures.reduce(
+  const objectsByType = fixtures.reduce(
     addObjects,
     {}
   );
@@ -198,11 +198,11 @@ function getObjectsFromFixtures(fixtures) {
 }
 
 function addReverseData(objects, type, objectId, object) {
-  var keys = Object.keys(object);
+  const keys = Object.keys(object);
   keys.forEach(function (key) {
     if (fieldTypes[key]) {
-      var foreignType = fieldTypes[key].type;
-      var foreignFieldName = fieldTypes[key].name || urlTypes[type];
+      const foreignType = fieldTypes[key].type;
+      const foreignFieldName = fieldTypes[key].name || urlTypes[type];
       if (Array.isArray(object[key])) {
         object[key].forEach(function (foreignId) {
           if (objects[foreignType][foreignId]) {
@@ -215,7 +215,7 @@ function addReverseData(objects, type, objectId, object) {
           }
         });
       } else {
-        var foreignId = object[key];
+        const foreignId = object[key];
         if (foreignId) {
           if (!objects[foreignType][foreignId][foreignFieldName]) {
             objects[foreignType][foreignId][foreignFieldName] = [];
@@ -236,7 +236,7 @@ function addReverseData(objects, type, objectId, object) {
 function populateReverseMaps(objects) {
   Object.keys(objects).forEach(function (type) {
     Object.keys(objects[type]).forEach(function (objectId) {
-      var object = objects[type][objectId];
+      const object = objects[type][objectId];
       addReverseData(objects, type, objectId, object);
     });
   });
@@ -265,7 +265,7 @@ function fetchFromUrl(url) {
  * Iterate through the types, fetch from the URL, convert the results into
  * objects, then generate and print the cache.
  */
-var types = [
+const types = [
   'people',
   'films',
   'starships',
@@ -276,10 +276,10 @@ var types = [
 ];
 Promise.all(types.map(githubUrlForType).map(fetchFromUrl)).then(
   function (fixturesList) {
-    var fixtures = [].concat.apply([], fixturesList);
-    var objects = getObjectsFromFixtures(fixtures);
+    const fixtures = [].concat.apply([], fixturesList);
+    const objects = getObjectsFromFixtures(fixtures);
     populateReverseMaps(objects);
-    var cache = getCacheFromObjects(objects);
+    const cache = getCacheFromObjects(objects);
     console.log(
       '/*eslint-disable */\n' +
       '/* Generated by combine.js */\n' +
