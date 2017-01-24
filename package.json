@@ -43,7 +43,7 @@
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "build": "npm run download && npm run build-public",
     "download": "if [ ! -f src/api/cachedData/cache.js ]; then echo 'Downloading cache...' && node src/api/cachedData/downloadCache.js > src/api/cachedData/cache.js && echo 'Cached!'; fi;",
-    "build-public": "mkdir -p lib/public && cp src/public/* lib/public/"
+    "build-public": "scripts/build-public"
   },
   "dependencies": {
     "babel-runtime": "6.18.0",
