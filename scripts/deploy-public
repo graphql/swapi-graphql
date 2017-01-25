@@ -1,0 +1,45 @@
+#!/bin/sh
+#
+# Copyright (c) 2015, Facebook, Inc.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree. An additional grant
+# of patent rights can be found in the PATENTS file in the same directory.
+
+set -e
+
+HEAD=`git rev-parse --short HEAD`
+PARENT=`git rev-parse gh-pages 2> /dev/null` || {
+  echo 'No gh-pages branch found.'
+  echo 'Fetch from upstream and then set up a local tracking branch:'
+  echo
+  echo '  git fetch origin'
+  echo '  git branch --track gh-pages origin/gh-pages'
+  echo
+  exit 1
+}
+
+echo "Preparing index based on:"
+ls lib/public/*
+git update-index --add lib/public/*
+
+TREE=`git write-tree --prefix=lib/public`
+echo "Wrote tree object: $TREE"
+
+echo "Reseting index to former state."
+git reset lib/public
+
+COMMIT=`git commit-tree $TREE -p $PARENT -m "Build gh-pages from $HEAD"`
+echo "Wrote commit object: $COMMIT"
+
+ABBREV=`git rev-parse --short $COMMIT`
+echo "Updating gh-pages branch to point at $ABBREV."
+git update-ref refs/heads/gh-pages $COMMIT $PARENT
+
+echo
+echo "New build committed to gh-pages branch ($ABBREV)."
+echo 'Publish it with:'
+echo
+echo '    git push origin gh-pages:gh-pages'
+echo
