@@ -36,5 +36,4 @@ A local express server is in `./server`. It can be run with:
 npm start
 ```
 
-A GraphiQL instance will be opened at http://localhost:8080/ to
-explore the API.
+A GraphiQL instance will be opened at http://localhost:8080/ (or similar; the actual port number will be printed to the console) to explore the API.
