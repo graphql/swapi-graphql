@@ -22,12 +22,12 @@ import {
  * Given a "type" in SWAPI, returns the corresponding GraphQL type.
  */
 export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
-  const FilmType = require('./types/film');
-  const PersonType = require('./types/person');
-  const PlanetType = require('./types/planet');
-  const SpeciesType = require('./types/species');
-  const StarshipType = require('./types/starship');
-  const VehicleType = require('./types/vehicle');
+  const FilmType = require('./types/film').default;
+  const PersonType = require('./types/person').default;
+  const PlanetType = require('./types/planet').default;
+  const SpeciesType = require('./types/species').default;
+  const StarshipType = require('./types/starship').default;
+  const VehicleType = require('./types/vehicle').default;
 
   switch (swapiType) {
     case 'films':
