@@ -124,7 +124,6 @@
     styles.forEach(loadStyles);
 
     const scripts = {
-      fetch: '//cdn.jsdelivr.net/fetch/0.9.0/fetch.min.js',
       graphiql: '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.min.js',
       react: '//cdn.jsdelivr.net/react/15.3.2/react.min.js',
       'react-dom': '//cdn.jsdelivr.net/react/15.3.2/react-dom.min.js',
@@ -138,7 +137,6 @@
     }
 
     // Ensure react-dom loads after react, and graphiql after react-dom.
-    loadScript(scripts.fetch, () => loaded('fetch'));
     loadScript(scripts.react, () => {
       loaded('react');
       loadScript(scripts['react-dom'], () => {
