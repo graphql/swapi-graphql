@@ -9,7 +9,7 @@
 
 set -e
 
-mkdir -p lib/public/api/cachedData
+mkdir -p lib/public
 
 cp src/public/*.{ico,html} lib/public/
 
