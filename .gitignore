@@ -2,5 +2,4 @@
 /node_modules
 /npm-debug.log
 /coverage
-/src/config/global.json
 /src/api/cachedData/cache.js
