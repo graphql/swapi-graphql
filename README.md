@@ -10,6 +10,8 @@ Uses:
 * [express-graphql](https://github.com/graphql/express-graphql) - to provide HTTP access to GraphQL.
 * [GraphiQL](https://github.com/graphql/graphiql) - for easy exploration of this GraphQL server.
 
+Try it out at http://graphql.github.io/swapi-graphql/.
+
 ## Getting Started
 
 Install dependencies with
