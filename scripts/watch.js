@@ -131,6 +131,7 @@ function runTests(filepaths) {
   console.log('\nRunning Tests');
 
   return exec('mocha', [
+    '--compilers', 'js:babel-register',
     '--reporter', 'progress',
     '--require', 'scripts/mocha-bootload'
   ].concat(
