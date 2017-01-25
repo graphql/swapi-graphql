@@ -42,6 +42,8 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
       return VehicleType;
     case 'species':
       return SpeciesType;
+    default:
+      throw new Error('Unrecognized type `' + swapiType + '`.');
   }
 }
 
