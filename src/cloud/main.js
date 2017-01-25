@@ -13,6 +13,12 @@ import swapiSchema from '../schema';
 
 const app = express();
 
+// CORS
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+});
+
 // Requests to /graphql redirect to /
 app.all('/graphql', (req, res) => res.redirect('/'));
 
