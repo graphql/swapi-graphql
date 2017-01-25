@@ -1,9 +1,14 @@
-(function() {
+(function () {
   'use strict';
+
+  /* global GraphiQL: true */
+  /* global React: true */
+  /* global ReactDOM: true */
+  /* global Schema: true */
 
   const GRAPHIQL_VERSION = '0.8.1';
   const PROTOCOL = getProtocol();
-  const LEGAL_PARAMETER_NAMES = ['query', 'variables', 'operationName'];
+  const LEGAL_PARAMETER_NAMES = [ 'query', 'variables', 'operationName' ];
 
   let parameters = extractURLParameters();
 
@@ -28,19 +33,19 @@
   function loadScript(path, done) {
     // IE-compatible asynchronous loading.
     const script = document.createElement('script');
-    let loaded = false
-    script.onload = script.onreadystatechange = function() {
-      if (loaded) {
-        return;
-      } else if (
-        !this.readyState ||
-        this.readyState === 'loaded' ||
-        this.readyState === 'complete'
-      ) {
-        loaded = true;
-        done(path, script);
+    let loaded = false;
+    script.onload = script.onreadystatechange = function () {
+      if (!loaded) {
+        if (
+          !this.readyState ||
+          this.readyState === 'loaded' ||
+          this.readyState === 'complete'
+        ) {
+          loaded = true;
+          done(path, script);
+        }
       }
-    }
+    };
 
     if (path.indexOf('/') === 0) {
       script.src = PROTOCOL + path;
@@ -53,18 +58,18 @@
   function fetcher({query, variables, operationName}) {
     if (typeof Schema !== 'undefined') {
       return Schema.execute(query, variables, operationName);
-    } else {
-      // No schema yet, load it.
-      return new Promise((resolve, reject) => {
-        loadScript('schema.js', (path, script) => {
-          if (typeof Schema !== 'undefined') {
-            resolve(Schema.schema);
-          } else {
-            reject(new Error('schema.js did not define Schema object'));
-          }
-        });
-      });
     }
+
+    // No schema yet, load it.
+    return new Promise((resolve, reject) => {
+      loadScript('schema.js', () => {
+        if (typeof Schema !== 'undefined') {
+          resolve(Schema.schema);
+        } else {
+          reject(new Error('schema.js did not define Schema object'));
+        }
+      });
+    });
   }
 
   function onEditQuery(query) {
@@ -91,14 +96,14 @@
   }
 
   function extractURLParameters() {
-    const parameters = {};
+    const extractedParameters = {};
     window.location.search.slice(1).split('&').forEach(pair => {
-      const [key, value] = pair.split('=');
+      const [ key, value ] = pair.split('=');
       if (key && LEGAL_PARAMETER_NAMES.indexOf(key) !== -1) {
-        parameters[key] = decodeURIComponent(value);
+        extractedParameters[key] = decodeURIComponent(value);
       }
     });
-    return parameters;
+    return extractedParameters;
   }
 
   function renderGraphiQL() {
@@ -124,7 +129,11 @@
     styles.forEach(loadStyles);
 
     const scripts = {
-      graphiql: '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.min.js',
+      graphiql: (
+        '//cdn.jsdelivr.net/graphiql/' +
+        GRAPHIQL_VERSION +
+        '/graphiql.min.js'
+      ),
       react: '//cdn.jsdelivr.net/react/15.3.2/react.min.js',
       'react-dom': '//cdn.jsdelivr.net/react/15.3.2/react-dom.min.js',
     };
@@ -147,4 +156,4 @@
   }
 
   loadAssets(renderGraphiQL);
-})();
+}());
