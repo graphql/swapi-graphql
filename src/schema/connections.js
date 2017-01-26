@@ -36,7 +36,7 @@ export function connectionFromUrls(
   name: string,
   prop: string,
   type: GraphQLOutputType
-): GraphQLFieldConfig {
+): GraphQLFieldConfig<*, *> {
   const {connectionType} = connectionDefinitions({
     name,
     nodeType: type,
