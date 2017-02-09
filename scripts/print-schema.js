@@ -7,8 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-var swapiSchema = require('../src/schema');
-var printSchema = require('graphql/utilities').printSchema;
+import swapiSchema from '../src/schema';
+import { printSchema } from 'graphql/utilities';
 
 try {
   var output = printSchema(swapiSchema);
