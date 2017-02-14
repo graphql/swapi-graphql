@@ -3,3 +3,5 @@ language: node_js
 node_js: stable
 
 cache: yarn
+
+before_script: npm run download
