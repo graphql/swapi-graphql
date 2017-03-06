@@ -74,7 +74,7 @@
     "chai-subset": "^1.0.1",
     "coveralls": "^2.11.2",
     "eslint": "^3.9.1",
-    "eslint-plugin-babel": "4.1.0",
+    "eslint-plugin-babel": "4.1.1",
     "eslint-plugin-react": "^6.4.1",
     "flow-bin": "^0.41.0",
     "isomorphic-fetch": "2.2.1",
