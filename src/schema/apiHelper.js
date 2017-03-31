@@ -71,9 +71,9 @@ export async function getObjectsByType(
   let totalCount = 0;
   let nextUrl = `http://swapi.co/api/${type}/`;
   while (nextUrl && !doneFetching(objects, args)) {
-    /* eslint-disable babel/no-await-in-loop */
+    /* eslint-disable no-await-in-loop */
     const pageData = await localUrlLoader.load(nextUrl);
-    /* eslint-enable babel/no-await-in-loop */
+    /* eslint-enable no-await-in-loop */
     const parsedPageData = JSON.parse(pageData);
     totalCount = parsedPageData.count;
     objects = objects.concat(parsedPageData.results.map(objectWithId));
