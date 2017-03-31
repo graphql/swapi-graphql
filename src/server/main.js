@@ -27,5 +27,7 @@ const listener = app.listen(() => {
     host = 'localhost';
   }
   const port = listener.address().port;
+  /* eslint-disable no-console */
   console.log('Listening at http://%s%s', host, port === 80 ? '' : ':' + port);
+  /* eslint-enable no-console */
 });
