@@ -2045,9 +2045,9 @@ graphql-relay@0.5.1:
   version "0.5.1"
   resolved "https://registry.yarnpkg.com/graphql-relay/-/graphql-relay-0.5.1.tgz#3b3e44430a24c0f636e713f43f65bd542fe02ac9"
 
-graphql@0.9.1:
-  version "0.9.1"
-  resolved "https://registry.yarnpkg.com/graphql/-/graphql-0.9.1.tgz#f4d154cbec054d4a5d3b1be95f23435c09aa86c8"
+graphql@0.9.2:
+  version "0.9.2"
+  resolved "https://registry.yarnpkg.com/graphql/-/graphql-0.9.2.tgz#2cb5c635de13f790a77c5879649cb401b1589386"
   dependencies:
     iterall "1.0.3"
 
