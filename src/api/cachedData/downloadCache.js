@@ -274,6 +274,8 @@ const types = [
   'planets',
   'transport'
 ];
+
+/* eslint-disable no-console */
 Promise.all(types.map(githubUrlForType).map(fetchFromUrl)).then(
   function (fixturesList) {
     const fixtures = [].concat.apply([], fixturesList);
@@ -290,3 +292,4 @@ Promise.all(types.map(githubUrlForType).map(fetchFromUrl)).then(
 ).catch(function (err) {
   console.error(err);
 });
+/* eslint-enable no-console */
