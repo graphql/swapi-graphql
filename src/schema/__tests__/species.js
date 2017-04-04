@@ -23,7 +23,8 @@ describe('Species type', async () => {
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ species(speciesID: 6) { name } }';
     const result = await swapi(query);
-    expect(result.data.species.name).to.equal('Yoda\'s species');
+    // eslint-disable-next-line quotes
+    expect(result.data.species.name).to.equal("Yoda's species");
   });
 
   it('Gets an object by global ID', async () => {
@@ -77,45 +78,45 @@ describe('Species type', async () => {
       averageLifespan: null,
       classification: 'sentient',
       designation: 'reptilian',
-      eyeColors: [ 'black' ],
-      hairColors: [ 'n/a' ],
+      eyeColors: ['black'],
+      hairColors: ['n/a'],
       homeworld: { name: 'Rodia' },
       language: 'Galatic Basic', // [sic]
       name: 'Rodian',
-      personConnection: { edges: [ { node: { name: 'Greedo' } } ] },
-      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
-      skinColors: [ 'green', 'blue' ]
+      personConnection: { edges: [{ node: { name: 'Greedo' } }] },
+      filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
+      skinColors: ['green', 'blue'],
     };
     expect(result.data.species).to.deep.equal(expected);
   });
 
-  it('All objects query', async() => {
+  it('All objects query', async () => {
     const query = '{ allSpecies { edges { cursor, node { name } } } }';
     const result = await swapi(query);
     expect(result.data.allSpecies.edges.length).to.equal(37);
   });
 
-  it('Pagination query', async() => {
+  it('Pagination query', async () => {
     const query = `{
       allSpecies(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allSpecies.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Human',
-        'Droid',
-      ]);
+    expect(result.data.allSpecies.edges.map(e => e.node.name)).to.deep.equal([
+      'Human',
+      'Droid',
+    ]);
     const nextCursor = result.data.allSpecies.edges[1].cursor;
 
     const nextQuery = `{ allSpecies(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allSpecies.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Wookie', // [sic]
-        'Rodian'
-      ]);
+    expect(
+      nextResult.data.allSpecies.edges.map(e => e.node.name),
+    ).to.deep.equal([
+      'Wookie', // [sic]
+      'Rodian',
+    ]);
   });
 
   describe('Edge cases', () => {

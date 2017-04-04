@@ -6,14 +6,11 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import {graphql} from 'graphql';
+import { graphql } from 'graphql';
 import schema from '../schema';
 
 function execute(query, variables, operationName) {
   return graphql(schema, query, null, null, variables, operationName);
 }
 
-export {
-  execute,
-  schema,
-};
+export { execute, schema };

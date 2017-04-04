@@ -9,13 +9,10 @@
 
 import DataLoader from 'dataloader';
 
-import {
-  getFromLocalUrl
-} from '../api';
+import { getFromLocalUrl } from '../api';
 
-const localUrlLoader = new DataLoader(
-  urls => Promise.all(urls.map(getFromLocalUrl))
-);
+const localUrlLoader = new DataLoader(urls =>
+  Promise.all(urls.map(getFromLocalUrl)));
 
 /**
  * Objects returned from SWAPI don't have an ID field, so add one.
@@ -39,7 +36,7 @@ export async function getObjectFromUrl(url: string): Promise<Object> {
  */
 export async function getObjectFromTypeAndId(
   type: string,
-  id: string
+  id: string,
 ): Promise<Object> {
   return await getObjectFromUrl(`http://swapi.co/api/${type}/${id}/`);
 }
@@ -57,15 +54,15 @@ function doneFetching(objects: Array<Object>, args?: ?Object): boolean {
 
 type ObjectsByType = {
   objects: Array<Object>,
-  totalCount: number
-}
+  totalCount: number,
+};
 
 /**
  * Given a type, fetch all of the pages, and join the objects together
  */
 export async function getObjectsByType(
   type: string,
-  args?: ?Object
+  args?: ?Object,
 ): Promise<ObjectsByType> {
   let objects = [];
   let totalCount = 0;
@@ -79,5 +76,5 @@ export async function getObjectsByType(
     objects = objects.concat(parsedPageData.results.map(objectWithId));
     nextUrl = parsedPageData.next;
   }
-  return {objects, totalCount};
+  return { objects, totalCount };
 }
