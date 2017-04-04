@@ -74,11 +74,13 @@ describe('Vehicle type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = getDocument(`{
+    const query = getDocument(
+      `{
       vehicle(vehicleID: 4) {
         ...AllVehicleProperties
       }
-    }`);
+    }`,
+    );
     const result = await swapi(query);
     const expected = {
       cargoCapacity: 50000,
@@ -86,46 +88,43 @@ describe('Vehicle type', async () => {
       costInCredits: 150000,
       crew: '46',
       length: 36.8,
-      manufacturers: [ 'Corellia Mining Corporation' ],
+      manufacturers: ['Corellia Mining Corporation'],
       maxAtmospheringSpeed: 30,
       model: 'Digger Crawler',
       name: 'Sand Crawler',
       passengers: '30',
       pilotConnection: { edges: [] },
-      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
-      vehicleClass: 'wheeled'
+      filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
+      vehicleClass: 'wheeled',
     };
     expect(result.data.vehicle).to.deep.equal(expected);
   });
 
-  it('All objects query', async() => {
+  it('All objects query', async () => {
     const query = getDocument(
-      '{ allVehicles { edges { cursor, node { ...AllVehicleProperties } } } }'
+      '{ allVehicles { edges { cursor, node { ...AllVehicleProperties } } } }',
     );
     const result = await swapi(query);
     expect(result.data.allVehicles.edges.length).to.equal(39);
   });
 
-  it('Pagination query', async() => {
+  it('Pagination query', async () => {
     const query = `{
       allVehicles(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allVehicles.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Sand Crawler',
-        'T-16 skyhopper',
-      ]);
+    expect(result.data.allVehicles.edges.map(e => e.node.name)).to.deep.equal([
+      'Sand Crawler',
+      'T-16 skyhopper',
+    ]);
     const nextCursor = result.data.allVehicles.edges[1].cursor;
 
     const nextQuery = `{ allVehicles(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allVehicles.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'X-34 landspeeder',
-        'TIE/LN starfighter',
-      ]);
+    expect(
+      nextResult.data.allVehicles.edges.map(e => e.node.name),
+    ).to.deep.equal(['X-34 landspeeder', 'TIE/LN starfighter']);
   });
 });
