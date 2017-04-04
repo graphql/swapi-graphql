@@ -9,14 +9,9 @@
 
 import { getObjectFromTypeAndId } from './apiHelper';
 
-import type {
-  GraphQLObjectType
-} from 'graphql';
+import type { GraphQLObjectType } from 'graphql';
 
-import {
-  nodeDefinitions,
-  fromGlobalId,
-} from 'graphql-relay';
+import { nodeDefinitions, fromGlobalId } from 'graphql-relay';
 
 /**
  * Given a "type" in SWAPI, returns the corresponding GraphQL type.
@@ -49,13 +44,13 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
 
 const { nodeInterface, nodeField } = nodeDefinitions(
   globalId => {
-    const {type, id} = fromGlobalId(globalId);
+    const { type, id } = fromGlobalId(globalId);
     return getObjectFromTypeAndId(type, id);
   },
   obj => {
     const parts = obj.url.split('/');
     return swapiTypeToGraphQLType(parts[parts.length - 3]);
-  }
+  },
 );
 
 export { nodeInterface, nodeField };

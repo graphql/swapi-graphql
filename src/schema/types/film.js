@@ -14,9 +14,7 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
+import { globalIdField } from 'graphql-relay';
 
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
@@ -33,75 +31,64 @@ import VehicleType from './vehicle';
  */
 const FilmType = new GraphQLObjectType({
   name: 'Film',
-  description:
-'A single film.',
+  description: 'A single film.',
   fields: () => ({
     title: {
       type: GraphQLString,
-      description:
-'The title of this film.'
+      description: 'The title of this film.',
     },
     episodeID: {
       type: GraphQLInt,
       resolve: film => film.episode_id,
-      description:
-'The episode number of this film.'
+      description: 'The episode number of this film.',
     },
     openingCrawl: {
       type: GraphQLString,
       resolve: film => film.opening_crawl,
-      description:
-'The opening paragraphs at the beginning of this film.'
+      description: 'The opening paragraphs at the beginning of this film.',
     },
     director: {
       type: GraphQLString,
-      description:
-'The name of the director of this film.'
+      description: 'The name of the director of this film.',
     },
     producers: {
       type: new GraphQLList(GraphQLString),
       resolve: film => {
         return film.producer.split(',').map(s => s.trim());
       },
-      description:
-'The name(s) of the producer(s) of this film.'
+      description: 'The name(s) of the producer(s) of this film.',
     },
     releaseDate: {
       type: GraphQLString,
       resolve: film => film.release_date,
-      description:
-'The ISO 8601 date format of film release at original creator country.'
+      description: 'The ISO 8601 date format of film release at original creator country.',
     },
     speciesConnection: connectionFromUrls(
       'FilmSpecies',
       'species',
-      SpeciesType
+      SpeciesType,
     ),
     starshipConnection: connectionFromUrls(
       'FilmStarships',
       'starships',
-      StarshipType
+      StarshipType,
     ),
     vehicleConnection: connectionFromUrls(
       'FilmVehicles',
       'vehicles',
-      VehicleType
+      VehicleType,
     ),
     characterConnection: connectionFromUrls(
       'FilmCharacters',
       'characters',
-      PersonType
+      PersonType,
     ),
-    planetConnection: connectionFromUrls(
-      'FilmPlanets',
-      'planets',
-      PlanetType
-    ),
+    planetConnection: connectionFromUrls('FilmPlanets', 'planets', PlanetType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('films')
+    id: globalIdField('films'),
   }),
-  interfaces: () => [ nodeInterface ],
+  interfaces: () => [nodeInterface],
 });
 
 export default FilmType;

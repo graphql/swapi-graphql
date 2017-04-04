@@ -32,7 +32,9 @@ describe('Starship type', async () => {
     const nextQuery = `{ starship(id: "${result.data.starship.id}") { id, name } }`;
     const nextResult = await swapi(nextQuery);
     expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
-    expect(nextResult.data.starship.name).to.equal('Sentinel-class landing craft');
+    expect(nextResult.data.starship.name).to.equal(
+      'Sentinel-class landing craft',
+    );
     expect(result.data.starship.id).to.equal(nextResult.data.starship.id);
   });
 
@@ -81,55 +83,56 @@ describe('Starship type', async () => {
       consumables: '3 years',
       costInCredits: 1000000000000,
       crew: '342,953',
-      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
+      filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       hyperdriveRating: 4,
       length: 120000,
-      manufacturers: [ 'Imperial Department of Military Research', 'Sienar Fleet Systems' ],
+      manufacturers: [
+        'Imperial Department of Military Research',
+        'Sienar Fleet Systems',
+      ],
       maxAtmospheringSpeed: null,
       model: 'DS-1 Orbital Battle Station',
       name: 'Death Star',
       passengers: '843,342',
       pilotConnection: { edges: [] },
-      starshipClass: 'Deep Space Mobile Battlestation'
+      starshipClass: 'Deep Space Mobile Battlestation',
     };
     expect(result.data.starship).to.deep.equal(expected);
   });
 
-  it('All objects query', async() => {
+  it('All objects query', async () => {
     const query = '{ allStarships { edges { cursor, node { name } } } }';
     const result = await swapi(query);
     expect(result.data.allStarships.edges.length).to.equal(36);
   });
 
-  it('Pagination query', async() => {
+  it('Pagination query', async () => {
     const query = `{
       allStarships(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allStarships.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'CR90 corvette',
-        'Star Destroyer',
-      ]);
+    expect(result.data.allStarships.edges.map(e => e.node.name)).to.deep.equal([
+      'CR90 corvette',
+      'Star Destroyer',
+    ]);
     const nextCursor = result.data.allStarships.edges[1].cursor;
 
     const nextQuery = `{ allStarships(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allStarships.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Sentinel-class landing craft',
-        'Death Star',
-      ]);
+    expect(
+      nextResult.data.allStarships.edges.map(e => e.node.name),
+    ).to.deep.equal(['Sentinel-class landing craft', 'Death Star']);
   });
 
   describe('Edge cases', () => {
     it('Returns real speed when set to not n/a', async () => {
       const query = '{ starship(starshipID: 5) { name, maxAtmospheringSpeed } }';
       const result = await swapi(query);
-      expect(result.data.starship.name)
-        .to.equal('Sentinel-class landing craft');
+      expect(result.data.starship.name).to.equal(
+        'Sentinel-class landing craft',
+      );
       expect(result.data.starship.maxAtmospheringSpeed).to.equal(1000);
     });
   });

@@ -32,7 +32,7 @@
     "react": "global:React"
   },
   "scripts": {
-    "test": "npm run lint && npm run check && npm run testonly",
+    "test": "npm run lint && npm run pretty-check && npm run check && npm run testonly",
     "start": "npm run download && babel-node src/server/main.js",
     "watch": "babel scripts/watch.js | node",
     "testonly": "mocha $npm_package_options_mocha",
@@ -45,6 +45,8 @@
     "download": "sh scripts/download",
     "build-public": "scripts/build-public",
     "deploy": "scripts/build-public && scripts/deploy-public",
+    "pretty": "node scripts/pretty.js",
+    "pretty-check": "node scripts/pretty.js --check",
     "print-schema": "npm run download && babel-node scripts/print-schema.js"
   },
   "dependencies": {
@@ -79,6 +81,7 @@
     "isomorphic-fetch": "2.2.1",
     "isparta": "^4.0.0",
     "mocha": "^3.1.2",
+    "prettier": "^0.22.0",
     "sane": "^1.1.3"
   }
 }

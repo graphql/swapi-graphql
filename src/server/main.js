@@ -15,10 +15,13 @@ const app = express();
 // Requests to /graphql redirect to /
 app.all('/graphql', (req, res) => res.redirect('/'));
 
-app.use('/', graphqlHTTP(() => ({
-  schema: swapiSchema,
-  graphiql: true
-})));
+app.use(
+  '/',
+  graphqlHTTP(() => ({
+    schema: swapiSchema,
+    graphiql: true,
+  })),
+);
 
 // Listen for incoming HTTP requests
 const listener = app.listen(() => {
