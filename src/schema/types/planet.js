@@ -22,6 +22,7 @@ import {
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
+import { convertToNumber } from '../apiHelper';
 
 import FilmType from './film';
 import PersonType from './person';
@@ -42,19 +43,20 @@ const PlanetType = new GraphQLObjectType({
     },
     diameter: {
       type: GraphQLInt,
+      resolve: planet => convertToNumber(planet.diameter),
       description:
 'The diameter of this planet in kilometers.'
     },
     rotationPeriod: {
       type: GraphQLInt,
-      resolve: planet => planet.rotation_period,
+      resolve: planet => convertToNumber(planet.rotation_period),
       description:
 `The number of standard hours it takes for this planet to complete a single
 rotation on its axis.`
     },
     orbitalPeriod: {
       type: GraphQLInt,
-      resolve: planet => planet.orbital_period,
+      resolve: planet => convertToNumber(planet.orbital_period),
       description:
 `The number of standard days it takes for this planet to complete a single orbit
 of its local star.`
@@ -66,7 +68,8 @@ of its local star.`
 G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`
     },
     population: {
-      type: GraphQLInt,
+      type: GraphQLFloat,
+      resolve: planet => convertToNumber(planet.population),
       description:
 'The average population of sentient beings inhabiting this planet.'
     },
@@ -88,7 +91,7 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`
     },
     surfaceWater: {
       type: GraphQLFloat,
-      resolve: planet => planet.surface_water,
+      resolve: planet => convertToNumber(planet.surface_water),
       description:
 `The percentage of the planet surface that is naturally occuring water or bodies
 of water.`

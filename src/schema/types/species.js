@@ -22,7 +22,7 @@ import {
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
-import { getObjectFromUrl } from '../apiHelper';
+import { getObjectFromUrl, convertToNumber } from '../apiHelper';
 
 import FilmType from './film';
 import PersonType from './person';
@@ -53,15 +53,13 @@ const SpeciesType = new GraphQLObjectType({
     },
     averageHeight: {
       type: GraphQLFloat,
-      resolve: species => species.average_height,
+      resolve: species => convertToNumber(species.average_height),
       description:
 'The average height of this species in centimeters.'
     },
     averageLifespan: {
       type: GraphQLInt,
-      resolve: species => species.average_lifespan === 'unknown' ?
-        null :
-        species.average_lifespan,
+      resolve: species => convertToNumber(species.average_lifespan),
       description:
 'The average lifespan of this species in years, null if unknown.'
     },

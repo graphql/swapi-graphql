@@ -8,6 +8,7 @@
  */
 
 import {
+  GraphQLFloat,
   GraphQLInt,
   GraphQLObjectType,
   GraphQLString,
@@ -20,7 +21,7 @@ import {
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
-import { getObjectFromUrl } from '../apiHelper';
+import { getObjectFromUrl, convertToNumber } from '../apiHelper';
 
 import FilmType from './film';
 import PlanetType from './planet';
@@ -71,11 +72,13 @@ person does not have hair.`
     },
     height: {
       type: GraphQLInt,
+      resolve: person => convertToNumber(person.height),
       description:
 'The height of the person in centimeters.'
     },
     mass: {
-      type: GraphQLInt,
+      type: GraphQLFloat,
+      resolve: person => convertToNumber(person.mass),
       description:
 'The mass of the person in kilograms.'
     },
