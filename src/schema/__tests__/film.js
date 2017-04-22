@@ -13,6 +13,20 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
+const allFilmProperties = `
+  title
+  episodeID
+  openingCrawl
+  director
+  producers
+  releaseDate
+  speciesConnection(first:1) { edges { node { name } } }
+  starshipConnection(first:1) { edges { node { name } } }
+  vehicleConnection(first:1) { edges { node { name } } }
+  characterConnection(first:1) { edges { node { name } } }
+  planetConnection(first:1) { edges { node { name } } }
+`;
+
 describe('Film type', async () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ film(filmID: 1) { title } }';
@@ -57,17 +71,7 @@ describe('Film type', async () => {
     const query = `
 {
   film(filmID: 1) {
-    title
-    episodeID
-    openingCrawl
-    director
-    producers
-    releaseDate
-    speciesConnection(first:1) { edges { node { name } } }
-    starshipConnection(first:1) { edges { node { name } } }
-    vehicleConnection(first:1) { edges { node { name } } }
-    characterConnection(first:1) { edges { node { name } } }
-    planetConnection(first:1) { edges { node { name } } }
+    ${allFilmProperties}
   }
 }`;
     const result = await swapi(query);
@@ -88,7 +92,7 @@ describe('Film type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = '{ allFilms { edges { cursor, node { title } } } }';
+    const query = `{ allFilms { edges { cursor, node { ${allFilmProperties} } } } }`;
     const result = await swapi(query);
     expect(result.data.allFilms.edges.length).to.equal(6);
   });

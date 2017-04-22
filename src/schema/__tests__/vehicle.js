@@ -13,6 +13,22 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
+const allVehicleProperties = `
+  name
+  model
+  vehicleClass
+  manufacturers
+  costInCredits
+  length
+  crew
+  passengers
+  maxAtmospheringSpeed
+  cargoCapacity
+  consumables
+  filmConnection(first:1) { edges { node { title } } }
+  pilotConnection(first:1) { edges { node { name } } }
+`;
+
 describe('Vehicle type', async () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ vehicle(vehicleID: 4) { name } }';
@@ -57,19 +73,7 @@ describe('Vehicle type', async () => {
     const query = `
 {
   vehicle(vehicleID: 4) {
-    name
-    model
-    vehicleClass
-    manufacturers
-    costInCredits
-    length
-    crew
-    passengers
-    maxAtmospheringSpeed
-    cargoCapacity
-    consumables
-    filmConnection(first:1) { edges { node { title } } }
-    pilotConnection(first:1) { edges { node { name } } }
+    ${allVehicleProperties}
   }
 }`;
     const result = await swapi(query);
@@ -92,7 +96,7 @@ describe('Vehicle type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = '{ allVehicles { edges { cursor, node { name } } } }';
+    const query = `{ allVehicles { edges { cursor, node { ${allVehicleProperties} } } } }`;
     const result = await swapi(query);
     expect(result.data.allVehicles.edges.length).to.equal(39);
   });
