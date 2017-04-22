@@ -102,7 +102,9 @@ have skin.`
     },
     homeworld: {
       type: PlanetType,
-      resolve: species => getObjectFromUrl(species.homeworld),
+      resolve: species => species.homeworld ?
+        getObjectFromUrl(species.homeworld) :
+        null,
       description:
 'A planet that this species originates from.'
     },

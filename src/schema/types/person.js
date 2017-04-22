@@ -87,7 +87,9 @@ person does not have hair.`
     },
     homeworld: {
       type: PlanetType,
-      resolve: person => getObjectFromUrl(person.homeworld),
+      resolve: person => person.homeworld ?
+        getObjectFromUrl(person.homeworld) :
+        null,
       description:
 'A planet that this person was born on or inhabits.'
     },

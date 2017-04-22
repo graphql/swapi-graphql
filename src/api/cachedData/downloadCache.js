@@ -79,7 +79,9 @@ function formatObject(object, type, id) {
           return objectUrl(val, fieldTypes[key].type);
         });
       } else {
-        formatted[key] = objectUrl(object[key], fieldTypes[key].type);
+        formatted[key] = object[key] ?
+          objectUrl(object[key], fieldTypes[key].type) :
+          null;
       }
     } else {
       formatted[key] = object[key];
