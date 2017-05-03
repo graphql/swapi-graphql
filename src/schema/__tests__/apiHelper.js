@@ -15,7 +15,6 @@ import {
   getObjectFromTypeAndId,
 } from '../apiHelper';
 
-
 describe('API Helper', () => {
   it('Gets a person', async () => {
     const luke = await getObjectFromUrl('http://swapi.co/api/people/1/');
@@ -25,14 +24,16 @@ describe('API Helper', () => {
   });
 
   it('Gets all pages at once', async () => {
-    const {objects, totalCount} = await getObjectsByType('people');
+    const { objects, totalCount } = await getObjectsByType('people');
     expect(objects.length).to.equal(82);
     expect(totalCount).to.equal(82);
     expect(objects[0].name).to.equal('Luke Skywalker');
   });
 
   it('Gets first page and correct count', async () => {
-    const {objects, totalCount} = await getObjectsByType('people', {first: 5});
+    const { objects, totalCount } = await getObjectsByType('people', {
+      first: 5,
+    });
     // Should only fetch the first page which has 10 items
     expect(objects.length).to.equal(10);
     // Count should still be accurate, though
@@ -47,4 +48,3 @@ describe('API Helper', () => {
     expect(threePO.name).to.equal('C-3PO');
   });
 });
-

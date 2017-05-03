@@ -15,9 +15,7 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
+import { globalIdField } from 'graphql-relay';
 
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
@@ -31,82 +29,68 @@ import PersonType from './person';
  */
 const PlanetType = new GraphQLObjectType({
   name: 'Planet',
-  description:
-`A large mass, planet or planetoid in the Star Wars Universe, at the time of
+  description: `A large mass, planet or planetoid in the Star Wars Universe, at the time of
 0 ABY.`,
   fields: () => ({
     name: {
       type: GraphQLString,
-      description:
-'The name of this planet.'
+      description: 'The name of this planet.',
     },
     diameter: {
       type: GraphQLInt,
-      description:
-'The diameter of this planet in kilometers.'
+      description: 'The diameter of this planet in kilometers.',
     },
     rotationPeriod: {
       type: GraphQLInt,
       resolve: planet => planet.rotation_period,
-      description:
-`The number of standard hours it takes for this planet to complete a single
-rotation on its axis.`
+      description: `The number of standard hours it takes for this planet to complete a single
+rotation on its axis.`,
     },
     orbitalPeriod: {
       type: GraphQLInt,
       resolve: planet => planet.orbital_period,
-      description:
-`The number of standard days it takes for this planet to complete a single orbit
-of its local star.`
+      description: `The number of standard days it takes for this planet to complete a single orbit
+of its local star.`,
     },
     gravity: {
       type: GraphQLString,
-      description:
-`A number denoting the gravity of this planet, where "1" is normal or 1 standard
-G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`
+      description: `A number denoting the gravity of this planet, where "1" is normal or 1 standard
+G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`,
     },
     population: {
       type: GraphQLInt,
-      description:
-'The average population of sentient beings inhabiting this planet.'
+      description: 'The average population of sentient beings inhabiting this planet.',
     },
     climates: {
       type: new GraphQLList(GraphQLString),
       resolve: planet => {
         return planet.climate.split(',').map(s => s.trim());
       },
-      description:
-'The climates of this planet.'
+      description: 'The climates of this planet.',
     },
     terrains: {
       type: new GraphQLList(GraphQLString),
       resolve: planet => {
         return planet.terrain.split(',').map(s => s.trim());
       },
-      description:
-'The terrains of this planet.'
+      description: 'The terrains of this planet.',
     },
     surfaceWater: {
       type: GraphQLFloat,
       resolve: planet => planet.surface_water,
-      description:
-`The percentage of the planet surface that is naturally occuring water or bodies
-of water.`
+      description: `The percentage of the planet surface that is naturally occuring water or bodies
+of water.`,
     },
     residentConnection: connectionFromUrls(
       'PlanetResidents',
       'residents',
-      PersonType
+      PersonType,
     ),
-    filmConnection: connectionFromUrls(
-      'PlanetFilms',
-      'films',
-      FilmType
-    ),
+    filmConnection: connectionFromUrls('PlanetFilms', 'films', FilmType),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('planets')
+    id: globalIdField('planets'),
   }),
-  interfaces: () => [ nodeInterface ],
+  interfaces: () => [nodeInterface],
 });
 export default PlanetType;

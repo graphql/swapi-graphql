@@ -72,47 +72,44 @@ describe('Planet type', async () => {
 }`;
     const result = await swapi(query);
     const expected = {
-      climates: [ 'arid' ],
+      climates: ['arid'],
       diameter: 10465,
-      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
+      filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       gravity: '1 standard',
       name: 'Tatooine',
       orbitalPeriod: 304,
       population: 200000,
-      residentConnection: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
+      residentConnection: { edges: [{ node: { name: 'Luke Skywalker' } }] },
       rotationPeriod: 23,
       surfaceWater: 1,
-      terrains: [ 'desert' ]
+      terrains: ['desert'],
     };
     expect(result.data.planet).to.deep.equal(expected);
   });
 
-  it('All objects query', async() => {
+  it('All objects query', async () => {
     const query = '{ allPlanets { edges { cursor, node { name } } } }';
     const result = await swapi(query);
     expect(result.data.allPlanets.edges.length).to.equal(60);
   });
 
-  it('Pagination query', async() => {
+  it('Pagination query', async () => {
     const query = `{
       allPlanets(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allPlanets.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Tatooine',
-        'Alderaan',
-      ]);
+    expect(result.data.allPlanets.edges.map(e => e.node.name)).to.deep.equal([
+      'Tatooine',
+      'Alderaan',
+    ]);
     const nextCursor = result.data.allPlanets.edges[1].cursor;
 
     const nextQuery = `{ allPlanets(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allPlanets.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Yavin IV',
-        'Hoth',
-      ]);
+    expect(
+      nextResult.data.allPlanets.edges.map(e => e.node.name),
+    ).to.deep.equal(['Yavin IV', 'Hoth']);
   });
 });

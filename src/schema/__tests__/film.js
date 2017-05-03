@@ -74,45 +74,43 @@ describe('Film type', async () => {
     const expected = {
       title: 'A New Hope',
       episodeID: 4,
-      openingCrawl: 'It is a period of civil war.\r\nRebel spaceships, striking\r\nfrom a hidden base, have won\r\ntheir first victory against\r\nthe evil Galactic Empire.\r\n\r\nDuring the battle, Rebel\r\nspies managed to steal secret\r\nplans to the Empire\'s\r\nultimate weapon, the DEATH\r\nSTAR, an armored space\r\nstation with enough power\r\nto destroy an entire planet.\r\n\r\nPursued by the Empire\'s\r\nsinister agents, Princess\r\nLeia races home aboard her\r\nstarship, custodian of the\r\nstolen plans that can save her\r\npeople and restore\r\nfreedom to the galaxy....',
+      // eslint-disable-next-line quotes
+      openingCrawl: "It is a period of civil war.\r\nRebel spaceships, striking\r\nfrom a hidden base, have won\r\ntheir first victory against\r\nthe evil Galactic Empire.\r\n\r\nDuring the battle, Rebel\r\nspies managed to steal secret\r\nplans to the Empire's\r\nultimate weapon, the DEATH\r\nSTAR, an armored space\r\nstation with enough power\r\nto destroy an entire planet.\r\n\r\nPursued by the Empire's\r\nsinister agents, Princess\r\nLeia races home aboard her\r\nstarship, custodian of the\r\nstolen plans that can save her\r\npeople and restore\r\nfreedom to the galaxy....",
       director: 'George Lucas',
-      producers: [ 'Gary Kurtz', 'Rick McCallum' ],
+      producers: ['Gary Kurtz', 'Rick McCallum'],
       releaseDate: '1977-05-25',
-      speciesConnection: { edges: [ { node: { name: 'Human' } } ] },
-      starshipConnection: { edges: [ { node: { name: 'CR90 corvette' } } ] },
-      vehicleConnection: { edges: [ { node: { name: 'Sand Crawler' } } ] },
-      characterConnection: { edges: [ { node: { name: 'Luke Skywalker' } } ] },
-      planetConnection: { edges: [ { node: { name: 'Tatooine' } } ] }
+      speciesConnection: { edges: [{ node: { name: 'Human' } }] },
+      starshipConnection: { edges: [{ node: { name: 'CR90 corvette' } }] },
+      vehicleConnection: { edges: [{ node: { name: 'Sand Crawler' } }] },
+      characterConnection: { edges: [{ node: { name: 'Luke Skywalker' } }] },
+      planetConnection: { edges: [{ node: { name: 'Tatooine' } }] },
     };
     expect(result.data.film).to.deep.equal(expected);
   });
 
-  it('All objects query', async() => {
+  it('All objects query', async () => {
     const query = '{ allFilms { edges { cursor, node { title } } } }';
     const result = await swapi(query);
     expect(result.data.allFilms.edges.length).to.equal(6);
   });
 
-  it('Pagination query', async() => {
+  it('Pagination query', async () => {
     const query = `{
       allFilms(first: 2) { edges { cursor, node { title } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allFilms.edges.map(e => e.node.title))
-      .to.deep.equal([
-        'A New Hope',
-        'The Empire Strikes Back'
-      ]);
+    expect(result.data.allFilms.edges.map(e => e.node.title)).to.deep.equal([
+      'A New Hope',
+      'The Empire Strikes Back',
+    ]);
     const nextCursor = result.data.allFilms.edges[1].cursor;
 
     const nextQuery = `{ allFilms(first: 2, after:"${nextCursor}") {
       edges { cursor, node { title } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allFilms.edges.map(e => e.node.title))
-      .to.deep.equal([
-        'Return of the Jedi',
-        'The Phantom Menace',
-      ]);
+    expect(
+      nextResult.data.allFilms.edges.map(e => e.node.title),
+    ).to.deep.equal(['Return of the Jedi', 'The Phantom Menace']);
   });
 });

@@ -13,16 +13,16 @@ const prefix = 'http://swapi.co/api/';
  * A map from field names to the SWAPI type we should map the IDs to.
  */
 const fieldTypes = {
-  pilots: {type: 'people'},
-  starships: {type: 'starship'},
-  vehicles: {type: 'vehicle'},
-  planets: {type: 'planet'},
-  characters: {type: 'people'},
-  species: {type: 'species'},
-  people: {type: 'people'},
-  homeworld: {type: 'planet', name: 'residents'},
-  films: {type: 'film'},
-  residents: {type: 'people'},
+  pilots: { type: 'people' },
+  starships: { type: 'starship' },
+  vehicles: { type: 'vehicle' },
+  planets: { type: 'planet' },
+  characters: { type: 'people' },
+  species: { type: 'species' },
+  people: { type: 'people' },
+  homeworld: { type: 'planet', name: 'residents' },
+  films: { type: 'film' },
+  residents: { type: 'people' },
 };
 
 /**
@@ -62,7 +62,7 @@ function pageUrl(type, objects, num) {
  * Determines if a given page exists for a set of objects
  */
 function isInvalidPage(objects, num) {
-  return num <= 0 || ((num - 1) * 10) >= Object.keys(objects).length;
+  return num <= 0 || (num - 1) * 10 >= Object.keys(objects).length;
 }
 
 /**
@@ -72,10 +72,10 @@ function isInvalidPage(objects, num) {
 function formatObject(object, type, id) {
   const formatted = {};
   const keys = Object.keys(object);
-  keys.forEach(function (key) {
+  keys.forEach(function(key) {
     if (fieldTypes[key]) {
       if (Array.isArray(object[key])) {
-        formatted[key] = object[key].map(function (val) {
+        formatted[key] = object[key].map(function(val) {
           return objectUrl(val, fieldTypes[key].type);
         });
       } else {
@@ -98,12 +98,11 @@ function makePage(type, objects, num) {
     count: Object.keys(objects).length,
     previous: pageUrl(type, objects, num - 1),
     next: pageUrl(type, objects, num + 1),
-    results: Object.keys(objects).slice(
-      (num - 1) * 10,
-      num * 10
-    ).map(function (objectId) {
-      return formatObject(objects[objectId], type, objectId);
-    })
+    results: Object.keys(objects)
+      .slice((num - 1) * 10, num * 10)
+      .map(function(objectId) {
+        return formatObject(objects[objectId], type, objectId);
+      }),
   };
 }
 
@@ -112,9 +111,10 @@ function makePage(type, objects, num) {
  * to the cache.
  */
 function addTypeToCache(cache, type, objects) {
-  Object.keys(objects).forEach(function (objectId) {
-    cache[objectUrl(objectId, type)] =
-      JSON.stringify(formatObject(objects[objectId], type, objectId));
+  Object.keys(objects).forEach(function(objectId) {
+    cache[objectUrl(objectId, type)] = JSON.stringify(
+      formatObject(objects[objectId], type, objectId),
+    );
   });
   for (let i = 1; !isInvalidPage(objects, i); i++) {
     const page = makePage(type, objects, i);
@@ -131,11 +131,9 @@ function addTypeToCache(cache, type, objects) {
  */
 function getCacheFromObjects(objects) {
   const cache = {};
-  Object.keys(objects).forEach(
-    function (type) {
-      addTypeToCache(cache, type, objects[type]);
-    }
-  );
+  Object.keys(objects).forEach(function(type) {
+    addTypeToCache(cache, type, objects[type]);
+  });
   return cache;
 }
 
@@ -159,7 +157,7 @@ function addObjects(data, fixture) {
  * A quick utility to merge all properties of add into base.
  */
 function append(base, add) {
-  Object.keys(add).forEach(function (key) {
+  Object.keys(add).forEach(function(key) {
     base[key] = add[key];
   });
 }
@@ -187,30 +185,24 @@ function augmentWithTransport(data, fixture) {
  * responses by type and ID.
  */
 function getObjectsFromFixtures(fixtures) {
-  const objectsByType = fixtures.reduce(
-    addObjects,
-    {}
-  );
-  return fixtures.reduce(
-    augmentWithTransport,
-    objectsByType
-  );
+  const objectsByType = fixtures.reduce(addObjects, {});
+  return fixtures.reduce(augmentWithTransport, objectsByType);
 }
 
 function addReverseData(objects, type, objectId, object) {
   const keys = Object.keys(object);
-  keys.forEach(function (key) {
+  keys.forEach(function(key) {
     if (fieldTypes[key]) {
       const foreignType = fieldTypes[key].type;
       const foreignFieldName = fieldTypes[key].name || urlTypes[type];
       if (Array.isArray(object[key])) {
-        object[key].forEach(function (foreignId) {
+        object[key].forEach(function(foreignId) {
           if (objects[foreignType][foreignId]) {
             if (!objects[foreignType][foreignId][foreignFieldName]) {
               objects[foreignType][foreignId][foreignFieldName] = [];
             }
             objects[foreignType][foreignId][foreignFieldName].push(
-              parseInt(objectId, 10)
+              parseInt(objectId, 10),
             );
           }
         });
@@ -221,7 +213,7 @@ function addReverseData(objects, type, objectId, object) {
             objects[foreignType][foreignId][foreignFieldName] = [];
           }
           objects[foreignType][foreignId][foreignFieldName].push(
-            parseInt(objectId, 10)
+            parseInt(objectId, 10),
           );
         }
       }
@@ -234,8 +226,8 @@ function addReverseData(objects, type, objectId, object) {
  * reverse edges.
  */
 function populateReverseMaps(objects) {
-  Object.keys(objects).forEach(function (type) {
-    Object.keys(objects[type]).forEach(function (objectId) {
+  Object.keys(objects).forEach(function(type) {
+    Object.keys(objects[type]).forEach(function(objectId) {
       const object = objects[type][objectId];
       addReverseData(objects, type, objectId, object);
     });
@@ -247,18 +239,22 @@ function populateReverseMaps(objects) {
  */
 function githubUrlForType(type) {
   return 'https://raw.githubusercontent.com/phalt/swapi/master/' +
-         'resources/fixtures/' + type + '.json';
+    'resources/fixtures/' +
+    type +
+    '.json';
 }
 
 /**
  * Fetches and parses JSON from a URL
  */
 function fetchFromUrl(url) {
-  return fetch(url).then(function (fetched) {
-    return fetched.text();
-  }).then(function (text) {
-    return JSON.parse(text);
-  });
+  return fetch(url)
+    .then(function(fetched) {
+      return fetched.text();
+    })
+    .then(function(text) {
+      return JSON.parse(text);
+    });
 }
 
 /**
@@ -272,24 +268,26 @@ const types = [
   'vehicles',
   'species',
   'planets',
-  'transport'
+  'transport',
 ];
 
 /* eslint-disable no-console */
-Promise.all(types.map(githubUrlForType).map(fetchFromUrl)).then(
-  function (fixturesList) {
+Promise.all(types.map(githubUrlForType).map(fetchFromUrl))
+  .then(function(fixturesList) {
     const fixtures = [].concat.apply([], fixturesList);
     const objects = getObjectsFromFixtures(fixtures);
     populateReverseMaps(objects);
     const cache = getCacheFromObjects(objects);
     console.log(
       '/*eslint-disable */\n' +
-      '/* Generated by combine.js */\n' +
-      'var data = ' + JSON.stringify(cache, null, 2) + ';\n' +
-      'export default data;'
+        '/* Generated by combine.js */\n' +
+        'var data = ' +
+        JSON.stringify(cache, null, 2) +
+        ';\n' +
+        'export default data;',
     );
-  }
-).catch(function (err) {
-  console.error(err);
-});
+  })
+  .catch(function(err) {
+    console.error(err);
+  });
 /* eslint-enable no-console */

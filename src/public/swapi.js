@@ -6,9 +6,8 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-(function () {
+(function() {
   'use strict';
-
   /* global GraphiQL: true */
   /* global React: true */
   /* global ReactDOM: true */
@@ -16,7 +15,7 @@
 
   const GRAPHIQL_VERSION = '0.8.1';
   const PROTOCOL = getProtocol();
-  const LEGAL_PARAMETER_NAMES = [ 'query', 'variables', 'operationName' ];
+  const LEGAL_PARAMETER_NAMES = ['query', 'variables', 'operationName'];
 
   let parameters = extractURLParameters();
 
@@ -42,7 +41,7 @@
     // IE-compatible asynchronous loading.
     const script = document.createElement('script');
     let loaded = false;
-    script.onload = script.onreadystatechange = function () {
+    script.onload = (script.onreadystatechange = function() {
       if (!loaded) {
         if (
           !this.readyState ||
@@ -53,7 +52,7 @@
           done(path, script);
         }
       }
-    };
+    });
 
     if (path.indexOf('/') === 0) {
       script.src = PROTOCOL + path;
@@ -63,7 +62,7 @@
     document.head.appendChild(script);
   }
 
-  function fetcher({query, variables, operationName}) {
+  function fetcher({ query, variables, operationName }) {
     if (typeof Schema !== 'undefined') {
       return Schema.execute(query, variables, operationName);
     }
@@ -81,15 +80,15 @@
   }
 
   function onEditQuery(query) {
-    updateURL({query});
+    updateURL({ query });
   }
 
   function onEditVariables(variables) {
-    updateURL({variables});
+    updateURL({ variables });
   }
 
   function onEditOperationName(operationName) {
-    updateURL({operationName});
+    updateURL({ operationName });
   }
 
   function updateURL(newParameters) {
@@ -97,16 +96,20 @@
       ...parameters,
       ...newParameters,
     };
-    const queryString = '?' + Object.keys(parameters).map(key => (
-      encodeURIComponent(key) + '=' + encodeURIComponent(parameters[key])
-    )).join('&');
+    const queryString = '?' +
+      Object.keys(parameters)
+        .map(
+          key =>
+            encodeURIComponent(key) + '=' + encodeURIComponent(parameters[key]),
+        )
+        .join('&');
     history.replaceState(null, null, queryString);
   }
 
   function extractURLParameters() {
     const extractedParameters = {};
     window.location.search.slice(1).split('&').forEach(pair => {
-      const [ key, value ] = pair.split('=');
+      const [key, value] = pair.split('=');
       if (key && LEGAL_PARAMETER_NAMES.indexOf(key) !== -1) {
         extractedParameters[key] = decodeURIComponent(value);
       }
@@ -115,7 +118,7 @@
   }
 
   function renderGraphiQL() {
-    const {query, variables, operationName} = parameters;
+    const { query, variables, operationName } = parameters;
     ReactDOM.render(
       React.createElement(GraphiQL, {
         fetcher,
@@ -126,7 +129,7 @@
         variables,
         operationName,
       }),
-      document.body
+      document.body,
     );
   }
 
@@ -137,11 +140,9 @@
     styles.forEach(loadStyles);
 
     const scripts = {
-      graphiql: (
-        '//cdn.jsdelivr.net/graphiql/' +
+      graphiql: '//cdn.jsdelivr.net/graphiql/' +
         GRAPHIQL_VERSION +
-        '/graphiql.min.js'
-      ),
+        '/graphiql.min.js',
       react: '//cdn.jsdelivr.net/react/15.3.2/react.min.js',
       'react-dom': '//cdn.jsdelivr.net/react/15.3.2/react-dom.min.js',
     };
@@ -164,4 +165,4 @@
   }
 
   loadAssets(renderGraphiQL);
-}());
+})();

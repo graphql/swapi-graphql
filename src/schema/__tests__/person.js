@@ -83,41 +83,38 @@ describe('Person type', async () => {
       mass: 77,
       skinColor: 'fair',
       homeworld: { name: 'Tatooine' },
-      filmConnection: { edges: [ { node: { title: 'A New Hope' } } ] },
+      filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       species: null,
-      starshipConnection: { edges: [ { node: { name: 'X-wing' } } ] },
-      vehicleConnection: { edges: [ { node: { name: 'Snowspeeder' } } ] },
+      starshipConnection: { edges: [{ node: { name: 'X-wing' } }] },
+      vehicleConnection: { edges: [{ node: { name: 'Snowspeeder' } }] },
     };
     expect(result.data.person).to.deep.equal(expected);
   });
 
-  it('All objects query', async() => {
+  it('All objects query', async () => {
     const query = '{ allPeople { edges { cursor, node { name } } } }';
     const result = await swapi(query);
     expect(result.data.allPeople.edges.length).to.equal(82);
   });
 
-  it('Pagination query', async() => {
+  it('Pagination query', async () => {
     const query = `{
       allPeople(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allPeople.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'Luke Skywalker',
-        'C-3PO',
-      ]);
+    expect(result.data.allPeople.edges.map(e => e.node.name)).to.deep.equal([
+      'Luke Skywalker',
+      'C-3PO',
+    ]);
     const nextCursor = result.data.allPeople.edges[1].cursor;
 
     const nextQuery = `{ allPeople(first: 2, after:"${nextCursor}") {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(nextResult.data.allPeople.edges.map(e => e.node.name))
-      .to.deep.equal([
-        'R2-D2',
-        'Darth Vader',
-      ]);
+    expect(
+      nextResult.data.allPeople.edges.map(e => e.node.name),
+    ).to.deep.equal(['R2-D2', 'Darth Vader']);
   });
 
   describe('Edge cases', () => {
