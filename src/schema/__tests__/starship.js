@@ -13,23 +13,27 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
-const allStarshipProperties = `
-  name
-  model
-  starshipClass
-  manufacturers
-  costInCredits
-  length
-  crew
-  passengers
-  maxAtmospheringSpeed
-  hyperdriveRating
-  MGLT
-  cargoCapacity
-  consumables
-  filmConnection(first:1) { edges { node { title } } }
-  pilotConnection(first:1) { edges { node { name } } }
-`;
+function getDocument(query) {
+  return `${query}
+    fragment AllStarshipProperties on Starship {
+      MGLT
+      cargoCapacity
+      consumables
+      costInCredits
+      crew
+      hyperdriveRating
+      length
+      manufacturers
+      maxAtmospheringSpeed
+      model
+      name
+      passengers
+      starshipClass
+      filmConnection(first:1) { edges { node { title } } }
+      pilotConnection(first:1) { edges { node { name } } }
+    }
+  `;
+}
 
 describe('Starship type', async () => {
   it('Gets an object by SWAPI ID', async () => {
@@ -72,12 +76,11 @@ describe('Starship type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = `
-{
-  starship(starshipID: 9) {
-    ${allStarshipProperties}
-  }
-}`;
+    const query = getDocument(`{
+      starship(starshipID: 9) {
+        ...AllStarshipProperties
+      }
+    }`);
     const result = await swapi(query);
     const expected = {
       MGLT: 10,
@@ -100,7 +103,9 @@ describe('Starship type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = `{ allStarships { edges { cursor, node { ${allStarshipProperties} } } } }`;
+    const query = getDocument(
+      '{ allStarships { edges { cursor, node { ...AllStarshipProperties } } } }'
+    );
     const result = await swapi(query);
     expect(result.data.allStarships.edges.length).to.equal(36);
   });

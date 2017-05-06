@@ -13,21 +13,25 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
-const allVehicleProperties = `
-  name
-  model
-  vehicleClass
-  manufacturers
-  costInCredits
-  length
-  crew
-  passengers
-  maxAtmospheringSpeed
-  cargoCapacity
-  consumables
-  filmConnection(first:1) { edges { node { title } } }
-  pilotConnection(first:1) { edges { node { name } } }
-`;
+function getDocument(query) {
+  return `${query}
+    fragment AllVehicleProperties on Vehicle {
+      cargoCapacity
+      consumables
+      costInCredits
+      crew
+      length
+      manufacturers
+      maxAtmospheringSpeed
+      model
+      name
+      passengers
+      vehicleClass
+      filmConnection(first:1) { edges { node { title } } }
+      pilotConnection(first:1) { edges { node { name } } }
+    }
+  `;
+}
 
 describe('Vehicle type', async () => {
   it('Gets an object by SWAPI ID', async () => {
@@ -70,12 +74,11 @@ describe('Vehicle type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = `
-{
-  vehicle(vehicleID: 4) {
-    ${allVehicleProperties}
-  }
-}`;
+    const query = getDocument(`{
+      vehicle(vehicleID: 4) {
+        ...AllVehicleProperties
+      }
+    }`);
     const result = await swapi(query);
     const expected = {
       cargoCapacity: 50000,
@@ -96,7 +99,9 @@ describe('Vehicle type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = `{ allVehicles { edges { cursor, node { ${allVehicleProperties} } } } }`;
+    const query = getDocument(
+      '{ allVehicles { edges { cursor, node { ...AllVehicleProperties } } } }'
+    );
     const result = await swapi(query);
     expect(result.data.allVehicles.edges.length).to.equal(39);
   });

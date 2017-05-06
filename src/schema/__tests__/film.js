@@ -13,19 +13,23 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
-const allFilmProperties = `
-  title
-  episodeID
-  openingCrawl
-  director
-  producers
-  releaseDate
-  speciesConnection(first:1) { edges { node { name } } }
-  starshipConnection(first:1) { edges { node { name } } }
-  vehicleConnection(first:1) { edges { node { name } } }
-  characterConnection(first:1) { edges { node { name } } }
-  planetConnection(first:1) { edges { node { name } } }
-`;
+function getDocument(query) {
+  return `${query}
+    fragment AllFilmProperties on Film {
+      director
+      episodeID
+      openingCrawl
+      producers
+      releaseDate
+      title
+      characterConnection(first:1) { edges { node { name } } }
+      planetConnection(first:1) { edges { node { name } } }
+      speciesConnection(first:1) { edges { node { name } } }
+      starshipConnection(first:1) { edges { node { name } } }
+      vehicleConnection(first:1) { edges { node { name } } }
+    }
+  `;
+}
 
 describe('Film type', async () => {
   it('Gets an object by SWAPI ID', async () => {
@@ -68,12 +72,11 @@ describe('Film type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = `
-{
-  film(filmID: 1) {
-    ${allFilmProperties}
-  }
-}`;
+    const query = getDocument(`{
+      film(filmID: 1) {
+        ...AllFilmProperties
+      }
+    }`);
     const result = await swapi(query);
     const expected = {
       title: 'A New Hope',
@@ -92,7 +95,9 @@ describe('Film type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = `{ allFilms { edges { cursor, node { ${allFilmProperties} } } } }`;
+    const query = getDocument(
+      '{ allFilms { edges { cursor, node { ...AllFilmProperties } } } }'
+    );
     const result = await swapi(query);
     expect(result.data.allFilms.edges.length).to.equal(6);
   });
