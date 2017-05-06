@@ -13,6 +13,20 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
+const allPlanetProperties = `
+  name
+  diameter
+  rotationPeriod
+  orbitalPeriod
+  gravity
+  population
+  climates
+  terrains
+  surfaceWater
+  residentConnection(first:1) { edges { node { name } } }
+  filmConnection(first:1) { edges { node { title } } }
+`;
+
 describe('Planet type', async () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ planet(planetID: 1) { name } }';
@@ -57,17 +71,7 @@ describe('Planet type', async () => {
     const query = `
 {
   planet(planetID: 1) {
-    name
-    diameter
-    rotationPeriod
-    orbitalPeriod
-    gravity
-    population
-    climates
-    terrains
-    surfaceWater
-    residentConnection(first:1) { edges { node { name } } }
-    filmConnection(first:1) { edges { node { title } } }
+    ${allPlanetProperties}
   }
 }`;
     const result = await swapi(query);
@@ -88,7 +92,7 @@ describe('Planet type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = '{ allPlanets { edges { cursor, node { name } } } }';
+    const query = `{ allPlanets { edges { cursor, node { ${allPlanetProperties} } } } }`;
     const result = await swapi(query);
     expect(result.data.allPlanets.edges.length).to.equal(60);
   });

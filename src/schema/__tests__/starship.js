@@ -13,6 +13,24 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
+const allStarshipProperties = `
+  name
+  model
+  starshipClass
+  manufacturers
+  costInCredits
+  length
+  crew
+  passengers
+  maxAtmospheringSpeed
+  hyperdriveRating
+  MGLT
+  cargoCapacity
+  consumables
+  filmConnection(first:1) { edges { node { title } } }
+  pilotConnection(first:1) { edges { node { name } } }
+`;
+
 describe('Starship type', async () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ starship(starshipID: 5) { name } }';
@@ -57,21 +75,7 @@ describe('Starship type', async () => {
     const query = `
 {
   starship(starshipID: 9) {
-    name
-    model
-    starshipClass
-    manufacturers
-    costInCredits
-    length
-    crew
-    passengers
-    maxAtmospheringSpeed
-    hyperdriveRating
-    MGLT
-    cargoCapacity
-    consumables
-    filmConnection(first:1) { edges { node { title } } }
-    pilotConnection(first:1) { edges { node { name } } }
+    ${allStarshipProperties}
   }
 }`;
     const result = await swapi(query);
@@ -96,7 +100,7 @@ describe('Starship type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = '{ allStarships { edges { cursor, node { name } } } }';
+    const query = `{ allStarships { edges { cursor, node { ${allStarshipProperties} } } } }`;
     const result = await swapi(query);
     expect(result.data.allStarships.edges.length).to.equal(36);
   });

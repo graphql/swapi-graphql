@@ -22,6 +22,7 @@ import {
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
+import { convertToNumber } from '../apiHelper';
 
 import FilmType from './film';
 import PersonType from './person';
@@ -62,12 +63,13 @@ Transport".`
     },
     costInCredits: {
       type: GraphQLInt,
-      resolve: vehicle => vehicle.cost_in_credits,
+      resolve: vehicle => convertToNumber(vehicle.cost_in_credits),
       description:
 'The cost of this vehicle new, in Galactic Credits.'
     },
     length: {
       type: GraphQLFloat,
+      resolve: vehicle => convertToNumber(vehicle.length),
       description:
 'The length of this vehicle in meters.'
     },
@@ -83,13 +85,13 @@ Transport".`
     },
     maxAtmospheringSpeed: {
       type: GraphQLInt,
-      resolve: vehicle => vehicle.max_atmosphering_speed,
+      resolve: vehicle => convertToNumber(vehicle.max_atmosphering_speed),
       description:
 'The maximum speed of this vehicle in atmosphere.'
     },
     cargoCapacity: {
       type: GraphQLInt,
-      resolve: ship => ship.cargo_capacity,
+      resolve: ship => convertToNumber(ship.cargo_capacity),
       description:
 'The maximum number of kilograms that this vehicle can transport.'
     },

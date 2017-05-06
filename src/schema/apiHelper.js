@@ -81,3 +81,15 @@ export async function getObjectsByType(
   }
   return {objects, totalCount};
 }
+
+/**
+ * Given a string, convert it to a number
+ */
+export function convertToNumber(value: string): ?number {
+  if ([ 'unknown', 'n/a' ].indexOf(value) !== -1) {
+    return null;
+  }
+  // remove digit grouping
+  const numberString = value.replace(/,/, '');
+  return Number(numberString);
+}

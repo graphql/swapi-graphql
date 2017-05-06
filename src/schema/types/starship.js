@@ -22,6 +22,7 @@ import {
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
 import { connectionFromUrls } from '../connections';
+import { convertToNumber } from '../apiHelper';
 
 import FilmType from './film';
 import PersonType from './person';
@@ -62,12 +63,13 @@ Battlestation"`
     },
     costInCredits: {
       type: GraphQLFloat,
-      resolve: ship => ship.cost_in_credits,
+      resolve: ship => convertToNumber(ship.cost_in_credits),
       description:
 'The cost of this starship new, in galactic credits.'
     },
     length: {
       type: GraphQLFloat,
+      resolve: ship => convertToNumber(ship.length),
       description:
 'The length of this starship in meters.'
     },
@@ -83,24 +85,20 @@ Battlestation"`
     },
     maxAtmospheringSpeed: {
       type: GraphQLInt,
-      resolve: ship => {
-        if (ship.max_atmosphering_speed === 'n/a') {
-          return null;
-        }
-        return ship.max_atmosphering_speed;
-      },
+      resolve: ship => convertToNumber(ship.max_atmosphering_speed),
       description:
 `The maximum speed of this starship in atmosphere. null if this starship is
 incapable of atmosphering flight.`
     },
     hyperdriveRating: {
       type: GraphQLFloat,
-      resolve: ship => ship.hyperdrive_rating,
+      resolve: ship => convertToNumber(ship.hyperdrive_rating),
       description:
 'The class of this starships hyperdrive.'
     },
     MGLT: {
       type: GraphQLInt,
+      resolve: ship => convertToNumber(ship.MGLT),
       description:
 `The Maximum number of Megalights this starship can travel in a standard hour.
 A "Megalight" is a standard unit of distance and has never been defined before
@@ -110,7 +108,7 @@ distance between our Sun (Sol) and Earth.`
     },
     cargoCapacity: {
       type: GraphQLFloat,
-      resolve: ship => ship.cargo_capacity,
+      resolve: ship => convertToNumber(ship.cargo_capacity),
       description:
 'The maximum number of kilograms that this starship can transport.'
     },
