@@ -74,7 +74,7 @@
     "coveralls": "^2.11.2",
     "eslint": "^3.9.1",
     "eslint-plugin-babel": "4.1.1",
-    "eslint-plugin-react": "^6.4.1",
+    "eslint-plugin-react": "^7.0.0",
     "flow-bin": "^0.45.0",
     "isomorphic-fetch": "2.2.1",
     "isparta": "^4.0.0",
