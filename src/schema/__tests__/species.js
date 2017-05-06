@@ -13,20 +13,24 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
-const allSpeciesProperies = `
-  name
-  classification
-  designation
-  averageHeight
-  averageLifespan
-  eyeColors
-  hairColors
-  skinColors
-  language
-  homeworld { name }
-  personConnection(first:1) { edges { node { name } } }
-  filmConnection(first:1) { edges { node { title } } }
-`;
+function getDocument(query) {
+  return `${query}
+    fragment AllSpeciesProperties on Species {
+      averageHeight
+      averageLifespan
+      classification
+      designation
+      eyeColors
+      hairColors
+      homeworld { name }
+      language
+      name
+      skinColors
+      filmConnection(first:1) { edges { node { title } } }
+      personConnection(first:1) { edges { node { name } } }
+    }
+  `;
+}
 
 describe('Species type', async () => {
   it('Gets an object by SWAPI ID', async () => {
@@ -69,12 +73,11 @@ describe('Species type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = `
-{
-  species(speciesID: 4) {
-    ${allSpeciesProperies}
-  }
-}`;
+    const query = getDocument(`{
+      species(speciesID: 4) {
+        ...AllSpeciesProperties
+      }
+    }`);
     const result = await swapi(query);
     const expected = {
       averageHeight: 170,
@@ -94,7 +97,9 @@ describe('Species type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = `{ allSpecies { edges { cursor, node { ${allSpeciesProperies} } } } }`;
+    const query = getDocument(
+      '{ allSpecies { edges { cursor, node { ...AllSpeciesProperties } } } }'
+    );
     const result = await swapi(query);
     expect(result.data.allSpecies.edges.length).to.equal(37);
   });

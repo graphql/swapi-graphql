@@ -13,19 +13,23 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
-const allPlanetProperties = `
-  name
-  diameter
-  rotationPeriod
-  orbitalPeriod
-  gravity
-  population
-  climates
-  terrains
-  surfaceWater
-  residentConnection(first:1) { edges { node { name } } }
-  filmConnection(first:1) { edges { node { title } } }
-`;
+function getDocument(query) {
+  return `${query}
+    fragment AllPlanetProperties on Planet {
+      climates
+      diameter
+      gravity
+      name
+      orbitalPeriod
+      population
+      rotationPeriod
+      surfaceWater
+      terrains
+      filmConnection(first:1) { edges { node { title } } }
+      residentConnection(first:1) { edges { node { name } } }
+    }
+  `;
+}
 
 describe('Planet type', async () => {
   it('Gets an object by SWAPI ID', async () => {
@@ -68,12 +72,11 @@ describe('Planet type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = `
-{
-  planet(planetID: 1) {
-    ${allPlanetProperties}
-  }
-}`;
+    const query = getDocument(`{
+      planet(planetID: 1) {
+        ...AllPlanetProperties
+      }
+    }`);
     const result = await swapi(query);
     const expected = {
       climates: [ 'arid' ],
@@ -92,7 +95,9 @@ describe('Planet type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = `{ allPlanets { edges { cursor, node { ${allPlanetProperties} } } } }`;
+    const query = getDocument(
+      '{ allPlanets { edges { cursor, node { ...AllPlanetProperties } } } }'
+    );
     const result = await swapi(query);
     expect(result.data.allPlanets.edges.length).to.equal(60);
   });

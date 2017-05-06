@@ -13,21 +13,25 @@ import { swapi } from './swapi';
 // 80+ char lines are useful in describe/it, so ignore in this file.
 /* eslint-disable max-len */
 
-const allPersonProperties = `
-  name
-  birthYear
-  eyeColor
-  gender
-  hairColor
-  height
-  mass
-  skinColor
-  homeworld { name }
-  filmConnection(first:1) { edges { node { title } } }
-  species { name }
-  starshipConnection(first:1) { edges { node { name } } }
-  vehicleConnection(first:1) { edges { node { name } } }
-`;
+function getDocument(query) {
+  return `${query}
+    fragment AllPersonProperties on Person {
+      birthYear
+      eyeColor
+      gender
+      hairColor
+      height
+      homeworld { name }
+      mass
+      name
+      skinColor
+      species { name }
+      filmConnection(first:1) { edges { node { title } } }
+      starshipConnection(first:1) { edges { node { name } } }
+      vehicleConnection(first:1) { edges { node { name } } }
+    }
+  `;
+}
 
 describe('Person type', async () => {
   it('Gets an object by SWAPI ID', async () => {
@@ -70,12 +74,11 @@ describe('Person type', async () => {
   });
 
   it('Gets all properties', async () => {
-    const query = `
-{
-  person(personID: 1) {
-    ${allPersonProperties}
-  }
-}`;
+    const query = getDocument(`{
+      person(personID: 1) {
+        ...AllPersonProperties
+      }
+    }`);
     const result = await swapi(query);
     const expected = {
       name: 'Luke Skywalker',
@@ -96,7 +99,9 @@ describe('Person type', async () => {
   });
 
   it('All objects query', async() => {
-    const query = `{ allPeople { edges { cursor, node { ${allPersonProperties} } } } }`;
+    const query = getDocument(
+      '{ allPeople { edges { cursor, node { ...AllPersonProperties } } } }'
+    );
     const result = await swapi(query);
     expect(result.data.allPeople.edges.length).to.equal(82);
   });
