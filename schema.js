@@ -95,7 +95,7 @@ exports.default = _assign2.default || function (target) {
 },{"../core-js/object/assign":1}],7:[function(require,module,exports){
 module.exports = require("regenerator-runtime");
 
-},{"regenerator-runtime":169}],8:[function(require,module,exports){
+},{"regenerator-runtime":171}],8:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -212,7 +212,6 @@ function fromByteArray (uint8) {
 }
 
 },{}],9:[function(require,module,exports){
-(function (global){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -225,80 +224,57 @@ function fromByteArray (uint8) {
 
 var base64 = require('base64-js')
 var ieee754 = require('ieee754')
-var isArray = require('isarray')
 
 exports.Buffer = Buffer
 exports.SlowBuffer = SlowBuffer
 exports.INSPECT_MAX_BYTES = 50
 
+var K_MAX_LENGTH = 0x7fffffff
+exports.kMaxLength = K_MAX_LENGTH
+
 /**
  * If `Buffer.TYPED_ARRAY_SUPPORT`:
  *   === true    Use Uint8Array implementation (fastest)
- *   === false   Use Object implementation (most compatible, even IE6)
+ *   === false   Print warning and recommend using `buffer` v4.x which has an Object
+ *               implementation (most compatible, even IE6)
  *
  * Browsers that support typed arrays are IE 10+, Firefox 4+, Chrome 7+, Safari 5.1+,
  * Opera 11.6+, iOS 4.2+.
  *
- * Due to various browser bugs, sometimes the Object implementation will be used even
- * when the browser supports typed arrays.
- *
- * Note:
- *
- *   - Firefox 4-29 lacks support for adding new properties to `Uint8Array` instances,
- *     See: https://bugzilla.mozilla.org/show_bug.cgi?id=695438.
- *
- *   - Chrome 9-10 is missing the `TypedArray.prototype.subarray` function.
- *
- *   - IE10 has a broken `TypedArray.prototype.subarray` function which returns arrays of
- *     incorrect length in some situations.
-
- * We detect these buggy browsers and set `Buffer.TYPED_ARRAY_SUPPORT` to `false` so they
- * get the Object implementation, which is slower but behaves correctly.
+ * We report that the browser does not support typed arrays if the are not subclassable
+ * using __proto__. Firefox 4-29 lacks support for adding new properties to `Uint8Array`
+ * (See: https://bugzilla.mozilla.org/show_bug.cgi?id=695438). IE 10 lacks support
+ * for __proto__ and has a buggy typed array implementation.
  */
-Buffer.TYPED_ARRAY_SUPPORT = global.TYPED_ARRAY_SUPPORT !== undefined
-  ? global.TYPED_ARRAY_SUPPORT
-  : typedArraySupport()
+Buffer.TYPED_ARRAY_SUPPORT = typedArraySupport()
 
-/*
- * Export kMaxLength after typed array support is determined.
- */
-exports.kMaxLength = kMaxLength()
+if (!Buffer.TYPED_ARRAY_SUPPORT && typeof console !== 'undefined' &&
+    typeof console.error === 'function') {
+  console.error(
+    'This browser lacks typed array (Uint8Array) support which is required by ' +
+    '`buffer` v5.x. Use `buffer` v4.x if you require old browser support.'
+  )
+}
 
 function typedArraySupport () {
+  // Can typed array instances can be augmented?
   try {
     var arr = new Uint8Array(1)
     arr.__proto__ = {__proto__: Uint8Array.prototype, foo: function () { return 42 }}
-    return arr.foo() === 42 && // typed array instances can be augmented
-        typeof arr.subarray === 'function' && // chrome 9-10 lack `subarray`
-        arr.subarray(1, 1).byteLength === 0 // ie10 has broken `subarray`
+    return arr.foo() === 42
   } catch (e) {
     return false
   }
 }
 
-function kMaxLength () {
-  return Buffer.TYPED_ARRAY_SUPPORT
-    ? 0x7fffffff
-    : 0x3fffffff
-}
-
-function createBuffer (that, length) {
-  if (kMaxLength() < length) {
+function createBuffer (length) {
+  if (length > K_MAX_LENGTH) {
     throw new RangeError('Invalid typed array length')
   }
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    // Return an augmented `Uint8Array` instance, for best performance
-    that = new Uint8Array(length)
-    that.__proto__ = Buffer.prototype
-  } else {
-    // Fallback: Return an object instance of the Buffer class
-    if (that === null) {
-      that = new Buffer(length)
-    }
-    that.length = length
-  }
-
-  return that
+  // Return an augmented `Uint8Array` instance
+  var buf = new Uint8Array(length)
+  buf.__proto__ = Buffer.prototype
+  return buf
 }
 
 /**
@@ -312,10 +288,6 @@ function createBuffer (that, length) {
  */
 
 function Buffer (arg, encodingOrOffset, length) {
-  if (!Buffer.TYPED_ARRAY_SUPPORT && !(this instanceof Buffer)) {
-    return new Buffer(arg, encodingOrOffset, length)
-  }
-
   // Common case.
   if (typeof arg === 'number') {
     if (typeof encodingOrOffset === 'string') {
@@ -323,33 +295,38 @@ function Buffer (arg, encodingOrOffset, length) {
         'If encoding is specified then the first argument must be a string'
       )
     }
-    return allocUnsafe(this, arg)
+    return allocUnsafe(arg)
   }
-  return from(this, arg, encodingOrOffset, length)
+  return from(arg, encodingOrOffset, length)
+}
+
+// Fix subarray() in ES2016. See: https://github.com/feross/buffer/pull/97
+if (typeof Symbol !== 'undefined' && Symbol.species &&
+    Buffer[Symbol.species] === Buffer) {
+  Object.defineProperty(Buffer, Symbol.species, {
+    value: null,
+    configurable: true,
+    enumerable: false,
+    writable: false
+  })
 }
 
 Buffer.poolSize = 8192 // not used by this implementation
 
-// TODO: Legacy, not needed anymore. Remove in next major version.
-Buffer._augment = function (arr) {
-  arr.__proto__ = Buffer.prototype
-  return arr
-}
-
-function from (that, value, encodingOrOffset, length) {
+function from (value, encodingOrOffset, length) {
   if (typeof value === 'number') {
     throw new TypeError('"value" argument must not be a number')
   }
 
-  if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) {
-    return fromArrayBuffer(that, value, encodingOrOffset, length)
+  if (value instanceof ArrayBuffer) {
+    return fromArrayBuffer(value, encodingOrOffset, length)
   }
 
   if (typeof value === 'string') {
-    return fromString(that, value, encodingOrOffset)
+    return fromString(value, encodingOrOffset)
   }
 
-  return fromObject(that, value)
+  return fromObject(value)
 }
 
 /**
@@ -361,21 +338,13 @@ function from (that, value, encodingOrOffset, length) {
  * Buffer.from(arrayBuffer[, byteOffset[, length]])
  **/
 Buffer.from = function (value, encodingOrOffset, length) {
-  return from(null, value, encodingOrOffset, length)
+  return from(value, encodingOrOffset, length)
 }
 
-if (Buffer.TYPED_ARRAY_SUPPORT) {
-  Buffer.prototype.__proto__ = Uint8Array.prototype
-  Buffer.__proto__ = Uint8Array
-  if (typeof Symbol !== 'undefined' && Symbol.species &&
-      Buffer[Symbol.species] === Buffer) {
-    // Fix subarray() in ES2016. See: https://github.com/feross/buffer/pull/97
-    Object.defineProperty(Buffer, Symbol.species, {
-      value: null,
-      configurable: true
-    })
-  }
-}
+// Note: Change prototype *after* Buffer.from is defined to workaround Chrome bug:
+// https://github.com/feross/buffer/pull/148
+Buffer.prototype.__proto__ = Uint8Array.prototype
+Buffer.__proto__ = Uint8Array
 
 function assertSize (size) {
   if (typeof size !== 'number') {
@@ -385,20 +354,20 @@ function assertSize (size) {
   }
 }
 
-function alloc (that, size, fill, encoding) {
+function alloc (size, fill, encoding) {
   assertSize(size)
   if (size <= 0) {
-    return createBuffer(that, size)
+    return createBuffer(size)
   }
   if (fill !== undefined) {
     // Only pay attention to encoding if it's a string. This
     // prevents accidentally sending in a number that would
     // be interpretted as a start offset.
     return typeof encoding === 'string'
-      ? createBuffer(that, size).fill(fill, encoding)
-      : createBuffer(that, size).fill(fill)
+      ? createBuffer(size).fill(fill, encoding)
+      : createBuffer(size).fill(fill)
   }
-  return createBuffer(that, size)
+  return createBuffer(size)
 }
 
 /**
@@ -406,34 +375,28 @@ function alloc (that, size, fill, encoding) {
  * alloc(size[, fill[, encoding]])
  **/
 Buffer.alloc = function (size, fill, encoding) {
-  return alloc(null, size, fill, encoding)
+  return alloc(size, fill, encoding)
 }
 
-function allocUnsafe (that, size) {
+function allocUnsafe (size) {
   assertSize(size)
-  that = createBuffer(that, size < 0 ? 0 : checked(size) | 0)
-  if (!Buffer.TYPED_ARRAY_SUPPORT) {
-    for (var i = 0; i < size; ++i) {
-      that[i] = 0
-    }
-  }
-  return that
+  return createBuffer(size < 0 ? 0 : checked(size) | 0)
 }
 
 /**
  * Equivalent to Buffer(num), by default creates a non-zero-filled Buffer instance.
  * */
 Buffer.allocUnsafe = function (size) {
-  return allocUnsafe(null, size)
+  return allocUnsafe(size)
 }
 /**
  * Equivalent to SlowBuffer(num), by default creates a non-zero-filled Buffer instance.
  */
 Buffer.allocUnsafeSlow = function (size) {
-  return allocUnsafe(null, size)
+  return allocUnsafe(size)
 }
 
-function fromString (that, string, encoding) {
+function fromString (string, encoding) {
   if (typeof encoding !== 'string' || encoding === '') {
     encoding = 'utf8'
   }
@@ -443,32 +406,30 @@ function fromString (that, string, encoding) {
   }
 
   var length = byteLength(string, encoding) | 0
-  that = createBuffer(that, length)
+  var buf = createBuffer(length)
 
-  var actual = that.write(string, encoding)
+  var actual = buf.write(string, encoding)
 
   if (actual !== length) {
     // Writing a hex string, for example, that contains invalid characters will
     // cause everything after the first invalid character to be ignored. (e.g.
     // 'abxxcd' will be treated as 'ab')
-    that = that.slice(0, actual)
+    buf = buf.slice(0, actual)
   }
 
-  return that
+  return buf
 }
 
-function fromArrayLike (that, array) {
+function fromArrayLike (array) {
   var length = array.length < 0 ? 0 : checked(array.length) | 0
-  that = createBuffer(that, length)
+  var buf = createBuffer(length)
   for (var i = 0; i < length; i += 1) {
-    that[i] = array[i] & 255
+    buf[i] = array[i] & 255
   }
-  return that
+  return buf
 }
 
-function fromArrayBuffer (that, array, byteOffset, length) {
-  array.byteLength // this throws if `array` is not a valid ArrayBuffer
-
+function fromArrayBuffer (array, byteOffset, length) {
   if (byteOffset < 0 || array.byteLength < byteOffset) {
     throw new RangeError('\'offset\' is out of bounds')
   }
@@ -477,49 +438,43 @@ function fromArrayBuffer (that, array, byteOffset, length) {
     throw new RangeError('\'length\' is out of bounds')
   }
 
+  var buf
   if (byteOffset === undefined && length === undefined) {
-    array = new Uint8Array(array)
+    buf = new Uint8Array(array)
   } else if (length === undefined) {
-    array = new Uint8Array(array, byteOffset)
+    buf = new Uint8Array(array, byteOffset)
   } else {
-    array = new Uint8Array(array, byteOffset, length)
+    buf = new Uint8Array(array, byteOffset, length)
   }
 
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    // Return an augmented `Uint8Array` instance, for best performance
-    that = array
-    that.__proto__ = Buffer.prototype
-  } else {
-    // Fallback: Return an object instance of the Buffer class
-    that = fromArrayLike(that, array)
-  }
-  return that
+  // Return an augmented `Uint8Array` instance
+  buf.__proto__ = Buffer.prototype
+  return buf
 }
 
-function fromObject (that, obj) {
+function fromObject (obj) {
   if (Buffer.isBuffer(obj)) {
     var len = checked(obj.length) | 0
-    that = createBuffer(that, len)
+    var buf = createBuffer(len)
 
-    if (that.length === 0) {
-      return that
+    if (buf.length === 0) {
+      return buf
     }
 
-    obj.copy(that, 0, 0, len)
-    return that
+    obj.copy(buf, 0, 0, len)
+    return buf
   }
 
   if (obj) {
-    if ((typeof ArrayBuffer !== 'undefined' &&
-        obj.buffer instanceof ArrayBuffer) || 'length' in obj) {
+    if (ArrayBuffer.isView(obj) || 'length' in obj) {
       if (typeof obj.length !== 'number' || isnan(obj.length)) {
-        return createBuffer(that, 0)
+        return createBuffer(0)
       }
-      return fromArrayLike(that, obj)
+      return fromArrayLike(obj)
     }
 
-    if (obj.type === 'Buffer' && isArray(obj.data)) {
-      return fromArrayLike(that, obj.data)
+    if (obj.type === 'Buffer' && Array.isArray(obj.data)) {
+      return fromArrayLike(obj.data)
     }
   }
 
@@ -527,11 +482,11 @@ function fromObject (that, obj) {
 }
 
 function checked (length) {
-  // Note: cannot use `length < kMaxLength()` here because that fails when
+  // Note: cannot use `length < K_MAX_LENGTH` here because that fails when
   // length is NaN (which is otherwise coerced to zero.)
-  if (length >= kMaxLength()) {
+  if (length >= K_MAX_LENGTH) {
     throw new RangeError('Attempt to allocate Buffer larger than maximum ' +
-                         'size: 0x' + kMaxLength().toString(16) + ' bytes')
+                         'size: 0x' + K_MAX_LENGTH.toString(16) + ' bytes')
   }
   return length | 0
 }
@@ -544,7 +499,7 @@ function SlowBuffer (length) {
 }
 
 Buffer.isBuffer = function isBuffer (b) {
-  return !!(b != null && b._isBuffer)
+  return b != null && b._isBuffer === true
 }
 
 Buffer.compare = function compare (a, b) {
@@ -590,7 +545,7 @@ Buffer.isEncoding = function isEncoding (encoding) {
 }
 
 Buffer.concat = function concat (list, length) {
-  if (!isArray(list)) {
+  if (!Array.isArray(list)) {
     throw new TypeError('"list" argument must be an Array of Buffers')
   }
 
@@ -623,8 +578,7 @@ function byteLength (string, encoding) {
   if (Buffer.isBuffer(string)) {
     return string.length
   }
-  if (typeof ArrayBuffer !== 'undefined' && typeof ArrayBuffer.isView === 'function' &&
-      (ArrayBuffer.isView(string) || string instanceof ArrayBuffer)) {
+  if (ArrayBuffer.isView(string) || string instanceof ArrayBuffer) {
     return string.byteLength
   }
   if (typeof string !== 'string') {
@@ -734,8 +688,12 @@ function slowToString (encoding, start, end) {
   }
 }
 
-// The property is used by `Buffer.isBuffer` and `is-buffer` (in Safari 5-7) to detect
-// Buffer instances.
+// This property is used by `Buffer.isBuffer` (and the `is-buffer` npm package)
+// to detect a Buffer instance. It's not possible to use `instanceof Buffer`
+// reliably in a browserify context because there could be multiple different
+// copies of the 'buffer' package in use. This method works even for Buffer
+// instances that were created from another copy of the `buffer` package.
+// See: https://github.com/feross/buffer/issues/154
 Buffer.prototype._isBuffer = true
 
 function swap (b, n, m) {
@@ -782,7 +740,7 @@ Buffer.prototype.swap64 = function swap64 () {
 }
 
 Buffer.prototype.toString = function toString () {
-  var length = this.length | 0
+  var length = this.length
   if (length === 0) return ''
   if (arguments.length === 0) return utf8Slice(this, 0, length)
   return slowToString.apply(this, arguments)
@@ -915,8 +873,7 @@ function bidirectionalIndexOf (buffer, val, byteOffset, encoding, dir) {
     return arrayIndexOf(buffer, val, byteOffset, encoding, dir)
   } else if (typeof val === 'number') {
     val = val & 0xFF // Search for a byte value [0-255]
-    if (Buffer.TYPED_ARRAY_SUPPORT &&
-        typeof Uint8Array.prototype.indexOf === 'function') {
+    if (typeof Uint8Array.prototype.indexOf === 'function') {
       if (dir) {
         return Uint8Array.prototype.indexOf.call(buffer, val, byteOffset)
       } else {
@@ -1057,15 +1014,14 @@ Buffer.prototype.write = function write (string, offset, length, encoding) {
     offset = 0
   // Buffer#write(string, offset[, length][, encoding])
   } else if (isFinite(offset)) {
-    offset = offset | 0
+    offset = offset >>> 0
     if (isFinite(length)) {
-      length = length | 0
+      length = length >>> 0
       if (encoding === undefined) encoding = 'utf8'
     } else {
       encoding = length
       length = undefined
     }
-  // legacy write(string, encoding, offset, length) - remove in v0.13
   } else {
     throw new Error(
       'Buffer.write(string, encoding, offset[, length]) is no longer supported'
@@ -1264,7 +1220,7 @@ function utf16leSlice (buf, start, end) {
   var bytes = buf.slice(start, end)
   var res = ''
   for (var i = 0; i < bytes.length; i += 2) {
-    res += String.fromCharCode(bytes[i] + bytes[i + 1] * 256)
+    res += String.fromCharCode(bytes[i] + (bytes[i + 1] * 256))
   }
   return res
 }
@@ -1290,18 +1246,9 @@ Buffer.prototype.slice = function slice (start, end) {
 
   if (end < start) end = start
 
-  var newBuf
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    newBuf = this.subarray(start, end)
-    newBuf.__proto__ = Buffer.prototype
-  } else {
-    var sliceLen = end - start
-    newBuf = new Buffer(sliceLen, undefined)
-    for (var i = 0; i < sliceLen; ++i) {
-      newBuf[i] = this[i + start]
-    }
-  }
-
+  var newBuf = this.subarray(start, end)
+  // Return an augmented `Uint8Array` instance
+  newBuf.__proto__ = Buffer.prototype
   return newBuf
 }
 
@@ -1314,8 +1261,8 @@ function checkOffset (offset, ext, length) {
 }
 
 Buffer.prototype.readUIntLE = function readUIntLE (offset, byteLength, noAssert) {
-  offset = offset | 0
-  byteLength = byteLength | 0
+  offset = offset >>> 0
+  byteLength = byteLength >>> 0
   if (!noAssert) checkOffset(offset, byteLength, this.length)
 
   var val = this[offset]
@@ -1329,8 +1276,8 @@ Buffer.prototype.readUIntLE = function readUIntLE (offset, byteLength, noAssert)
 }
 
 Buffer.prototype.readUIntBE = function readUIntBE (offset, byteLength, noAssert) {
-  offset = offset | 0
-  byteLength = byteLength | 0
+  offset = offset >>> 0
+  byteLength = byteLength >>> 0
   if (!noAssert) {
     checkOffset(offset, byteLength, this.length)
   }
@@ -1345,21 +1292,25 @@ Buffer.prototype.readUIntBE = function readUIntBE (offset, byteLength, noAssert)
 }
 
 Buffer.prototype.readUInt8 = function readUInt8 (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 1, this.length)
   return this[offset]
 }
 
 Buffer.prototype.readUInt16LE = function readUInt16LE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 2, this.length)
   return this[offset] | (this[offset + 1] << 8)
 }
 
 Buffer.prototype.readUInt16BE = function readUInt16BE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 2, this.length)
   return (this[offset] << 8) | this[offset + 1]
 }
 
 Buffer.prototype.readUInt32LE = function readUInt32LE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 4, this.length)
 
   return ((this[offset]) |
@@ -1369,6 +1320,7 @@ Buffer.prototype.readUInt32LE = function readUInt32LE (offset, noAssert) {
 }
 
 Buffer.prototype.readUInt32BE = function readUInt32BE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 4, this.length)
 
   return (this[offset] * 0x1000000) +
@@ -1378,8 +1330,8 @@ Buffer.prototype.readUInt32BE = function readUInt32BE (offset, noAssert) {
 }
 
 Buffer.prototype.readIntLE = function readIntLE (offset, byteLength, noAssert) {
-  offset = offset | 0
-  byteLength = byteLength | 0
+  offset = offset >>> 0
+  byteLength = byteLength >>> 0
   if (!noAssert) checkOffset(offset, byteLength, this.length)
 
   var val = this[offset]
@@ -1396,8 +1348,8 @@ Buffer.prototype.readIntLE = function readIntLE (offset, byteLength, noAssert) {
 }
 
 Buffer.prototype.readIntBE = function readIntBE (offset, byteLength, noAssert) {
-  offset = offset | 0
-  byteLength = byteLength | 0
+  offset = offset >>> 0
+  byteLength = byteLength >>> 0
   if (!noAssert) checkOffset(offset, byteLength, this.length)
 
   var i = byteLength
@@ -1414,24 +1366,28 @@ Buffer.prototype.readIntBE = function readIntBE (offset, byteLength, noAssert) {
 }
 
 Buffer.prototype.readInt8 = function readInt8 (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 1, this.length)
   if (!(this[offset] & 0x80)) return (this[offset])
   return ((0xff - this[offset] + 1) * -1)
 }
 
 Buffer.prototype.readInt16LE = function readInt16LE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 2, this.length)
   var val = this[offset] | (this[offset + 1] << 8)
   return (val & 0x8000) ? val | 0xFFFF0000 : val
 }
 
 Buffer.prototype.readInt16BE = function readInt16BE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 2, this.length)
   var val = this[offset + 1] | (this[offset] << 8)
   return (val & 0x8000) ? val | 0xFFFF0000 : val
 }
 
 Buffer.prototype.readInt32LE = function readInt32LE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 4, this.length)
 
   return (this[offset]) |
@@ -1441,6 +1397,7 @@ Buffer.prototype.readInt32LE = function readInt32LE (offset, noAssert) {
 }
 
 Buffer.prototype.readInt32BE = function readInt32BE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 4, this.length)
 
   return (this[offset] << 24) |
@@ -1450,21 +1407,25 @@ Buffer.prototype.readInt32BE = function readInt32BE (offset, noAssert) {
 }
 
 Buffer.prototype.readFloatLE = function readFloatLE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 4, this.length)
   return ieee754.read(this, offset, true, 23, 4)
 }
 
 Buffer.prototype.readFloatBE = function readFloatBE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 4, this.length)
   return ieee754.read(this, offset, false, 23, 4)
 }
 
 Buffer.prototype.readDoubleLE = function readDoubleLE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 8, this.length)
   return ieee754.read(this, offset, true, 52, 8)
 }
 
 Buffer.prototype.readDoubleBE = function readDoubleBE (offset, noAssert) {
+  offset = offset >>> 0
   if (!noAssert) checkOffset(offset, 8, this.length)
   return ieee754.read(this, offset, false, 52, 8)
 }
@@ -1477,8 +1438,8 @@ function checkInt (buf, value, offset, ext, max, min) {
 
 Buffer.prototype.writeUIntLE = function writeUIntLE (value, offset, byteLength, noAssert) {
   value = +value
-  offset = offset | 0
-  byteLength = byteLength | 0
+  offset = offset >>> 0
+  byteLength = byteLength >>> 0
   if (!noAssert) {
     var maxBytes = Math.pow(2, 8 * byteLength) - 1
     checkInt(this, value, offset, byteLength, maxBytes, 0)
@@ -1496,8 +1457,8 @@ Buffer.prototype.writeUIntLE = function writeUIntLE (value, offset, byteLength, 
 
 Buffer.prototype.writeUIntBE = function writeUIntBE (value, offset, byteLength, noAssert) {
   value = +value
-  offset = offset | 0
-  byteLength = byteLength | 0
+  offset = offset >>> 0
+  byteLength = byteLength >>> 0
   if (!noAssert) {
     var maxBytes = Math.pow(2, 8 * byteLength) - 1
     checkInt(this, value, offset, byteLength, maxBytes, 0)
@@ -1515,89 +1476,57 @@ Buffer.prototype.writeUIntBE = function writeUIntBE (value, offset, byteLength, 
 
 Buffer.prototype.writeUInt8 = function writeUInt8 (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 1, 0xff, 0)
-  if (!Buffer.TYPED_ARRAY_SUPPORT) value = Math.floor(value)
   this[offset] = (value & 0xff)
   return offset + 1
 }
 
-function objectWriteUInt16 (buf, value, offset, littleEndian) {
-  if (value < 0) value = 0xffff + value + 1
-  for (var i = 0, j = Math.min(buf.length - offset, 2); i < j; ++i) {
-    buf[offset + i] = (value & (0xff << (8 * (littleEndian ? i : 1 - i)))) >>>
-      (littleEndian ? i : 1 - i) * 8
-  }
-}
-
 Buffer.prototype.writeUInt16LE = function writeUInt16LE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 2, 0xffff, 0)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value & 0xff)
-    this[offset + 1] = (value >>> 8)
-  } else {
-    objectWriteUInt16(this, value, offset, true)
-  }
+  this[offset] = (value & 0xff)
+  this[offset + 1] = (value >>> 8)
   return offset + 2
 }
 
 Buffer.prototype.writeUInt16BE = function writeUInt16BE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 2, 0xffff, 0)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value >>> 8)
-    this[offset + 1] = (value & 0xff)
-  } else {
-    objectWriteUInt16(this, value, offset, false)
-  }
+  this[offset] = (value >>> 8)
+  this[offset + 1] = (value & 0xff)
   return offset + 2
-}
-
-function objectWriteUInt32 (buf, value, offset, littleEndian) {
-  if (value < 0) value = 0xffffffff + value + 1
-  for (var i = 0, j = Math.min(buf.length - offset, 4); i < j; ++i) {
-    buf[offset + i] = (value >>> (littleEndian ? i : 3 - i) * 8) & 0xff
-  }
 }
 
 Buffer.prototype.writeUInt32LE = function writeUInt32LE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 4, 0xffffffff, 0)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset + 3] = (value >>> 24)
-    this[offset + 2] = (value >>> 16)
-    this[offset + 1] = (value >>> 8)
-    this[offset] = (value & 0xff)
-  } else {
-    objectWriteUInt32(this, value, offset, true)
-  }
+  this[offset + 3] = (value >>> 24)
+  this[offset + 2] = (value >>> 16)
+  this[offset + 1] = (value >>> 8)
+  this[offset] = (value & 0xff)
   return offset + 4
 }
 
 Buffer.prototype.writeUInt32BE = function writeUInt32BE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 4, 0xffffffff, 0)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value >>> 24)
-    this[offset + 1] = (value >>> 16)
-    this[offset + 2] = (value >>> 8)
-    this[offset + 3] = (value & 0xff)
-  } else {
-    objectWriteUInt32(this, value, offset, false)
-  }
+  this[offset] = (value >>> 24)
+  this[offset + 1] = (value >>> 16)
+  this[offset + 2] = (value >>> 8)
+  this[offset + 3] = (value & 0xff)
   return offset + 4
 }
 
 Buffer.prototype.writeIntLE = function writeIntLE (value, offset, byteLength, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) {
-    var limit = Math.pow(2, 8 * byteLength - 1)
+    var limit = Math.pow(2, (8 * byteLength) - 1)
 
     checkInt(this, value, offset, byteLength, limit - 1, -limit)
   }
@@ -1618,9 +1547,9 @@ Buffer.prototype.writeIntLE = function writeIntLE (value, offset, byteLength, no
 
 Buffer.prototype.writeIntBE = function writeIntBE (value, offset, byteLength, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) {
-    var limit = Math.pow(2, 8 * byteLength - 1)
+    var limit = Math.pow(2, (8 * byteLength) - 1)
 
     checkInt(this, value, offset, byteLength, limit - 1, -limit)
   }
@@ -1641,9 +1570,8 @@ Buffer.prototype.writeIntBE = function writeIntBE (value, offset, byteLength, no
 
 Buffer.prototype.writeInt8 = function writeInt8 (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 1, 0x7f, -0x80)
-  if (!Buffer.TYPED_ARRAY_SUPPORT) value = Math.floor(value)
   if (value < 0) value = 0xff + value + 1
   this[offset] = (value & 0xff)
   return offset + 1
@@ -1651,58 +1579,42 @@ Buffer.prototype.writeInt8 = function writeInt8 (value, offset, noAssert) {
 
 Buffer.prototype.writeInt16LE = function writeInt16LE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 2, 0x7fff, -0x8000)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value & 0xff)
-    this[offset + 1] = (value >>> 8)
-  } else {
-    objectWriteUInt16(this, value, offset, true)
-  }
+  this[offset] = (value & 0xff)
+  this[offset + 1] = (value >>> 8)
   return offset + 2
 }
 
 Buffer.prototype.writeInt16BE = function writeInt16BE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 2, 0x7fff, -0x8000)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value >>> 8)
-    this[offset + 1] = (value & 0xff)
-  } else {
-    objectWriteUInt16(this, value, offset, false)
-  }
+  this[offset] = (value >>> 8)
+  this[offset + 1] = (value & 0xff)
   return offset + 2
 }
 
 Buffer.prototype.writeInt32LE = function writeInt32LE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 4, 0x7fffffff, -0x80000000)
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value & 0xff)
-    this[offset + 1] = (value >>> 8)
-    this[offset + 2] = (value >>> 16)
-    this[offset + 3] = (value >>> 24)
-  } else {
-    objectWriteUInt32(this, value, offset, true)
-  }
+  this[offset] = (value & 0xff)
+  this[offset + 1] = (value >>> 8)
+  this[offset + 2] = (value >>> 16)
+  this[offset + 3] = (value >>> 24)
   return offset + 4
 }
 
 Buffer.prototype.writeInt32BE = function writeInt32BE (value, offset, noAssert) {
   value = +value
-  offset = offset | 0
+  offset = offset >>> 0
   if (!noAssert) checkInt(this, value, offset, 4, 0x7fffffff, -0x80000000)
   if (value < 0) value = 0xffffffff + value + 1
-  if (Buffer.TYPED_ARRAY_SUPPORT) {
-    this[offset] = (value >>> 24)
-    this[offset + 1] = (value >>> 16)
-    this[offset + 2] = (value >>> 8)
-    this[offset + 3] = (value & 0xff)
-  } else {
-    objectWriteUInt32(this, value, offset, false)
-  }
+  this[offset] = (value >>> 24)
+  this[offset + 1] = (value >>> 16)
+  this[offset + 2] = (value >>> 8)
+  this[offset + 3] = (value & 0xff)
   return offset + 4
 }
 
@@ -1712,6 +1624,8 @@ function checkIEEE754 (buf, value, offset, ext, max, min) {
 }
 
 function writeFloat (buf, value, offset, littleEndian, noAssert) {
+  value = +value
+  offset = offset >>> 0
   if (!noAssert) {
     checkIEEE754(buf, value, offset, 4, 3.4028234663852886e+38, -3.4028234663852886e+38)
   }
@@ -1728,6 +1642,8 @@ Buffer.prototype.writeFloatBE = function writeFloatBE (value, offset, noAssert) 
 }
 
 function writeDouble (buf, value, offset, littleEndian, noAssert) {
+  value = +value
+  offset = offset >>> 0
   if (!noAssert) {
     checkIEEE754(buf, value, offset, 8, 1.7976931348623157E+308, -1.7976931348623157E+308)
   }
@@ -1776,7 +1692,7 @@ Buffer.prototype.copy = function copy (target, targetStart, start, end) {
     for (i = len - 1; i >= 0; --i) {
       target[i + targetStart] = this[i + start]
     }
-  } else if (len < 1000 || !Buffer.TYPED_ARRAY_SUPPORT) {
+  } else if (len < 1000) {
     // ascending copy from start
     for (i = 0; i < len; ++i) {
       target[i + targetStart] = this[i + start]
@@ -1845,7 +1761,7 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
   } else {
     var bytes = Buffer.isBuffer(val)
       ? val
-      : utf8ToBytes(new Buffer(val, encoding).toString())
+      : new Buffer(val, encoding)
     var len = bytes.length
     for (i = 0; i < end - start; ++i) {
       this[i + start] = bytes[i % len]
@@ -1858,7 +1774,7 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
 // HELPER FUNCTIONS
 // ================
 
-var INVALID_BASE64_RE = /[^+\/0-9A-Za-z-_]/g
+var INVALID_BASE64_RE = /[^+/0-9A-Za-z-_]/g
 
 function base64clean (str) {
   // Node strips out invalid characters like \n and \t from the string, base64-js does not
@@ -2003,8 +1919,7 @@ function isnan (val) {
   return val !== val // eslint-disable-line no-self-compare
 }
 
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":8,"ieee754":165,"isarray":166}],10:[function(require,module,exports){
+},{"base64-js":8,"ieee754":168}],10:[function(require,module,exports){
 require('../../modules/es6.object.assign');
 module.exports = require('../../modules/_core').Object.assign;
 },{"../../modules/_core":20,"../../modules/es6.object.assign":75}],11:[function(require,module,exports){
@@ -3257,29 +3172,11 @@ for(var collections = ['NodeList', 'DOMTokenList', 'MediaList', 'StyleSheetList'
 }
 },{"./_global":29,"./_hide":31,"./_iterators":43,"./_wks":72,"./es6.array.iterator":74}],81:[function(require,module,exports){
 (function (process){
-
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- */
-
-// A Function, which when given an Array of keys, returns a Promise of an Array
-// of values or Errors.
 'use strict';
 
-// Optionally turn off batching or caching or provide a cache key function or a
-// custom cache instance.
-Object.defineProperty(exports, '__esModule', {
-  value: true
-});
+exports.__esModule = true;
 
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /**
  * A `DataLoader` creates a public API for loading data from a particular
@@ -3292,7 +3189,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
  * web request.
  */
 
-var DataLoader = (function () {
+
+// Optionally turn off batching or caching or provide a cache key function or a
+// custom cache instance.
+var DataLoader = function () {
   function DataLoader(batchLoadFn, options) {
     _classCallCheck(this, DataLoader);
 
@@ -3305,165 +3205,178 @@ var DataLoader = (function () {
     this._queue = [];
   }
 
-  // Private: Enqueue a Job to be executed after all "PromiseJobs" Jobs.
-  //
-  // ES6 JavaScript uses the concepts Job and JobQueue to schedule work to occur
-  // after the current execution context has completed:
-  // http://www.ecma-international.org/ecma-262/6.0/#sec-jobs-and-job-queues
-  //
-  // Node.js uses the `process.nextTick` mechanism to implement the concept of a
-  // Job, maintaining a global FIFO JobQueue for all Jobs, which is flushed after
-  // the current call stack ends.
-  //
-  // When calling `then` on a Promise, it enqueues a Job on a specific
-  // "PromiseJobs" JobQueue which is flushed in Node as a single Job on the
-  // global JobQueue.
-  //
-  // DataLoader batches all loads which occur in a single frame of execution, but
-  // should include in the batch all loads which occur during the flushing of the
-  // "PromiseJobs" JobQueue after that same execution frame.
-  //
-  // In order to avoid the DataLoader dispatch Job occuring before "PromiseJobs",
-  // A Promise Job is created with the sole purpose of enqueuing a global Job,
-  // ensuring that it always occurs after "PromiseJobs" ends.
-
   // Private
 
-  _createClass(DataLoader, [{
-    key: 'load',
 
-    /**
-     * Loads a key, returning a `Promise` for the value represented by that key.
-     */
-    value: function load(key) {
-      var _this = this;
+  /**
+   * Loads a key, returning a `Promise` for the value represented by that key.
+   */
+  DataLoader.prototype.load = function load(key) {
+    var _this = this;
 
-      if (key === null || key === undefined) {
-        throw new TypeError('The loader.load() function must be called with a value,' + ('but got: ' + key + '.'));
+    if (key === null || key === undefined) {
+      throw new TypeError('The loader.load() function must be called with a value,' + ('but got: ' + String(key) + '.'));
+    }
+
+    // Determine options
+    var options = this._options;
+    var shouldBatch = !options || options.batch !== false;
+    var shouldCache = !options || options.cache !== false;
+    var cacheKeyFn = options && options.cacheKeyFn;
+    var cacheKey = cacheKeyFn ? cacheKeyFn(key) : key;
+
+    // If caching and there is a cache-hit, return cached Promise.
+    if (shouldCache) {
+      var cachedPromise = this._promiseCache.get(cacheKey);
+      if (cachedPromise) {
+        return cachedPromise;
       }
+    }
 
-      // Determine options
-      var options = this._options;
-      var shouldBatch = !options || options.batch !== false;
-      var shouldCache = !options || options.cache !== false;
-      var cacheKeyFn = options && options.cacheKeyFn;
-      var cacheKey = cacheKeyFn ? cacheKeyFn(key) : key;
+    // Otherwise, produce a new Promise for this value.
+    var promise = new Promise(function (resolve, reject) {
+      // Enqueue this Promise to be dispatched.
+      _this._queue.push({ key: key, resolve: resolve, reject: reject });
 
-      // If caching and there is a cache-hit, return cached Promise.
-      if (shouldCache) {
-        var cachedPromise = this._promiseCache.get(cacheKey);
-        if (cachedPromise) {
-          return cachedPromise;
+      // Determine if a dispatch of this queue should be scheduled.
+      // A single dispatch should be scheduled per queue at the time when the
+      // queue changes from "empty" to "full".
+      if (_this._queue.length === 1) {
+        if (shouldBatch) {
+          // If batching, schedule a task to dispatch the queue.
+          enqueuePostPromiseJob(function () {
+            return dispatchQueue(_this);
+          });
+        } else {
+          // Otherwise dispatch the (queue of one) immediately.
+          dispatchQueue(_this);
         }
       }
+    });
 
-      // Otherwise, produce a new Promise for this value.
-      var promise = new Promise(function (resolve, reject) {
-        // Enqueue this Promise to be dispatched.
-        _this._queue.push({ key: key, resolve: resolve, reject: reject });
-
-        // Determine if a dispatch of this queue should be scheduled.
-        // A single dispatch should be scheduled per queue at the time when the
-        // queue changes from "empty" to "full".
-        if (_this._queue.length === 1) {
-          if (shouldBatch) {
-            // If batching, schedule a task to dispatch the queue.
-            enqueuePostPromiseJob(function () {
-              return dispatchQueue(_this);
-            });
-          } else {
-            // Otherwise dispatch the (queue of one) immediately.
-            dispatchQueue(_this);
-          }
-        }
-      });
-
-      // If caching, cache this promise.
-      if (shouldCache) {
-        this._promiseCache.set(cacheKey, promise);
-      }
-
-      return promise;
+    // If caching, cache this promise.
+    if (shouldCache) {
+      this._promiseCache.set(cacheKey, promise);
     }
 
-    /**
-     * Loads multiple keys, promising an array of values:
-     *
-     *     var [ a, b ] = await myLoader.loadMany([ 'a', 'b' ]);
-     *
-     * This is equivalent to the more verbose:
-     *
-     *     var [ a, b ] = await Promise.all([
-     *       myLoader.load('a'),
-     *       myLoader.load('b')
-     *     ]);
-     *
-     */
-  }, {
-    key: 'loadMany',
-    value: function loadMany(keys) {
-      var _this2 = this;
+    return promise;
+  };
 
-      if (!Array.isArray(keys)) {
-        throw new TypeError('The loader.loadMany() function must be called with Array<key> ' + ('but got: ' + keys + '.'));
-      }
-      return Promise.all(keys.map(function (key) {
-        return _this2.load(key);
-      }));
+  /**
+   * Loads multiple keys, promising an array of values:
+   *
+   *     var [ a, b ] = await myLoader.loadMany([ 'a', 'b' ]);
+   *
+   * This is equivalent to the more verbose:
+   *
+   *     var [ a, b ] = await Promise.all([
+   *       myLoader.load('a'),
+   *       myLoader.load('b')
+   *     ]);
+   *
+   */
+
+
+  DataLoader.prototype.loadMany = function loadMany(keys) {
+    var _this2 = this;
+
+    if (!Array.isArray(keys)) {
+      throw new TypeError('The loader.loadMany() function must be called with Array<key> ' + ('but got: ' + keys + '.'));
+    }
+    return Promise.all(keys.map(function (key) {
+      return _this2.load(key);
+    }));
+  };
+
+  /**
+   * Clears the value at `key` from the cache, if it exists. Returns itself for
+   * method chaining.
+   */
+
+
+  DataLoader.prototype.clear = function clear(key) {
+    var cacheKeyFn = this._options && this._options.cacheKeyFn;
+    var cacheKey = cacheKeyFn ? cacheKeyFn(key) : key;
+    this._promiseCache.delete(cacheKey);
+    return this;
+  };
+
+  /**
+   * Clears the entire cache. To be used when some event results in unknown
+   * invalidations across this particular `DataLoader`. Returns itself for
+   * method chaining.
+   */
+
+
+  DataLoader.prototype.clearAll = function clearAll() {
+    this._promiseCache.clear();
+    return this;
+  };
+
+  /**
+   * Adds the provied key and value to the cache. If the key already exists, no
+   * change is made. Returns itself for method chaining.
+   */
+
+
+  DataLoader.prototype.prime = function prime(key, value) {
+    var cacheKeyFn = this._options && this._options.cacheKeyFn;
+    var cacheKey = cacheKeyFn ? cacheKeyFn(key) : key;
+
+    // Only add the key if it does not already exist.
+    if (this._promiseCache.get(cacheKey) === undefined) {
+      // Cache a rejected promise if the value is an Error, in order to match
+      // the behavior of load(key).
+      var promise = value instanceof Error ? Promise.reject(value) : Promise.resolve(value);
+
+      this._promiseCache.set(cacheKey, promise);
     }
 
-    /**
-     * Clears the value at `key` from the cache, if it exists. Returns itself for
-     * method chaining.
-     */
-  }, {
-    key: 'clear',
-    value: function clear(key) {
-      var cacheKeyFn = this._options && this._options.cacheKeyFn;
-      var cacheKey = cacheKeyFn ? cacheKeyFn(key) : key;
-      this._promiseCache['delete'](cacheKey);
-      return this;
-    }
-
-    /**
-     * Clears the entire cache. To be used when some event results in unknown
-     * invalidations across this particular `DataLoader`. Returns itself for
-     * method chaining.
-     */
-  }, {
-    key: 'clearAll',
-    value: function clearAll() {
-      this._promiseCache.clear();
-      return this;
-    }
-
-    /**
-     * Adds the provied key and value to the cache. If the key already exists, no
-     * change is made. Returns itself for method chaining.
-     */
-  }, {
-    key: 'prime',
-    value: function prime(key, value) {
-      var cacheKeyFn = this._options && this._options.cacheKeyFn;
-      var cacheKey = cacheKeyFn ? cacheKeyFn(key) : key;
-
-      // Only add the key if it does not already exist.
-      if (this._promiseCache.get(cacheKey) === undefined) {
-        // Cache a rejected promise if the value is an Error, in order to match
-        // the behavior of load(key).
-        var promise = value instanceof Error ? Promise.reject(value) : Promise.resolve(value);
-
-        this._promiseCache.set(cacheKey, promise);
-      }
-
-      return this;
-    }
-  }]);
+    return this;
+  };
 
   return DataLoader;
-})();
+}();
 
-exports['default'] = DataLoader;
+// Private: Enqueue a Job to be executed after all "PromiseJobs" Jobs.
+//
+// ES6 JavaScript uses the concepts Job and JobQueue to schedule work to occur
+// after the current execution context has completed:
+// http://www.ecma-international.org/ecma-262/6.0/#sec-jobs-and-job-queues
+//
+// Node.js uses the `process.nextTick` mechanism to implement the concept of a
+// Job, maintaining a global FIFO JobQueue for all Jobs, which is flushed after
+// the current call stack ends.
+//
+// When calling `then` on a Promise, it enqueues a Job on a specific
+// "PromiseJobs" JobQueue which is flushed in Node as a single Job on the
+// global JobQueue.
+//
+// DataLoader batches all loads which occur in a single frame of execution, but
+// should include in the batch all loads which occur during the flushing of the
+// "PromiseJobs" JobQueue after that same execution frame.
+//
+// In order to avoid the DataLoader dispatch Job occuring before "PromiseJobs",
+// A Promise Job is created with the sole purpose of enqueuing a global Job,
+// ensuring that it always occurs after "PromiseJobs" ends.
+
+
+// If a custom cache is provided, it must be of this type (a subset of ES6 Map).
+
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+// A Function, which when given an Array of keys, returns a Promise of an Array
+// of values or Errors.
+
+
+exports.default = DataLoader;
 function enqueuePostPromiseJob(fn) {
   if (!resolvedPromise) {
     resolvedPromise = Promise.resolve();
@@ -3483,6 +3396,19 @@ function dispatchQueue(loader) {
   var queue = loader._queue;
   loader._queue = [];
 
+  // If a maxBatchSize was provided and the queue is longer, then segment the
+  // queue into multiple batches, otherwise treat the queue as a single batch.
+  var maxBatchSize = loader._options && loader._options.maxBatchSize;
+  if (maxBatchSize && maxBatchSize > 0 && maxBatchSize < queue.length) {
+    for (var i = 0; i < queue.length / maxBatchSize; i++) {
+      dispatchQueueBatch(loader, queue.slice(i * maxBatchSize, (i + 1) * maxBatchSize));
+    }
+  } else {
+    dispatchQueueBatch(loader, queue);
+  }
+}
+
+function dispatchQueueBatch(loader, queue) {
   // Collect all keys to be loaded in this dispatch
   var keys = queue.map(function (_ref) {
     var key = _ref.key;
@@ -3495,7 +3421,7 @@ function dispatchQueue(loader) {
 
   // Assert the expected response from batchLoadFn
   if (!batchPromise || typeof batchPromise.then !== 'function') {
-    return failedDispatch(loader, queue, new TypeError('DataLoader must be constructed with a function which accepts ' + 'Array<key> and returns Promise<Array<value>>, but the function did ' + ('not return a Promise: ' + batchPromise + '.')));
+    return failedDispatch(loader, queue, new TypeError('DataLoader must be constructed with a function which accepts ' + 'Array<key> and returns Promise<Array<value>>, but the function did ' + ('not return a Promise: ' + String(batchPromise) + '.')));
   }
 
   // Await the resolution of the call to batchLoadFn.
@@ -3503,10 +3429,10 @@ function dispatchQueue(loader) {
 
     // Assert the expected resolution from batchLoadFn.
     if (!Array.isArray(values)) {
-      throw new Error('DataLoader must be constructed with a function which accepts ' + 'Array<key> and returns Promise<Array<value>>, but the function did ' + ('not return a Promise of an Array: ' + values + '.'));
+      throw new TypeError('DataLoader must be constructed with a function which accepts ' + 'Array<key> and returns Promise<Array<value>>, but the function did ' + ('not return a Promise of an Array: ' + String(values) + '.'));
     }
     if (values.length !== keys.length) {
-      throw new Error('DataLoader must be constructed with a function which accepts ' + 'Array<key> and returns Promise<Array<value>>, but the function did ' + 'not return a Promise of an Array of the same length as the Array ' + 'of keys.' + ('\n\nKeys:\n' + keys) + ('\n\nValues:\n' + values));
+      throw new TypeError('DataLoader must be constructed with a function which accepts ' + 'Array<key> and returns Promise<Array<value>>, but the function did ' + 'not return a Promise of an Array of the same length as the Array ' + 'of keys.' + ('\n\nKeys:\n' + String(keys)) + ('\n\nValues:\n' + String(values)));
     }
 
     // Step through the values, resolving or rejecting each Promise in the
@@ -3523,7 +3449,7 @@ function dispatchQueue(loader) {
         resolve(value);
       }
     });
-  })['catch'](function (error) {
+  }).catch(function (error) {
     return failedDispatch(loader, queue, error);
   });
 }
@@ -3543,7 +3469,7 @@ function failedDispatch(loader, queue, error) {
 // Private
 module.exports = exports['default'];
 }).call(this,require('_process'))
-},{"_process":168}],82:[function(require,module,exports){
+},{"_process":170}],82:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3602,12 +3528,12 @@ function connectionFromPromisedArray(dataPromise, args) {
  * total result large enough to cover the range specified in `args`.
  */
 function connectionFromArraySlice(arraySlice, args, meta) {
-  var after = args.after;
-  var before = args.before;
-  var first = args.first;
-  var last = args.last;
-  var sliceStart = meta.sliceStart;
-  var arrayLength = meta.arrayLength;
+  var after = args.after,
+      before = args.before,
+      first = args.first,
+      last = args.last;
+  var sliceStart = meta.sliceStart,
+      arrayLength = meta.arrayLength;
 
   var sliceEnd = sliceStart + arraySlice.length;
   var beforeOffset = getOffsetWithDefault(before, arrayLength);
@@ -3712,15 +3638,19 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.connectionArgs = exports.backwardConnectionArgs = exports.forwardConnectionArgs = undefined;
 
-var _extends2 = require('babel-runtime/helpers/extends');
-
-var _extends3 = _interopRequireDefault(_extends2);
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
 
 exports.connectionDefinitions = connectionDefinitions;
 
 var _graphql = require('graphql');
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
  * Returns a GraphQLFieldConfigArgumentMap appropriate to include on a field
@@ -3739,16 +3669,6 @@ var forwardConnectionArgs = exports.forwardConnectionArgs = {
  * Returns a GraphQLFieldConfigArgumentMap appropriate to include on a field
  * whose return type is a connection type with backward pagination.
  */
-
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- */
-
 var backwardConnectionArgs = exports.backwardConnectionArgs = {
   before: {
     type: _graphql.GraphQLString
@@ -3762,7 +3682,7 @@ var backwardConnectionArgs = exports.backwardConnectionArgs = {
  * Returns a GraphQLFieldConfigArgumentMap appropriate to include on a field
  * whose return type is a connection type with bidirectional pagination.
  */
-var connectionArgs = exports.connectionArgs = (0, _extends3.default)({}, forwardConnectionArgs, backwardConnectionArgs);
+var connectionArgs = exports.connectionArgs = _extends({}, forwardConnectionArgs, backwardConnectionArgs);
 
 function resolveMaybeThunk(thingOrThunk) {
   return typeof thingOrThunk === 'function' ? thingOrThunk() : thingOrThunk;
@@ -3784,7 +3704,7 @@ function connectionDefinitions(config) {
     name: name + 'Edge',
     description: 'An edge in a connection.',
     fields: function fields() {
-      return (0, _extends3.default)({
+      return _extends({
         node: {
           type: nodeType,
           resolve: resolveNode,
@@ -3803,7 +3723,7 @@ function connectionDefinitions(config) {
     name: name + 'Connection',
     description: 'A connection to a list of items.',
     fields: function fields() {
-      return (0, _extends3.default)({
+      return _extends({
         pageInfo: {
           type: new _graphql.GraphQLNonNull(pageInfoType),
           description: 'Information to aid in pagination.'
@@ -3846,7 +3766,7 @@ var pageInfoType = new _graphql.GraphQLObjectType({
     };
   }
 });
-},{"babel-runtime/helpers/extends":6,"graphql":98}],84:[function(require,module,exports){
+},{"graphql":98}],84:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3982,19 +3902,19 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _promise = require('babel-runtime/core-js/promise');
-
-var _promise2 = _interopRequireDefault(_promise);
-
-var _extends2 = require('babel-runtime/helpers/extends');
-
-var _extends3 = _interopRequireDefault(_extends2);
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
 
 exports.mutationWithClientMutationId = mutationWithClientMutationId;
 
 var _graphql = require('graphql');
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function resolveMaybeThunk(thingOrThunk) {
   return typeof thingOrThunk === 'function' ? thingOrThunk() : thingOrThunk;
@@ -4015,34 +3935,28 @@ function resolveMaybeThunk(thingOrThunk) {
  * output field. It may return synchronously, or return a Promise.
  */
 
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- */
 
 /**
  * Returns a GraphQLFieldConfig for the mutation described by the
  * provided MutationConfig.
  */
 function mutationWithClientMutationId(config) {
-  var name = config.name;
-  var inputFields = config.inputFields;
-  var outputFields = config.outputFields;
-  var mutateAndGetPayload = config.mutateAndGetPayload;
+  var name = config.name,
+      description = config.description,
+      deprecationReason = config.deprecationReason,
+      inputFields = config.inputFields,
+      outputFields = config.outputFields,
+      mutateAndGetPayload = config.mutateAndGetPayload;
 
   var augmentedInputFields = function augmentedInputFields() {
-    return (0, _extends3.default)({}, resolveMaybeThunk(inputFields), {
+    return _extends({}, resolveMaybeThunk(inputFields), {
       clientMutationId: {
         type: _graphql.GraphQLString
       }
     });
   };
   var augmentedOutputFields = function augmentedOutputFields() {
-    return (0, _extends3.default)({}, resolveMaybeThunk(outputFields), {
+    return _extends({}, resolveMaybeThunk(outputFields), {
       clientMutationId: {
         type: _graphql.GraphQLString
       }
@@ -4061,20 +3975,22 @@ function mutationWithClientMutationId(config) {
 
   return {
     type: outputType,
+    description: description,
+    deprecationReason: deprecationReason,
     args: {
       input: { type: new _graphql.GraphQLNonNull(inputType) }
     },
     resolve: function resolve(_, _ref, context, info) {
       var input = _ref.input;
 
-      return _promise2.default.resolve(mutateAndGetPayload(input, context, info)).then(function (payload) {
+      return Promise.resolve(mutateAndGetPayload(input, context, info)).then(function (payload) {
         payload.clientMutationId = input.clientMutationId;
         return payload;
       });
     }
   };
 }
-},{"babel-runtime/core-js/promise":3,"babel-runtime/helpers/extends":6,"graphql":98}],86:[function(require,module,exports){
+},{"graphql":98}],86:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4140,7 +4056,25 @@ function nodeDefinitions(idFetcher, typeResolver) {
     }
   };
 
-  return { nodeInterface: nodeInterface, nodeField: nodeField };
+  var nodesField = {
+    name: 'nodes',
+    description: 'Fetches objects given their IDs',
+    type: new _graphql.GraphQLNonNull(new _graphql.GraphQLList(nodeInterface)),
+    args: {
+      ids: {
+        type: new _graphql.GraphQLNonNull(new _graphql.GraphQLList(new _graphql.GraphQLNonNull(_graphql.GraphQLID))),
+        description: 'The IDs of objects'
+      }
+    },
+    resolve: function resolve(obj, _ref2, context, info) {
+      var ids = _ref2.ids;
+      return Promise.all(ids.map(function (id) {
+        return Promise.resolve(idFetcher(id, context, info));
+      }));
+    }
+  };
+
+  return { nodeInterface: nodeInterface, nodeField: nodeField, nodesField: nodesField };
 }
 
 /**
@@ -4186,21 +4120,18 @@ function globalIdField(typeName, idFetcher) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-
-var _promise = require('babel-runtime/core-js/promise');
-
-var _promise2 = _interopRequireDefault(_promise);
-
 exports.pluralIdentifyingRootField = pluralIdentifyingRootField;
 
 var _graphql = require('graphql');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
 function pluralIdentifyingRootField(config) {
   var inputArgs = {};
+  var inputType = config.inputType;
+  if (inputType instanceof _graphql.GraphQLNonNull) {
+    inputType = inputType.ofType;
+  }
   inputArgs[config.argName] = {
-    type: new _graphql.GraphQLNonNull(new _graphql.GraphQLList(new _graphql.GraphQLNonNull(config.inputType)))
+    type: new _graphql.GraphQLNonNull(new _graphql.GraphQLList(new _graphql.GraphQLNonNull(inputType)))
   };
   return {
     description: config.description,
@@ -4208,8 +4139,8 @@ function pluralIdentifyingRootField(config) {
     args: inputArgs,
     resolve: function resolve(obj, args, context, info) {
       var inputs = args[config.argName];
-      return _promise2.default.all(inputs.map(function (input) {
-        return _promise2.default.resolve(config.resolveSingleInput(input, context, info));
+      return Promise.all(inputs.map(function (input) {
+        return Promise.resolve(config.resolveSingleInput(input, context, info));
       }));
     }
   };
@@ -4222,7 +4153,7 @@ function pluralIdentifyingRootField(config) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"babel-runtime/core-js/promise":3,"graphql":98}],88:[function(require,module,exports){
+},{"graphql":98}],88:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -4255,7 +4186,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.GraphQLError = GraphQLError;
 
-var _language = require('../language');
+var _location = require('../language/location');
 
 /**
  * A GraphQLError describes an Error found during the parse, validate, or
@@ -4305,7 +4236,7 @@ message, nodes, source, positions, path, originalError) {
   var _source2 = _source; // seems here Flow need a const to resolve type.
   if (_source2 && _positions) {
     _locations = _positions.map(function (pos) {
-      return (0, _language.getLocation)(_source2, pos);
+      return (0, _location.getLocation)(_source2, pos);
     });
   }
 
@@ -4363,7 +4294,7 @@ GraphQLError.prototype = Object.create(Error.prototype, {
   constructor: { value: GraphQLError },
   name: { value: 'GraphQLError' }
 });
-},{"../language":106}],90:[function(require,module,exports){
+},{"../language/location":110}],90:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4375,7 +4306,7 @@ var _invariant = require('../jsutils/invariant');
 
 var _invariant2 = _interopRequireDefault(_invariant);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Given a GraphQLError, format it according to the rules described by the
@@ -4385,7 +4316,8 @@ function formatError(error) {
   (0, _invariant2.default)(error, 'Received null or undefined error.');
   return {
     message: error.message,
-    locations: error.locations
+    locations: error.locations,
+    path: error.path
   };
 }
 /**
@@ -4456,12 +4388,12 @@ var _GraphQLError = require('./GraphQLError');
 function locatedError(originalError, nodes, path) {
   // Note: this uses a brand-check to support GraphQL errors originating from
   // other contexts.
-  if (originalError && originalError.locations) {
+  if (originalError && originalError.path) {
     return originalError;
   }
 
   var message = originalError ? originalError.message || String(originalError) : 'An unknown error occurred.';
-  return new _GraphQLError.GraphQLError(message, nodes, undefined, undefined, path, originalError);
+  return new _GraphQLError.GraphQLError(message, originalError && originalError.nodes || nodes, originalError && originalError.source, originalError && originalError.positions, path, originalError);
 }
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -4520,13 +4452,15 @@ function highlightSourceAtLocation(source, location) {
 function lpad(len, str) {
   return Array(len - str.length + 1).join(' ') + str;
 }
-},{"../language/location":109,"./GraphQLError":89}],94:[function(require,module,exports){
+},{"../language/location":110,"./GraphQLError":89}],94:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.defaultFieldResolver = undefined;
 exports.execute = execute;
+exports.responsePathAsArray = responsePathAsArray;
 
 var _iterall = require('iterall');
 
@@ -4562,7 +4496,7 @@ var _directives = require('../type/directives');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Implements the "Evaluating requests" section of the GraphQL specification.
@@ -4603,9 +4537,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 
 /**
- * The result of execution. `data` is the result of executing the
- * query, `errors` is null if no errors occurred, and is a
- * non-empty array if an error occurred.
+ * The result of GraphQL execution.
+ *
+ *   - `data` is the result of a successful execution of the query.
+ *   - `errors` is included when any errors occurred as a non-empty array.
  */
 
 /**
@@ -4617,8 +4552,9 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-function execute(schema, documentAST, rootValue, contextValue, variableValues, operationName) {
+function execute(schema, document, rootValue, contextValue, variableValues, operationName) {
   (0, _invariant2.default)(schema, 'Must provide schema');
+  (0, _invariant2.default)(document, 'Must provide document');
   (0, _invariant2.default)(schema instanceof _schema.GraphQLSchema, 'Schema must be an instance of GraphQLSchema. Also ensure that there are ' + 'not multiple versions of GraphQL installed in your node_modules directory.');
 
   // Variables, if provided, must be an object.
@@ -4626,7 +4562,7 @@ function execute(schema, documentAST, rootValue, contextValue, variableValues, o
 
   // If a valid context cannot be created due to incorrect arguments,
   // this will throw an error.
-  var context = buildExecutionContext(schema, documentAST, rootValue, contextValue, variableValues, operationName);
+  var context = buildExecutionContext(schema, document, rootValue, contextValue, variableValues, operationName);
 
   // Return a Promise that will eventually resolve to the data described by
   // The "Response" section of the GraphQL specification.
@@ -4652,16 +4588,34 @@ function execute(schema, documentAST, rootValue, contextValue, variableValues, o
 }
 
 /**
+ * Given a ResponsePath (found in the `path` entry in the information provided
+ * as the last argument to a field resolver), return an Array of the path keys.
+ */
+function responsePathAsArray(path) {
+  var flattened = [];
+  var curr = path;
+  while (curr) {
+    flattened.push(curr.key);
+    curr = curr.prev;
+  }
+  return flattened.reverse();
+}
+
+function addPath(prev, key) {
+  return { prev: prev, key: key };
+}
+
+/**
  * Constructs a ExecutionContext object from the arguments passed to
  * execute, which we will pass throughout the other execution methods.
  *
  * Throws a GraphQLError if a valid execution context cannot be created.
  */
-function buildExecutionContext(schema, documentAST, rootValue, contextValue, rawVariableValues, operationName) {
+function buildExecutionContext(schema, document, rootValue, contextValue, rawVariableValues, operationName) {
   var errors = [];
   var operation = void 0;
   var fragments = Object.create(null);
-  documentAST.definitions.forEach(function (definition) {
+  document.definitions.forEach(function (definition) {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
         if (!operationName && operation) {
@@ -4705,7 +4659,7 @@ function executeOperation(exeContext, operation, rootValue) {
   var type = getOperationRootType(exeContext.schema, operation);
   var fields = collectFields(exeContext, type, operation.selectionSet, Object.create(null), Object.create(null));
 
-  var path = [];
+  var path = undefined;
 
   if (operation.operation === 'mutation') {
     return executeFieldsSerially(exeContext, type, rootValue, path, fields);
@@ -4744,14 +4698,15 @@ function getOperationRootType(schema, operation) {
 function executeFieldsSerially(exeContext, parentType, sourceValue, path, fields) {
   return Object.keys(fields).reduce(function (prevPromise, responseName) {
     return prevPromise.then(function (results) {
-      var fieldASTs = fields[responseName];
-      var fieldPath = path.concat([responseName]);
-      var result = resolveField(exeContext, parentType, sourceValue, fieldASTs, fieldPath);
+      var fieldNodes = fields[responseName];
+      var fieldPath = addPath(path, responseName);
+      var result = resolveField(exeContext, parentType, sourceValue, fieldNodes, fieldPath);
       if (result === undefined) {
         return results;
       }
-      if (isThenable(result)) {
-        return result.then(function (resolvedResult) {
+      var promise = getPromise(result);
+      if (promise) {
+        return promise.then(function (resolvedResult) {
           results[responseName] = resolvedResult;
           return results;
         });
@@ -4770,14 +4725,14 @@ function executeFields(exeContext, parentType, sourceValue, path, fields) {
   var containsPromise = false;
 
   var finalResults = Object.keys(fields).reduce(function (results, responseName) {
-    var fieldASTs = fields[responseName];
-    var fieldPath = path.concat([responseName]);
-    var result = resolveField(exeContext, parentType, sourceValue, fieldASTs, fieldPath);
+    var fieldNodes = fields[responseName];
+    var fieldPath = addPath(path, responseName);
+    var result = resolveField(exeContext, parentType, sourceValue, fieldNodes, fieldPath);
     if (result === undefined) {
       return results;
     }
     results[responseName] = result;
-    if (isThenable(result)) {
+    if (getPromise(result)) {
       containsPromise = true;
     }
     return results;
@@ -4800,7 +4755,7 @@ function executeFields(exeContext, parentType, sourceValue, path, fields) {
  * the passed in map of fields, and returns it at the end.
  *
  * CollectFields requires the "runtime type" of an object. For a field which
- * returns and Interface or Union type, the "runtime type" will be the actual
+ * returns an Interface or Union type, the "runtime type" will be the actual
  * Object type returned by that field.
  */
 function collectFields(exeContext, runtimeType, selectionSet, fields, visitedFragmentNames) {
@@ -4845,26 +4800,24 @@ function collectFields(exeContext, runtimeType, selectionSet, fields, visitedFra
  * directives, where @skip has higher precidence than @include.
  */
 function shouldIncludeNode(exeContext, directives) {
-  var skipAST = directives && (0, _find2.default)(directives, function (directive) {
+  var skipNode = directives && (0, _find2.default)(directives, function (directive) {
     return directive.name.value === _directives.GraphQLSkipDirective.name;
   });
-  if (skipAST) {
-    var _getArgumentValues = (0, _values.getArgumentValues)(_directives.GraphQLSkipDirective.args, skipAST.arguments, exeContext.variableValues);
-
-    var skipIf = _getArgumentValues.if;
+  if (skipNode) {
+    var _getArgumentValues = (0, _values.getArgumentValues)(_directives.GraphQLSkipDirective, skipNode, exeContext.variableValues),
+        skipIf = _getArgumentValues.if;
 
     if (skipIf === true) {
       return false;
     }
   }
 
-  var includeAST = directives && (0, _find2.default)(directives, function (directive) {
+  var includeNode = directives && (0, _find2.default)(directives, function (directive) {
     return directive.name.value === _directives.GraphQLIncludeDirective.name;
   });
-  if (includeAST) {
-    var _getArgumentValues2 = (0, _values.getArgumentValues)(_directives.GraphQLIncludeDirective.args, includeAST.arguments, exeContext.variableValues);
-
-    var includeIf = _getArgumentValues2.if;
+  if (includeNode) {
+    var _getArgumentValues2 = (0, _values.getArgumentValues)(_directives.GraphQLIncludeDirective, includeNode, exeContext.variableValues),
+        includeIf = _getArgumentValues2.if;
 
     if (includeIf === false) {
       return false;
@@ -4878,17 +4831,16 @@ function shouldIncludeNode(exeContext, directives) {
  * Determines if a fragment is applicable to the given type.
  */
 function doesFragmentConditionMatch(exeContext, fragment, type) {
-  var typeConditionAST = fragment.typeCondition;
-  if (!typeConditionAST) {
+  var typeConditionNode = fragment.typeCondition;
+  if (!typeConditionNode) {
     return true;
   }
-  var conditionalType = (0, _typeFromAST.typeFromAST)(exeContext.schema, typeConditionAST);
+  var conditionalType = (0, _typeFromAST.typeFromAST)(exeContext.schema, typeConditionNode);
   if (conditionalType === type) {
     return true;
   }
   if ((0, _definition.isAbstractType)(conditionalType)) {
-    var abstractType = conditionalType;
-    return exeContext.schema.isPossibleType(abstractType, type);
+    return exeContext.schema.isPossibleType(conditionalType, type);
   }
   return false;
 }
@@ -4926,9 +4878,9 @@ function getFieldEntryKey(node) {
  * then calls completeValue to complete promises, serialize scalars, or execute
  * the sub-selection-set for objects.
  */
-function resolveField(exeContext, parentType, source, fieldASTs, path) {
-  var fieldAST = fieldASTs[0];
-  var fieldName = fieldAST.name.value;
+function resolveField(exeContext, parentType, source, fieldNodes, path) {
+  var fieldNode = fieldNodes[0];
+  var fieldName = fieldNode.name.value;
 
   var fieldDef = getFieldDef(exeContext.schema, parentType, fieldName);
   if (!fieldDef) {
@@ -4936,12 +4888,7 @@ function resolveField(exeContext, parentType, source, fieldASTs, path) {
   }
 
   var returnType = fieldDef.type;
-  var resolveFn = fieldDef.resolve || defaultResolveFn;
-
-  // Build a JS object of arguments from the field.arguments AST, using the
-  // variables scope to fulfill any variable references.
-  // TODO: find a way to memoize, in case this field is within a List type.
-  var args = (0, _values.getArgumentValues)(fieldDef.args, fieldAST.arguments, exeContext.variableValues);
+  var resolveFn = fieldDef.resolve || defaultFieldResolver;
 
   // The resolve function's optional third argument is a context value that
   // is provided to every resolve function within an execution. It is commonly
@@ -4952,7 +4899,7 @@ function resolveField(exeContext, parentType, source, fieldASTs, path) {
   // information about the current execution state.
   var info = {
     fieldName: fieldName,
-    fieldASTs: fieldASTs,
+    fieldNodes: fieldNodes,
     returnType: returnType,
     parentType: parentType,
     path: path,
@@ -4965,15 +4912,20 @@ function resolveField(exeContext, parentType, source, fieldASTs, path) {
 
   // Get the resolve function, regardless of if its result is normal
   // or abrupt (error).
-  var result = resolveOrError(resolveFn, source, args, context, info);
+  var result = resolveOrError(exeContext, fieldDef, fieldNode, resolveFn, source, context, info);
 
-  return completeValueCatchingError(exeContext, returnType, fieldASTs, info, path, result);
+  return completeValueCatchingError(exeContext, returnType, fieldNodes, info, path, result);
 }
 
 // Isolates the "ReturnOrAbrupt" behavior to not de-opt the `resolveField`
 // function. Returns the result of resolveFn or the abrupt-return Error object.
-function resolveOrError(resolveFn, source, args, context, info) {
+function resolveOrError(exeContext, fieldDef, fieldNode, resolveFn, source, context, info) {
   try {
+    // Build a JS object of arguments from the field.arguments AST, using the
+    // variables scope to fulfill any variable references.
+    // TODO: find a way to memoize, in case this field is within a List type.
+    var args = (0, _values.getArgumentValues)(fieldDef, fieldNode, exeContext.variableValues);
+
     return resolveFn(source, args, context, info);
   } catch (error) {
     // Sometimes a non-error is thrown, wrap it as an Error for a
@@ -4984,23 +4936,24 @@ function resolveOrError(resolveFn, source, args, context, info) {
 
 // This is a small wrapper around completeValue which detects and logs errors
 // in the execution context.
-function completeValueCatchingError(exeContext, returnType, fieldASTs, info, path, result) {
+function completeValueCatchingError(exeContext, returnType, fieldNodes, info, path, result) {
   // If the field type is non-nullable, then it is resolved without any
   // protection from errors, however it still properly locates the error.
   if (returnType instanceof _definition.GraphQLNonNull) {
-    return completeValueWithLocatedError(exeContext, returnType, fieldASTs, info, path, result);
+    return completeValueWithLocatedError(exeContext, returnType, fieldNodes, info, path, result);
   }
 
   // Otherwise, error protection is applied, logging the error and resolving
   // a null value for this field if one is encountered.
   try {
-    var completed = completeValueWithLocatedError(exeContext, returnType, fieldASTs, info, path, result);
-    if (isThenable(completed)) {
+    var completed = completeValueWithLocatedError(exeContext, returnType, fieldNodes, info, path, result);
+    var promise = getPromise(completed);
+    if (promise) {
       // If `completeValueWithLocatedError` returned a rejected promise, log
       // the rejection error and resolve to null.
       // Note: we don't rely on a `catch` method, but we do expect "thenable"
       // to take a second callback for the error case.
-      return completed.then(undefined, function (error) {
+      return promise.then(undefined, function (error) {
         exeContext.errors.push(error);
         return Promise.resolve(null);
       });
@@ -5016,17 +4969,18 @@ function completeValueCatchingError(exeContext, returnType, fieldASTs, info, pat
 
 // This is a small wrapper around completeValue which annotates errors with
 // location information.
-function completeValueWithLocatedError(exeContext, returnType, fieldASTs, info, path, result) {
+function completeValueWithLocatedError(exeContext, returnType, fieldNodes, info, path, result) {
   try {
-    var completed = completeValue(exeContext, returnType, fieldASTs, info, path, result);
-    if (isThenable(completed)) {
-      return completed.then(undefined, function (error) {
-        return Promise.reject((0, _error.locatedError)(error, fieldASTs, path));
+    var completed = completeValue(exeContext, returnType, fieldNodes, info, path, result);
+    var promise = getPromise(completed);
+    if (promise) {
+      return promise.then(undefined, function (error) {
+        return Promise.reject((0, _error.locatedError)(error, fieldNodes, responsePathAsArray(path)));
       });
     }
     return completed;
   } catch (error) {
-    throw (0, _error.locatedError)(error, fieldASTs, path);
+    throw (0, _error.locatedError)(error, fieldNodes, responsePathAsArray(path));
   }
 }
 
@@ -5051,11 +5005,12 @@ function completeValueWithLocatedError(exeContext, returnType, fieldASTs, info, 
  * Otherwise, the field type expects a sub-selection set, and will complete the
  * value by evaluating all sub-selections.
  */
-function completeValue(exeContext, returnType, fieldASTs, info, path, result) {
+function completeValue(exeContext, returnType, fieldNodes, info, path, result) {
   // If result is a Promise, apply-lift over completeValue.
-  if (isThenable(result)) {
-    return result.then(function (resolved) {
-      return completeValue(exeContext, returnType, fieldASTs, info, path, resolved);
+  var promise = getPromise(result);
+  if (promise) {
+    return promise.then(function (resolved) {
+      return completeValue(exeContext, returnType, fieldNodes, info, path, resolved);
     });
   }
 
@@ -5067,7 +5022,7 @@ function completeValue(exeContext, returnType, fieldASTs, info, path, result) {
   // If field type is NonNull, complete for inner type, and throw field error
   // if result is null.
   if (returnType instanceof _definition.GraphQLNonNull) {
-    var completed = completeValue(exeContext, returnType.ofType, fieldASTs, info, path, result);
+    var completed = completeValue(exeContext, returnType.ofType, fieldNodes, info, path, result);
     if (completed === null) {
       throw new Error('Cannot return null for non-nullable field ' + info.parentType.name + '.' + info.fieldName + '.');
     }
@@ -5081,24 +5036,24 @@ function completeValue(exeContext, returnType, fieldASTs, info, path, result) {
 
   // If field type is List, complete each item in the list with the inner type
   if (returnType instanceof _definition.GraphQLList) {
-    return completeListValue(exeContext, returnType, fieldASTs, info, path, result);
+    return completeListValue(exeContext, returnType, fieldNodes, info, path, result);
   }
 
   // If field type is a leaf type, Scalar or Enum, serialize to a valid value,
   // returning null if serialization is not possible.
-  if (returnType instanceof _definition.GraphQLScalarType || returnType instanceof _definition.GraphQLEnumType) {
+  if ((0, _definition.isLeafType)(returnType)) {
     return completeLeafValue(returnType, result);
   }
 
   // If field type is an abstract type, Interface or Union, determine the
   // runtime Object type and complete for that type.
-  if (returnType instanceof _definition.GraphQLInterfaceType || returnType instanceof _definition.GraphQLUnionType) {
-    return completeAbstractValue(exeContext, returnType, fieldASTs, info, path, result);
+  if ((0, _definition.isAbstractType)(returnType)) {
+    return completeAbstractValue(exeContext, returnType, fieldNodes, info, path, result);
   }
 
   // If field type is Object, execute and complete all sub-selections.
   if (returnType instanceof _definition.GraphQLObjectType) {
-    return completeObjectValue(exeContext, returnType, fieldASTs, info, path, result);
+    return completeObjectValue(exeContext, returnType, fieldNodes, info, path, result);
   }
 
   // Not reachable. All possible output types have been considered.
@@ -5109,7 +5064,7 @@ function completeValue(exeContext, returnType, fieldASTs, info, path, result) {
  * Complete a list value by completing each item in the list with the
  * inner type
  */
-function completeListValue(exeContext, returnType, fieldASTs, info, path, result) {
+function completeListValue(exeContext, returnType, fieldNodes, info, path, result) {
   (0, _invariant2.default)((0, _iterall.isCollection)(result), 'Expected Iterable, but did not find one for field ' + info.parentType.name + '.' + info.fieldName + '.');
 
   // This is specified as a simple map, however we're optimizing the path
@@ -5120,10 +5075,10 @@ function completeListValue(exeContext, returnType, fieldASTs, info, path, result
   (0, _iterall.forEach)(result, function (item, index) {
     // No need to modify the info object containing the path,
     // since from here on it is not ever accessed by resolver functions.
-    var fieldPath = path.concat([index]);
-    var completedItem = completeValueCatchingError(exeContext, itemType, fieldASTs, info, fieldPath, item);
+    var fieldPath = addPath(path, index);
+    var completedItem = completeValueCatchingError(exeContext, itemType, fieldNodes, info, fieldPath, item);
 
-    if (!containsPromise && isThenable(completedItem)) {
+    if (!containsPromise && getPromise(completedItem)) {
       containsPromise = true;
     }
     completedResults.push(completedItem);
@@ -5149,47 +5104,77 @@ function completeLeafValue(returnType, result) {
  * Complete a value of an abstract type by determining the runtime object type
  * of that value, then complete the value for that type.
  */
-function completeAbstractValue(exeContext, returnType, fieldASTs, info, path, result) {
+function completeAbstractValue(exeContext, returnType, fieldNodes, info, path, result) {
   var runtimeType = returnType.resolveType ? returnType.resolveType(result, exeContext.contextValue, info) : defaultResolveTypeFn(result, exeContext.contextValue, info, returnType);
 
-  // If resolveType returns a string, we assume it's a GraphQLObjectType name.
-  if (typeof runtimeType === 'string') {
-    runtimeType = exeContext.schema.getType(runtimeType);
+  var promise = getPromise(runtimeType);
+  if (promise) {
+    return promise.then(function (resolvedRuntimeType) {
+      return completeObjectValue(exeContext, ensureValidRuntimeType(resolvedRuntimeType, exeContext, returnType, fieldNodes, info, result), fieldNodes, info, path, result);
+    });
   }
 
+  return completeObjectValue(exeContext, ensureValidRuntimeType(runtimeType, exeContext, returnType, fieldNodes, info, result), fieldNodes, info, path, result);
+}
+
+function ensureValidRuntimeType(runtimeTypeOrName, exeContext, returnType, fieldNodes, info, result) {
+  var runtimeType = typeof runtimeTypeOrName === 'string' ? exeContext.schema.getType(runtimeTypeOrName) : runtimeTypeOrName;
+
   if (!(runtimeType instanceof _definition.GraphQLObjectType)) {
-    throw new _error.GraphQLError('Abstract type ' + returnType.name + ' must resolve to an Object type at ' + ('runtime for field ' + info.parentType.name + '.' + info.fieldName + ' with ') + ('value "' + String(result) + '", received "' + String(runtimeType) + '".'), fieldASTs);
+    throw new _error.GraphQLError('Abstract type ' + returnType.name + ' must resolve to an Object type at ' + ('runtime for field ' + info.parentType.name + '.' + info.fieldName + ' with ') + ('value "' + String(result) + '", received "' + String(runtimeType) + '".'), fieldNodes);
   }
 
   if (!exeContext.schema.isPossibleType(returnType, runtimeType)) {
-    throw new _error.GraphQLError('Runtime Object type "' + runtimeType.name + '" is not a possible type ' + ('for "' + returnType.name + '".'), fieldASTs);
+    throw new _error.GraphQLError('Runtime Object type "' + runtimeType.name + '" is not a possible type ' + ('for "' + returnType.name + '".'), fieldNodes);
   }
 
-  return completeObjectValue(exeContext, runtimeType, fieldASTs, info, path, result);
+  return runtimeType;
 }
 
 /**
  * Complete an Object value by executing all sub-selections.
  */
-function completeObjectValue(exeContext, returnType, fieldASTs, info, path, result) {
+function completeObjectValue(exeContext, returnType, fieldNodes, info, path, result) {
   // If there is an isTypeOf predicate function, call it with the
   // current result. If isTypeOf returns false, then raise an error rather
   // than continuing execution.
-  if (returnType.isTypeOf && !returnType.isTypeOf(result, exeContext.contextValue, info)) {
-    throw new _error.GraphQLError('Expected value of type "' + returnType.name + '" but got: ' + String(result) + '.', fieldASTs);
-  }
+  if (returnType.isTypeOf) {
+    var isTypeOf = returnType.isTypeOf(result, exeContext.contextValue, info);
 
-  // Collect sub-fields to execute to complete this value.
-  var subFieldASTs = Object.create(null);
-  var visitedFragmentNames = Object.create(null);
-  for (var i = 0; i < fieldASTs.length; i++) {
-    var selectionSet = fieldASTs[i].selectionSet;
-    if (selectionSet) {
-      subFieldASTs = collectFields(exeContext, returnType, selectionSet, subFieldASTs, visitedFragmentNames);
+    var promise = getPromise(isTypeOf);
+    if (promise) {
+      return promise.then(function (isTypeOfResult) {
+        if (!isTypeOfResult) {
+          throw invalidReturnTypeError(returnType, result, fieldNodes);
+        }
+        return collectAndExecuteSubfields(exeContext, returnType, fieldNodes, info, path, result);
+      });
+    }
+
+    if (!isTypeOf) {
+      throw invalidReturnTypeError(returnType, result, fieldNodes);
     }
   }
 
-  return executeFields(exeContext, returnType, result, path, subFieldASTs);
+  return collectAndExecuteSubfields(exeContext, returnType, fieldNodes, info, path, result);
+}
+
+function invalidReturnTypeError(returnType, result, fieldNodes) {
+  return new _error.GraphQLError('Expected value of type "' + returnType.name + '" but got: ' + String(result) + '.', fieldNodes);
+}
+
+function collectAndExecuteSubfields(exeContext, returnType, fieldNodes, info, path, result) {
+  // Collect sub-fields to execute to complete this value.
+  var subFieldNodes = Object.create(null);
+  var visitedFragmentNames = Object.create(null);
+  for (var i = 0; i < fieldNodes.length; i++) {
+    var selectionSet = fieldNodes[i].selectionSet;
+    if (selectionSet) {
+      subFieldNodes = collectFields(exeContext, returnType, selectionSet, subFieldNodes, visitedFragmentNames);
+    }
+  }
+
+  return executeFields(exeContext, returnType, result, path, subFieldNodes);
 }
 
 /**
@@ -5199,11 +5184,31 @@ function completeObjectValue(exeContext, returnType, fieldASTs, info, path, resu
  */
 function defaultResolveTypeFn(value, context, info, abstractType) {
   var possibleTypes = info.schema.getPossibleTypes(abstractType);
+  var promisedIsTypeOfResults = [];
+
   for (var i = 0; i < possibleTypes.length; i++) {
     var type = possibleTypes[i];
-    if (type.isTypeOf && type.isTypeOf(value, context, info)) {
-      return type;
+
+    if (type.isTypeOf) {
+      var isTypeOfResult = type.isTypeOf(value, context, info);
+
+      var promise = getPromise(isTypeOfResult);
+      if (promise) {
+        promisedIsTypeOfResults[i] = promise;
+      } else if (isTypeOfResult) {
+        return type;
+      }
     }
+  }
+
+  if (promisedIsTypeOfResults.length) {
+    return Promise.all(promisedIsTypeOfResults).then(function (isTypeOfResults) {
+      for (var _i = 0; _i < isTypeOfResults.length; _i++) {
+        if (isTypeOfResults[_i]) {
+          return possibleTypes[_i];
+        }
+      }
+    });
   }
 }
 
@@ -5213,25 +5218,25 @@ function defaultResolveTypeFn(value, context, info, abstractType) {
  * and returns it as the result, or if it's a function, returns the result
  * of calling that function while passing along args and context.
  */
-function defaultResolveFn(source, args, context, _ref) {
-  var fieldName = _ref.fieldName;
-
+var defaultFieldResolver = exports.defaultFieldResolver = function defaultFieldResolver(source, args, context, info) {
   // ensure source is a value for which property access is acceptable.
   if (typeof source === 'object' || typeof source === 'function') {
-    var property = source[fieldName];
+    var property = source[info.fieldName];
     if (typeof property === 'function') {
-      return source[fieldName](args, context);
+      return source[info.fieldName](args, context, info);
     }
     return property;
   }
-}
+};
 
 /**
- * Checks to see if this object acts like a Promise, i.e. has a "then"
- * function.
+ * Only returns the value if it acts like a Promise, i.e. has a "then" function,
+ * otherwise returns void.
  */
-function isThenable(value) {
-  return typeof value === 'object' && value !== null && typeof value.then === 'function';
+function getPromise(value) {
+  if (typeof value === 'object' && value !== null && typeof value.then === 'function') {
+    return value;
+  }
 }
 
 /**
@@ -5253,7 +5258,7 @@ function getFieldDef(schema, parentType, fieldName) {
   }
   return parentType.getFields()[fieldName];
 }
-},{"../error":91,"../jsutils/find":99,"../jsutils/invariant":100,"../jsutils/isNullish":101,"../language/kinds":107,"../type/definition":114,"../type/directives":115,"../type/introspection":117,"../type/schema":119,"../utilities/typeFromAST":136,"./values":96,"iterall":167}],95:[function(require,module,exports){
+},{"../error":91,"../jsutils/find":99,"../jsutils/invariant":100,"../jsutils/isNullish":102,"../language/kinds":108,"../type/definition":115,"../type/directives":116,"../type/introspection":118,"../type/schema":120,"../utilities/typeFromAST":138,"./values":96,"iterall":169}],95:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5266,6 +5271,18 @@ Object.defineProperty(exports, 'execute', {
   enumerable: true,
   get: function get() {
     return _execute.execute;
+  }
+});
+Object.defineProperty(exports, 'defaultFieldResolver', {
+  enumerable: true,
+  get: function get() {
+    return _execute.defaultFieldResolver;
+  }
+});
+Object.defineProperty(exports, 'responsePathAsArray', {
+  enumerable: true,
+  get: function get() {
+    return _execute.responsePathAsArray;
   }
 });
 },{"./execute":94}],96:[function(require,module,exports){
@@ -5289,6 +5306,10 @@ var _isNullish = require('../jsutils/isNullish');
 
 var _isNullish2 = _interopRequireDefault(_isNullish);
 
+var _isInvalid = require('../jsutils/isInvalid');
+
+var _isInvalid2 = _interopRequireDefault(_isInvalid);
+
 var _keyMap = require('../jsutils/keyMap');
 
 var _keyMap2 = _interopRequireDefault(_keyMap);
@@ -5299,16 +5320,62 @@ var _valueFromAST = require('../utilities/valueFromAST');
 
 var _isValidJSValue = require('../utilities/isValidJSValue');
 
+var _isValidLiteralValue = require('../utilities/isValidLiteralValue');
+
+var _kinds = require('../language/kinds');
+
+var Kind = _interopRequireWildcard(_kinds);
+
 var _printer = require('../language/printer');
 
 var _definition = require('../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Prepares an object map of variableValues of the correct type based on the
  * provided variable definitions and arbitrary input. If the input cannot be
  * parsed to match the variable definitions, a GraphQLError will be thrown.
+ */
+function getVariableValues(schema, varDefNodes, inputs) {
+  var coercedValues = Object.create(null);
+  for (var i = 0; i < varDefNodes.length; i++) {
+    var varDefNode = varDefNodes[i];
+    var varName = varDefNode.variable.name.value;
+    var varType = (0, _typeFromAST.typeFromAST)(schema, varDefNode.type);
+    if (!(0, _definition.isInputType)(varType)) {
+      throw new _error.GraphQLError('Variable "$' + varName + '" expected value of type ' + ('"' + (0, _printer.print)(varDefNode.type) + '" which cannot be used as an input type.'), [varDefNode.type]);
+    }
+
+    var value = inputs[varName];
+    if ((0, _isInvalid2.default)(value)) {
+      var defaultValue = varDefNode.defaultValue;
+      if (defaultValue) {
+        coercedValues[varName] = (0, _valueFromAST.valueFromAST)(defaultValue, varType);
+      }
+      if (varType instanceof _definition.GraphQLNonNull) {
+        throw new _error.GraphQLError('Variable "$' + varName + '" of required type ' + ('"' + String(varType) + '" was not provided.'), [varDefNode]);
+      }
+    } else {
+      var errors = (0, _isValidJSValue.isValidJSValue)(value, varType);
+      if (errors.length) {
+        var message = errors ? '\n' + errors.join('\n') : '';
+        throw new _error.GraphQLError('Variable "$' + varName + '" got invalid value ' + (JSON.stringify(value) + '.' + message), [varDefNode]);
+      }
+
+      var coercedValue = coerceValue(varType, value);
+      (0, _invariant2.default)(!(0, _isInvalid2.default)(coercedValue), 'Should have reported error.');
+      coercedValues[varName] = coercedValue;
+    }
+  }
+  return coercedValues;
+}
+
+/**
+ * Prepares an object map of argument values given a list of argument
+ * definitions and list of argument AST nodes.
  */
 
 /**
@@ -5320,65 +5387,52 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-function getVariableValues(schema, definitionASTs, inputs) {
-  return definitionASTs.reduce(function (values, defAST) {
-    var varName = defAST.variable.name.value;
-    values[varName] = getVariableValue(schema, defAST, inputs[varName]);
-    return values;
-  }, {});
-}
-
-/**
- * Prepares an object map of argument values given a list of argument
- * definitions and list of argument AST nodes.
- */
-function getArgumentValues(argDefs, argASTs, variableValues) {
-  if (!argDefs || !argASTs) {
+function getArgumentValues(def, node, variableValues) {
+  var argDefs = def.args;
+  var argNodes = node.arguments;
+  if (!argDefs || !argNodes) {
     return {};
   }
-  var argASTMap = (0, _keyMap2.default)(argASTs, function (arg) {
+  var coercedValues = Object.create(null);
+  var argNodeMap = (0, _keyMap2.default)(argNodes, function (arg) {
     return arg.name.value;
   });
-  return argDefs.reduce(function (result, argDef) {
+  for (var i = 0; i < argDefs.length; i++) {
+    var argDef = argDefs[i];
     var name = argDef.name;
-    var valueAST = argASTMap[name] ? argASTMap[name].value : null;
-    var value = (0, _valueFromAST.valueFromAST)(valueAST, argDef.type, variableValues);
-    if ((0, _isNullish2.default)(value)) {
-      value = argDef.defaultValue;
-    }
-    if (!(0, _isNullish2.default)(value)) {
-      result[name] = value;
-    }
-    return result;
-  }, {});
-}
-
-/**
- * Given a variable definition, and any value of input, return a value which
- * adheres to the variable definition, or throw an error.
- */
-function getVariableValue(schema, definitionAST, input) {
-  var type = (0, _typeFromAST.typeFromAST)(schema, definitionAST.type);
-  var variable = definitionAST.variable;
-  if (!type || !(0, _definition.isInputType)(type)) {
-    throw new _error.GraphQLError('Variable "$' + variable.name.value + '" expected value of type ' + ('"' + (0, _printer.print)(definitionAST.type) + '" which cannot be used as an input type.'), [definitionAST]);
-  }
-  var inputType = type;
-  var errors = (0, _isValidJSValue.isValidJSValue)(input, inputType);
-  if (!errors.length) {
-    if ((0, _isNullish2.default)(input)) {
-      var defaultValue = definitionAST.defaultValue;
-      if (defaultValue) {
-        return (0, _valueFromAST.valueFromAST)(defaultValue, inputType);
+    var argType = argDef.type;
+    var argumentNode = argNodeMap[name];
+    var defaultValue = argDef.defaultValue;
+    if (!argumentNode) {
+      if (!(0, _isInvalid2.default)(defaultValue)) {
+        coercedValues[name] = defaultValue;
+      } else if (argType instanceof _definition.GraphQLNonNull) {
+        throw new _error.GraphQLError('Argument "' + name + '" of required type ' + ('"' + String(argType) + '" was not provided.'), [node]);
       }
+    } else if (argumentNode.value.kind === Kind.VARIABLE) {
+      var variableName = argumentNode.value.name.value;
+      if (variableValues && !(0, _isInvalid2.default)(variableValues[variableName])) {
+        // Note: this does not check that this variable value is correct.
+        // This assumes that this query has been validated and the variable
+        // usage here is of the correct type.
+        coercedValues[name] = variableValues[variableName];
+      } else if (!(0, _isInvalid2.default)(defaultValue)) {
+        coercedValues[name] = defaultValue;
+      } else if (argType instanceof _definition.GraphQLNonNull) {
+        throw new _error.GraphQLError('Argument "' + name + '" of required type "' + String(argType) + '" was ' + ('provided the variable "$' + variableName + '" which was not provided ') + 'a runtime value.', [argumentNode.value]);
+      }
+    } else {
+      var valueNode = argumentNode.value;
+      var coercedValue = (0, _valueFromAST.valueFromAST)(valueNode, argType, variableValues);
+      if ((0, _isInvalid2.default)(coercedValue)) {
+        var errors = (0, _isValidLiteralValue.isValidLiteralValue)(argType, valueNode);
+        var message = errors ? '\n' + errors.join('\n') : '';
+        throw new _error.GraphQLError('Argument "' + name + '" got invalid value ' + (0, _printer.print)(valueNode) + '.' + message, [argumentNode.value]);
+      }
+      coercedValues[name] = coercedValue;
     }
-    return coerceValue(inputType, input);
   }
-  if ((0, _isNullish2.default)(input)) {
-    throw new _error.GraphQLError('Variable "$' + variable.name.value + '" of required type ' + ('"' + (0, _printer.print)(definitionAST.type) + '" was not provided.'), [definitionAST]);
-  }
-  var message = errors ? '\n' + errors.join('\n') : '';
-  throw new _error.GraphQLError('Variable "$' + variable.name.value + '" got invalid value ' + (JSON.stringify(input) + '.' + message), [definitionAST]);
+  return coercedValues;
 }
 
 /**
@@ -5388,76 +5442,86 @@ function coerceValue(type, value) {
   // Ensure flow knows that we treat function params as const.
   var _value = value;
 
+  if ((0, _isInvalid2.default)(_value)) {
+    return; // Intentionally return no value.
+  }
+
   if (type instanceof _definition.GraphQLNonNull) {
-    // Note: we're not checking that the result of coerceValue is non-null.
-    // We only call this function after calling isValidJSValue.
+    if (_value === null) {
+      return; // Intentionally return no value.
+    }
     return coerceValue(type.ofType, _value);
   }
 
-  if ((0, _isNullish2.default)(_value)) {
+  if (_value === null) {
+    // Intentionally return the value null.
     return null;
   }
 
   if (type instanceof _definition.GraphQLList) {
-    var _ret = function () {
-      var itemType = type.ofType;
-      if ((0, _iterall.isCollection)(_value)) {
-        var _ret2 = function () {
-          var coercedValues = [];
-          (0, _iterall.forEach)(_value, function (item) {
-            coercedValues.push(coerceValue(itemType, item));
-          });
-          return {
-            v: {
-              v: coercedValues
-            }
-          };
-        }();
-
-        if (typeof _ret2 === "object") return _ret2.v;
+    var itemType = type.ofType;
+    if ((0, _iterall.isCollection)(_value)) {
+      var coercedValues = [];
+      var valueIter = (0, _iterall.createIterator)(_value);
+      if (!valueIter) {
+        return; // Intentionally return no value.
       }
-      return {
-        v: [coerceValue(itemType, _value)]
-      };
-    }();
-
-    if (typeof _ret === "object") return _ret.v;
+      var step = void 0;
+      while (!(step = valueIter.next()).done) {
+        var itemValue = coerceValue(itemType, step.value);
+        if ((0, _isInvalid2.default)(itemValue)) {
+          return; // Intentionally return no value.
+        }
+        coercedValues.push(itemValue);
+      }
+      return coercedValues;
+    }
+    var coercedValue = coerceValue(itemType, _value);
+    if ((0, _isInvalid2.default)(coercedValue)) {
+      return; // Intentionally return no value.
+    }
+    return [coerceValue(itemType, _value)];
   }
 
   if (type instanceof _definition.GraphQLInputObjectType) {
-    var _ret3 = function () {
-      if (typeof _value !== 'object' || _value === null) {
-        return {
-          v: null
-        };
+    if (typeof _value !== 'object') {
+      return; // Intentionally return no value.
+    }
+    var coercedObj = Object.create(null);
+    var fields = type.getFields();
+    var fieldNames = Object.keys(fields);
+    for (var i = 0; i < fieldNames.length; i++) {
+      var fieldName = fieldNames[i];
+      var field = fields[fieldName];
+      if ((0, _isInvalid2.default)(_value[fieldName])) {
+        if (!(0, _isInvalid2.default)(field.defaultValue)) {
+          coercedObj[fieldName] = field.defaultValue;
+        } else if (field.type instanceof _definition.GraphQLNonNull) {
+          return; // Intentionally return no value.
+        }
+        continue;
       }
-      var fields = type.getFields();
-      return {
-        v: Object.keys(fields).reduce(function (obj, fieldName) {
-          var field = fields[fieldName];
-          var fieldValue = coerceValue(field.type, _value[fieldName]);
-          if ((0, _isNullish2.default)(fieldValue)) {
-            fieldValue = field.defaultValue;
-          }
-          if (!(0, _isNullish2.default)(fieldValue)) {
-            obj[fieldName] = fieldValue;
-          }
-          return obj;
-        }, {})
-      };
-    }();
-
-    if (typeof _ret3 === "object") return _ret3.v;
+      var fieldValue = coerceValue(field.type, _value[fieldName]);
+      if ((0, _isInvalid2.default)(fieldValue)) {
+        return; // Intentionally return no value.
+      }
+      coercedObj[fieldName] = fieldValue;
+    }
+    return coercedObj;
   }
 
   (0, _invariant2.default)(type instanceof _definition.GraphQLScalarType || type instanceof _definition.GraphQLEnumType, 'Must be input type');
 
   var parsed = type.parseValue(_value);
-  if (!(0, _isNullish2.default)(parsed)) {
-    return parsed;
+  if ((0, _isNullish2.default)(parsed)) {
+    // null or invalid values represent a failure to parse correctly,
+    // in which case no value is returned.
+    return;
   }
+
+  return parsed;
 }
-},{"../error":91,"../jsutils/invariant":100,"../jsutils/isNullish":101,"../jsutils/keyMap":102,"../language/printer":111,"../type/definition":114,"../utilities/isValidJSValue":131,"../utilities/typeFromAST":136,"../utilities/valueFromAST":137,"iterall":167}],97:[function(require,module,exports){
+},{"../error":91,"../jsutils/invariant":100,"../jsutils/isInvalid":101,"../jsutils/isNullish":102,"../jsutils/keyMap":103,"../language/kinds":108,"../language/printer":112,"../type/definition":115,"../utilities/isValidJSValue":133,"../utilities/isValidLiteralValue":134,"../utilities/typeFromAST":138,"../utilities/valueFromAST":139,"iterall":169}],97:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5521,14 +5585,7 @@ function graphql(schema, requestString, rootValue, contextValue, variableValues,
     return { errors: [error] };
   });
 }
-
-/**
- * The result of a GraphQL parse, validation and execution.
- *
- * `data` is the result of a successful execution of the query.
- * `errors` is included when any errors occurred as a non-empty array.
- */
-},{"./execution/execute":94,"./language/parser":110,"./language/source":112,"./validation/validate":164}],98:[function(require,module,exports){
+},{"./execution/execute":94,"./language/parser":111,"./language/source":113,"./validation/validate":167}],98:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5780,6 +5837,54 @@ Object.defineProperty(exports, 'isAbstractType', {
     return _type.isAbstractType;
   }
 });
+Object.defineProperty(exports, 'isNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _type.isNamedType;
+  }
+});
+Object.defineProperty(exports, 'assertType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertType;
+  }
+});
+Object.defineProperty(exports, 'assertInputType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertInputType;
+  }
+});
+Object.defineProperty(exports, 'assertOutputType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertOutputType;
+  }
+});
+Object.defineProperty(exports, 'assertLeafType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertLeafType;
+  }
+});
+Object.defineProperty(exports, 'assertCompositeType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertCompositeType;
+  }
+});
+Object.defineProperty(exports, 'assertAbstractType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertAbstractType;
+  }
+});
+Object.defineProperty(exports, 'assertNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _type.assertNamedType;
+  }
+});
 Object.defineProperty(exports, 'getNullableType', {
   enumerable: true,
   get: function get() {
@@ -5849,6 +5954,12 @@ Object.defineProperty(exports, 'visitWithTypeInfo', {
     return _language.visitWithTypeInfo;
   }
 });
+Object.defineProperty(exports, 'getVisitFn', {
+  enumerable: true,
+  get: function get() {
+    return _language.getVisitFn;
+  }
+});
 Object.defineProperty(exports, 'Kind', {
   enumerable: true,
   get: function get() {
@@ -5876,6 +5987,18 @@ Object.defineProperty(exports, 'execute', {
     return _execution.execute;
   }
 });
+Object.defineProperty(exports, 'defaultFieldResolver', {
+  enumerable: true,
+  get: function get() {
+    return _execution.defaultFieldResolver;
+  }
+});
+Object.defineProperty(exports, 'responsePathAsArray', {
+  enumerable: true,
+  get: function get() {
+    return _execution.responsePathAsArray;
+  }
+});
 
 var _validation = require('./validation');
 
@@ -5885,10 +6008,166 @@ Object.defineProperty(exports, 'validate', {
     return _validation.validate;
   }
 });
+Object.defineProperty(exports, 'ValidationContext', {
+  enumerable: true,
+  get: function get() {
+    return _validation.ValidationContext;
+  }
+});
 Object.defineProperty(exports, 'specifiedRules', {
   enumerable: true,
   get: function get() {
     return _validation.specifiedRules;
+  }
+});
+Object.defineProperty(exports, 'ArgumentsOfCorrectTypeRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.ArgumentsOfCorrectTypeRule;
+  }
+});
+Object.defineProperty(exports, 'DefaultValuesOfCorrectTypeRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.DefaultValuesOfCorrectTypeRule;
+  }
+});
+Object.defineProperty(exports, 'FieldsOnCorrectTypeRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.FieldsOnCorrectTypeRule;
+  }
+});
+Object.defineProperty(exports, 'FragmentsOnCompositeTypesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.FragmentsOnCompositeTypesRule;
+  }
+});
+Object.defineProperty(exports, 'KnownArgumentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.KnownArgumentNamesRule;
+  }
+});
+Object.defineProperty(exports, 'KnownDirectivesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.KnownDirectivesRule;
+  }
+});
+Object.defineProperty(exports, 'KnownFragmentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.KnownFragmentNamesRule;
+  }
+});
+Object.defineProperty(exports, 'KnownTypeNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.KnownTypeNamesRule;
+  }
+});
+Object.defineProperty(exports, 'LoneAnonymousOperationRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.LoneAnonymousOperationRule;
+  }
+});
+Object.defineProperty(exports, 'NoFragmentCyclesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.NoFragmentCyclesRule;
+  }
+});
+Object.defineProperty(exports, 'NoUndefinedVariablesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.NoUndefinedVariablesRule;
+  }
+});
+Object.defineProperty(exports, 'NoUnusedFragmentsRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.NoUnusedFragmentsRule;
+  }
+});
+Object.defineProperty(exports, 'NoUnusedVariablesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.NoUnusedVariablesRule;
+  }
+});
+Object.defineProperty(exports, 'OverlappingFieldsCanBeMergedRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.OverlappingFieldsCanBeMergedRule;
+  }
+});
+Object.defineProperty(exports, 'PossibleFragmentSpreadsRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.PossibleFragmentSpreadsRule;
+  }
+});
+Object.defineProperty(exports, 'ProvidedNonNullArgumentsRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.ProvidedNonNullArgumentsRule;
+  }
+});
+Object.defineProperty(exports, 'ScalarLeafsRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.ScalarLeafsRule;
+  }
+});
+Object.defineProperty(exports, 'UniqueArgumentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.UniqueArgumentNamesRule;
+  }
+});
+Object.defineProperty(exports, 'UniqueDirectivesPerLocationRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.UniqueDirectivesPerLocationRule;
+  }
+});
+Object.defineProperty(exports, 'UniqueFragmentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.UniqueFragmentNamesRule;
+  }
+});
+Object.defineProperty(exports, 'UniqueInputFieldNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.UniqueInputFieldNamesRule;
+  }
+});
+Object.defineProperty(exports, 'UniqueOperationNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.UniqueOperationNamesRule;
+  }
+});
+Object.defineProperty(exports, 'UniqueVariableNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.UniqueVariableNamesRule;
+  }
+});
+Object.defineProperty(exports, 'VariablesAreInputTypesRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.VariablesAreInputTypesRule;
+  }
+});
+Object.defineProperty(exports, 'VariablesInAllowedPositionRule', {
+  enumerable: true,
+  get: function get() {
+    return _validation.VariablesInAllowedPositionRule;
   }
 });
 
@@ -5949,6 +6228,12 @@ Object.defineProperty(exports, 'printSchema', {
   enumerable: true,
   get: function get() {
     return _utilities.printSchema;
+  }
+});
+Object.defineProperty(exports, 'printType', {
+  enumerable: true,
+  get: function get() {
+    return _utilities.printType;
   }
 });
 Object.defineProperty(exports, 'typeFromAST', {
@@ -6029,7 +6314,13 @@ Object.defineProperty(exports, 'findBreakingChanges', {
     return _utilities.findBreakingChanges;
   }
 });
-},{"./error":91,"./execution":95,"./graphql":97,"./language":106,"./type":116,"./utilities":129,"./validation":138}],99:[function(require,module,exports){
+Object.defineProperty(exports, 'findDeprecatedUsages', {
+  enumerable: true,
+  get: function get() {
+    return _utilities.findDeprecatedUsages;
+  }
+});
+},{"./error":91,"./execution":95,"./graphql":97,"./language":107,"./type":117,"./utilities":131,"./validation":140}],99:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6081,6 +6372,29 @@ function invariant(condition, message) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.default = isInvalid;
+
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+/**
+ * Returns true if a value is undefined, or NaN.
+ */
+function isInvalid(value) {
+  return value === undefined || value !== value;
+}
+},{}],102:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
 exports.default = isNullish;
 
 /**
@@ -6098,7 +6412,7 @@ exports.default = isNullish;
 function isNullish(value) {
   return value === null || value === undefined || value !== value;
 }
-},{}],102:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6143,7 +6457,7 @@ function keyMap(list, keyFn) {
     return map[keyFn(item)] = item, map;
   }, {});
 }
-},{}],103:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6182,7 +6496,7 @@ function keyValMap(list, keyFn, valFn) {
     return map[keyFn(item)] = valFn(item), map;
   }, {});
 }
-},{}],104:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6212,7 +6526,7 @@ function quotedOrList(items) {
     return list + (selected.length > 2 ? ', ' : ' ') + (index === selected.length - 1 ? 'or ' : '') + quoted;
   });
 }
-},{}],105:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6292,13 +6606,13 @@ function lexicalDistance(a, b) {
 
   return d[aLength][bLength];
 }
-},{}],106:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.BREAK = exports.visitWithTypeInfo = exports.visitInParallel = exports.visit = exports.Source = exports.print = exports.parseType = exports.parseValue = exports.parse = exports.TokenKind = exports.createLexer = exports.Kind = exports.getLocation = undefined;
+exports.BREAK = exports.getVisitFn = exports.visitWithTypeInfo = exports.visitInParallel = exports.visit = exports.Source = exports.print = exports.parseType = exports.parseValue = exports.parse = exports.TokenKind = exports.createLexer = exports.Kind = exports.getLocation = undefined;
 
 var _location = require('./location');
 
@@ -6383,6 +6697,12 @@ Object.defineProperty(exports, 'visitWithTypeInfo', {
     return _visitor.visitWithTypeInfo;
   }
 });
+Object.defineProperty(exports, 'getVisitFn', {
+  enumerable: true,
+  get: function get() {
+    return _visitor.getVisitFn;
+  }
+});
 Object.defineProperty(exports, 'BREAK', {
   enumerable: true,
   get: function get() {
@@ -6397,7 +6717,7 @@ var Kind = _interopRequireWildcard(_kinds);
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 exports.Kind = Kind;
-},{"./kinds":107,"./lexer":108,"./location":109,"./parser":110,"./printer":111,"./source":112,"./visitor":113}],107:[function(require,module,exports){
+},{"./kinds":108,"./lexer":109,"./location":110,"./parser":111,"./printer":112,"./source":113,"./visitor":114}],108:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6439,6 +6759,7 @@ var INT = exports.INT = 'IntValue';
 var FLOAT = exports.FLOAT = 'FloatValue';
 var STRING = exports.STRING = 'StringValue';
 var BOOLEAN = exports.BOOLEAN = 'BooleanValue';
+var NULL = exports.NULL = 'NullValue';
 var ENUM = exports.ENUM = 'EnumValue';
 var LIST = exports.LIST = 'ListValue';
 var OBJECT = exports.OBJECT = 'ObjectValue';
@@ -6478,7 +6799,7 @@ var TYPE_EXTENSION_DEFINITION = exports.TYPE_EXTENSION_DEFINITION = 'TypeExtensi
 // Directive Definitions
 
 var DIRECTIVE_DEFINITION = exports.DIRECTIVE_DEFINITION = 'DirectiveDefinition';
-},{}],108:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6655,7 +6976,7 @@ function readToken(lexer, prev) {
 
   // SourceCharacter
   if (code < 0x0020 && code !== 0x0009 && code !== 0x000A && code !== 0x000D) {
-    throw (0, _error.syntaxError)(source, position, 'Invalid character ' + printCharCode(code) + '.');
+    throw (0, _error.syntaxError)(source, position, 'Cannot contain the invalid character ' + printCharCode(code) + '.');
   }
 
   switch (code) {
@@ -6725,7 +7046,19 @@ function readToken(lexer, prev) {
       return readString(source, position, line, col, prev);
   }
 
-  throw (0, _error.syntaxError)(source, position, 'Unexpected character ' + printCharCode(code) + '.');
+  throw (0, _error.syntaxError)(source, position, unexpectedCharacterMessage(code));
+}
+
+/**
+ * Report a message that an unexpected character was encountered.
+ */
+function unexpectedCharacterMessage(code) {
+  if (code === 39) {
+    // '
+    return 'Unexpected single quote character (\'), did you mean to use ' + 'a double quote (")?';
+  }
+
+  return 'Cannot parse the unexpected character ' + printCharCode(code) + '.';
 }
 
 /**
@@ -6882,7 +7215,7 @@ function readString(source, start, line, col, prev) {
         case 34:
           value += '"';break;
         case 47:
-          value += '\/';break;
+          value += '/';break;
         case 92:
           value += '\\';break;
         case 98:
@@ -6969,7 +7302,7 @@ function readName(source, position, line, col, prev) {
   }
   return new Tok(NAME, position, end, line, col, prev, slice.call(body, position, end));
 }
-},{"../error":91}],109:[function(require,module,exports){
+},{"../error":91}],110:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7007,7 +7340,7 @@ function getLocation(source, position) {
 /**
  * Represents a location in a Source.
  */
-},{}],110:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7394,11 +7727,14 @@ function parseFragmentName(lexer) {
  *   - FloatValue
  *   - StringValue
  *   - BooleanValue
+ *   - NullValue
  *   - EnumValue
  *   - ListValue[?Const]
  *   - ObjectValue[?Const]
  *
  * BooleanValue : one of `true` `false`
+ *
+ * NullValue : `null`
  *
  * EnumValue : Name but not `true`, `false` or `null`
  */
@@ -7438,15 +7774,19 @@ function parseValueLiteral(lexer, isConst) {
           value: token.value === 'true',
           loc: loc(lexer, token)
         };
-      } else if (token.value !== 'null') {
+      } else if (token.value === 'null') {
         lexer.advance();
         return {
-          kind: _kinds.ENUM,
-          value: token.value,
+          kind: _kinds.NULL,
           loc: loc(lexer, token)
         };
       }
-      break;
+      lexer.advance();
+      return {
+        kind: _kinds.ENUM,
+        value: token.value,
+        loc: loc(lexer, token)
+      };
     case _lexer.TokenKind.DOLLAR:
       if (!isConst) {
         return parseVariable(lexer);
@@ -8021,7 +8361,7 @@ function many(lexer, openKind, parseFn, closeKind) {
   }
   return nodes;
 }
-},{"../error":91,"./kinds":107,"./lexer":108,"./source":112}],111:[function(require,module,exports){
+},{"../error":91,"./kinds":108,"./lexer":109,"./source":113}],112:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8073,9 +8413,9 @@ var printDocASTReducer = {
 
 
   VariableDefinition: function VariableDefinition(_ref) {
-    var variable = _ref.variable;
-    var type = _ref.type;
-    var defaultValue = _ref.defaultValue;
+    var variable = _ref.variable,
+        type = _ref.type,
+        defaultValue = _ref.defaultValue;
     return variable + ': ' + type + wrap(' = ', defaultValue);
   },
 
@@ -8085,40 +8425,40 @@ var printDocASTReducer = {
   },
 
   Field: function Field(_ref3) {
-    var alias = _ref3.alias;
-    var name = _ref3.name;
-    var args = _ref3.arguments;
-    var directives = _ref3.directives;
-    var selectionSet = _ref3.selectionSet;
+    var alias = _ref3.alias,
+        name = _ref3.name,
+        args = _ref3.arguments,
+        directives = _ref3.directives,
+        selectionSet = _ref3.selectionSet;
     return join([wrap('', alias, ': ') + name + wrap('(', join(args, ', '), ')'), join(directives, ' '), selectionSet], ' ');
   },
 
   Argument: function Argument(_ref4) {
-    var name = _ref4.name;
-    var value = _ref4.value;
+    var name = _ref4.name,
+        value = _ref4.value;
     return name + ': ' + value;
   },
 
   // Fragments
 
   FragmentSpread: function FragmentSpread(_ref5) {
-    var name = _ref5.name;
-    var directives = _ref5.directives;
+    var name = _ref5.name,
+        directives = _ref5.directives;
     return '...' + name + wrap(' ', join(directives, ' '));
   },
 
   InlineFragment: function InlineFragment(_ref6) {
-    var typeCondition = _ref6.typeCondition;
-    var directives = _ref6.directives;
-    var selectionSet = _ref6.selectionSet;
+    var typeCondition = _ref6.typeCondition,
+        directives = _ref6.directives,
+        selectionSet = _ref6.selectionSet;
     return join(['...', wrap('on ', typeCondition), join(directives, ' '), selectionSet], ' ');
   },
 
   FragmentDefinition: function FragmentDefinition(_ref7) {
-    var name = _ref7.name;
-    var typeCondition = _ref7.typeCondition;
-    var directives = _ref7.directives;
-    var selectionSet = _ref7.selectionSet;
+    var name = _ref7.name,
+        typeCondition = _ref7.typeCondition,
+        directives = _ref7.directives,
+        selectionSet = _ref7.selectionSet;
     return 'fragment ' + name + ' on ' + typeCondition + ' ' + wrap('', join(directives, ' '), ' ') + selectionSet;
   },
 
@@ -8140,6 +8480,9 @@ var printDocASTReducer = {
     var value = _ref11.value;
     return JSON.stringify(value);
   },
+  NullValue: function NullValue() {
+    return 'null';
+  },
   EnumValue: function EnumValue(_ref12) {
     var value = _ref12.value;
     return value;
@@ -8153,16 +8496,16 @@ var printDocASTReducer = {
     return '{' + join(fields, ', ') + '}';
   },
   ObjectField: function ObjectField(_ref15) {
-    var name = _ref15.name;
-    var value = _ref15.value;
+    var name = _ref15.name,
+        value = _ref15.value;
     return name + ': ' + value;
   },
 
   // Directive
 
   Directive: function Directive(_ref16) {
-    var name = _ref16.name;
-    var args = _ref16.arguments;
+    var name = _ref16.name,
+        args = _ref16.arguments;
     return '@' + name + wrap('(', join(args, ', '), ')');
   },
 
@@ -8184,78 +8527,78 @@ var printDocASTReducer = {
   // Type System Definitions
 
   SchemaDefinition: function SchemaDefinition(_ref20) {
-    var directives = _ref20.directives;
-    var operationTypes = _ref20.operationTypes;
+    var directives = _ref20.directives,
+        operationTypes = _ref20.operationTypes;
     return join(['schema', join(directives, ' '), block(operationTypes)], ' ');
   },
 
   OperationTypeDefinition: function OperationTypeDefinition(_ref21) {
-    var operation = _ref21.operation;
-    var type = _ref21.type;
+    var operation = _ref21.operation,
+        type = _ref21.type;
     return operation + ': ' + type;
   },
 
   ScalarTypeDefinition: function ScalarTypeDefinition(_ref22) {
-    var name = _ref22.name;
-    var directives = _ref22.directives;
+    var name = _ref22.name,
+        directives = _ref22.directives;
     return join(['scalar', name, join(directives, ' ')], ' ');
   },
 
   ObjectTypeDefinition: function ObjectTypeDefinition(_ref23) {
-    var name = _ref23.name;
-    var interfaces = _ref23.interfaces;
-    var directives = _ref23.directives;
-    var fields = _ref23.fields;
+    var name = _ref23.name,
+        interfaces = _ref23.interfaces,
+        directives = _ref23.directives,
+        fields = _ref23.fields;
     return join(['type', name, wrap('implements ', join(interfaces, ', ')), join(directives, ' '), block(fields)], ' ');
   },
 
   FieldDefinition: function FieldDefinition(_ref24) {
-    var name = _ref24.name;
-    var args = _ref24.arguments;
-    var type = _ref24.type;
-    var directives = _ref24.directives;
+    var name = _ref24.name,
+        args = _ref24.arguments,
+        type = _ref24.type,
+        directives = _ref24.directives;
     return name + wrap('(', join(args, ', '), ')') + ': ' + type + wrap(' ', join(directives, ' '));
   },
 
   InputValueDefinition: function InputValueDefinition(_ref25) {
-    var name = _ref25.name;
-    var type = _ref25.type;
-    var defaultValue = _ref25.defaultValue;
-    var directives = _ref25.directives;
+    var name = _ref25.name,
+        type = _ref25.type,
+        defaultValue = _ref25.defaultValue,
+        directives = _ref25.directives;
     return join([name + ': ' + type, wrap('= ', defaultValue), join(directives, ' ')], ' ');
   },
 
   InterfaceTypeDefinition: function InterfaceTypeDefinition(_ref26) {
-    var name = _ref26.name;
-    var directives = _ref26.directives;
-    var fields = _ref26.fields;
+    var name = _ref26.name,
+        directives = _ref26.directives,
+        fields = _ref26.fields;
     return join(['interface', name, join(directives, ' '), block(fields)], ' ');
   },
 
   UnionTypeDefinition: function UnionTypeDefinition(_ref27) {
-    var name = _ref27.name;
-    var directives = _ref27.directives;
-    var types = _ref27.types;
+    var name = _ref27.name,
+        directives = _ref27.directives,
+        types = _ref27.types;
     return join(['union', name, join(directives, ' '), '= ' + join(types, ' | ')], ' ');
   },
 
   EnumTypeDefinition: function EnumTypeDefinition(_ref28) {
-    var name = _ref28.name;
-    var directives = _ref28.directives;
-    var values = _ref28.values;
+    var name = _ref28.name,
+        directives = _ref28.directives,
+        values = _ref28.values;
     return join(['enum', name, join(directives, ' '), block(values)], ' ');
   },
 
   EnumValueDefinition: function EnumValueDefinition(_ref29) {
-    var name = _ref29.name;
-    var directives = _ref29.directives;
+    var name = _ref29.name,
+        directives = _ref29.directives;
     return join([name, join(directives, ' ')], ' ');
   },
 
   InputObjectTypeDefinition: function InputObjectTypeDefinition(_ref30) {
-    var name = _ref30.name;
-    var directives = _ref30.directives;
-    var fields = _ref30.fields;
+    var name = _ref30.name,
+        directives = _ref30.directives,
+        fields = _ref30.fields;
     return join(['input', name, join(directives, ' '), block(fields)], ' ');
   },
 
@@ -8265,9 +8608,9 @@ var printDocASTReducer = {
   },
 
   DirectiveDefinition: function DirectiveDefinition(_ref32) {
-    var name = _ref32.name;
-    var args = _ref32.arguments;
-    var locations = _ref32.locations;
+    var name = _ref32.name,
+        args = _ref32.arguments,
+        locations = _ref32.locations;
     return 'directive @' + name + wrap('(', join(args, ', '), ')') + ' on ' + join(locations, ' | ');
   }
 };
@@ -8301,7 +8644,7 @@ function wrap(start, maybeString, end) {
 function indent(maybeString) {
   return maybeString && maybeString.replace(/\n/g, '\n  ');
 }
-},{"./visitor":113}],112:[function(require,module,exports){
+},{"./visitor":114}],113:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8331,7 +8674,7 @@ var Source = exports.Source = function Source(body, name) {
   this.body = body;
   this.name = name || 'GraphQL';
 };
-},{}],113:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8340,6 +8683,7 @@ Object.defineProperty(exports, "__esModule", {
 exports.visit = visit;
 exports.visitInParallel = visitInParallel;
 exports.visitWithTypeInfo = visitWithTypeInfo;
+exports.getVisitFn = getVisitFn;
 /**
  *  Copyright (c) 2015, Facebook, Inc.
  *  All rights reserved.
@@ -8368,6 +8712,7 @@ var QueryDocumentKeys = exports.QueryDocumentKeys = {
   FloatValue: [],
   StringValue: [],
   BooleanValue: [],
+  NullValue: [],
   EnumValue: [],
   ListValue: ['values'],
   ObjectValue: ['fields'],
@@ -8721,7 +9066,7 @@ function getVisitFn(visitor, kind, isLeaving) {
     }
   }
 }
-},{}],114:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8732,27 +9077,31 @@ exports.GraphQLNonNull = exports.GraphQLList = exports.GraphQLInputObjectType = 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 exports.isType = isType;
+exports.assertType = assertType;
 exports.isInputType = isInputType;
+exports.assertInputType = assertInputType;
 exports.isOutputType = isOutputType;
+exports.assertOutputType = assertOutputType;
 exports.isLeafType = isLeafType;
+exports.assertLeafType = assertLeafType;
 exports.isCompositeType = isCompositeType;
+exports.assertCompositeType = assertCompositeType;
 exports.isAbstractType = isAbstractType;
+exports.assertAbstractType = assertAbstractType;
 exports.getNullableType = getNullableType;
+exports.isNamedType = isNamedType;
+exports.assertNamedType = assertNamedType;
 exports.getNamedType = getNamedType;
 
 var _invariant = require('../jsutils/invariant');
 
 var _invariant2 = _interopRequireDefault(_invariant);
 
-var _isNullish = require('../jsutils/isNullish');
-
-var _isNullish2 = _interopRequireDefault(_isNullish);
-
 var _kinds = require('../language/kinds');
 
 var _assertValidName = require('../utilities/assertValidName');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -8764,7 +9113,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-// Predicates
+// Predicates & Assertions
 
 /**
  * These are all of the possible kinds of types.
@@ -8773,28 +9122,45 @@ function isType(type) {
   return type instanceof GraphQLScalarType || type instanceof GraphQLObjectType || type instanceof GraphQLInterfaceType || type instanceof GraphQLUnionType || type instanceof GraphQLEnumType || type instanceof GraphQLInputObjectType || type instanceof GraphQLList || type instanceof GraphQLNonNull;
 }
 
+function assertType(type) {
+  (0, _invariant2.default)(isType(type), 'Expected ' + String(type) + ' to be a GraphQL type.');
+  return type;
+}
+
 /**
  * These types may be used as input types for arguments and directives.
  */
 function isInputType(type) {
-  var namedType = getNamedType(type);
-  return namedType instanceof GraphQLScalarType || namedType instanceof GraphQLEnumType || namedType instanceof GraphQLInputObjectType;
+  return type instanceof GraphQLScalarType || type instanceof GraphQLEnumType || type instanceof GraphQLInputObjectType || type instanceof GraphQLNonNull && isInputType(type.ofType) || type instanceof GraphQLList && isInputType(type.ofType);
+}
+
+function assertInputType(type) {
+  (0, _invariant2.default)(isInputType(type), 'Expected ' + String(type) + ' to be a GraphQL input type.');
+  return type;
 }
 
 /**
  * These types may be used as output types as the result of fields.
  */
 function isOutputType(type) {
-  var namedType = getNamedType(type);
-  return namedType instanceof GraphQLScalarType || namedType instanceof GraphQLObjectType || namedType instanceof GraphQLInterfaceType || namedType instanceof GraphQLUnionType || namedType instanceof GraphQLEnumType;
+  return type instanceof GraphQLScalarType || type instanceof GraphQLObjectType || type instanceof GraphQLInterfaceType || type instanceof GraphQLUnionType || type instanceof GraphQLEnumType || type instanceof GraphQLNonNull && isOutputType(type.ofType) || type instanceof GraphQLList && isOutputType(type.ofType);
+}
+
+function assertOutputType(type) {
+  (0, _invariant2.default)(isOutputType(type), 'Expected ' + String(type) + ' to be a GraphQL output type.');
+  return type;
 }
 
 /**
  * These types may describe types which may be leaf values.
  */
 function isLeafType(type) {
-  var namedType = getNamedType(type);
-  return namedType instanceof GraphQLScalarType || namedType instanceof GraphQLEnumType;
+  return type instanceof GraphQLScalarType || type instanceof GraphQLEnumType;
+}
+
+function assertLeafType(type) {
+  (0, _invariant2.default)(isLeafType(type), 'Expected ' + String(type) + ' to be a GraphQL leaf type.');
+  return type;
 }
 
 /**
@@ -8804,11 +9170,21 @@ function isCompositeType(type) {
   return type instanceof GraphQLObjectType || type instanceof GraphQLInterfaceType || type instanceof GraphQLUnionType;
 }
 
+function assertCompositeType(type) {
+  (0, _invariant2.default)(isCompositeType(type), 'Expected ' + String(type) + ' to be a GraphQL composite type.');
+  return type;
+}
+
 /**
  * These types may describe the parent context of a selection set.
  */
 function isAbstractType(type) {
   return type instanceof GraphQLInterfaceType || type instanceof GraphQLUnionType;
+}
+
+function assertAbstractType(type) {
+  (0, _invariant2.default)(isAbstractType(type), 'Expected ' + String(type) + ' to be a GraphQL abstract type.');
+  return type;
 }
 
 /**
@@ -8821,12 +9197,25 @@ function getNullableType(type) {
 /**
  * These named types do not include modifiers like List or NonNull.
  */
+function isNamedType(type) {
+  return type instanceof GraphQLScalarType || type instanceof GraphQLObjectType || type instanceof GraphQLInterfaceType || type instanceof GraphQLUnionType || type instanceof GraphQLEnumType || type instanceof GraphQLInputObjectType;
+}
+
+function assertNamedType(type) {
+  (0, _invariant2.default)(isNamedType(type), 'Expected ' + String(type) + ' to be a GraphQL named type.');
+  return type;
+}
+
+/* eslint-disable no-redeclare */
 function getNamedType(type) {
-  var unmodifiedType = type;
-  while (unmodifiedType instanceof GraphQLList || unmodifiedType instanceof GraphQLNonNull) {
-    unmodifiedType = unmodifiedType.ofType;
+  /* eslint-enable no-redeclare */
+  if (type) {
+    var unmodifiedType = type;
+    while (unmodifiedType instanceof GraphQLList || unmodifiedType instanceof GraphQLNonNull) {
+      unmodifiedType = unmodifiedType.ofType;
+    }
+    return unmodifiedType;
   }
-  return unmodifiedType;
 }
 
 /**
@@ -8861,7 +9250,6 @@ var GraphQLScalarType = exports.GraphQLScalarType = function () {
   function GraphQLScalarType(config) {
     _classCallCheck(this, GraphQLScalarType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -8891,9 +9279,9 @@ var GraphQLScalarType = exports.GraphQLScalarType = function () {
   // Parses an externally provided literal value to use as an input.
 
 
-  GraphQLScalarType.prototype.parseLiteral = function parseLiteral(valueAST) {
+  GraphQLScalarType.prototype.parseLiteral = function parseLiteral(valueNode) {
     var parser = this._scalarConfig.parseLiteral;
-    return parser ? parser(valueAST) : null;
+    return parser ? parser(valueNode) : null;
   };
 
   GraphQLScalarType.prototype.toString = function toString() {
@@ -8902,6 +9290,11 @@ var GraphQLScalarType = exports.GraphQLScalarType = function () {
 
   return GraphQLScalarType;
 }();
+
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLScalarType.prototype.toJSON = GraphQLScalarType.prototype.inspect = GraphQLScalarType.prototype.toString;
 
 /**
  * Object Type Definition
@@ -8944,8 +9337,7 @@ var GraphQLObjectType = exports.GraphQLObjectType = function () {
   function GraphQLObjectType(config) {
     _classCallCheck(this, GraphQLObjectType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
-    (0, _assertValidName.assertValidName)(config.name);
+    (0, _assertValidName.assertValidName)(config.name, config.isIntrospection);
     this.name = config.name;
     this.description = config.description;
     if (config.isTypeOf) {
@@ -8970,14 +9362,23 @@ var GraphQLObjectType = exports.GraphQLObjectType = function () {
   return GraphQLObjectType;
 }();
 
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLObjectType.prototype.toJSON = GraphQLObjectType.prototype.inspect = GraphQLObjectType.prototype.toString;
+
 function defineInterfaces(type, interfacesThunk) {
   var interfaces = resolveThunk(interfacesThunk);
   if (!interfaces) {
     return [];
   }
   (0, _invariant2.default)(Array.isArray(interfaces), type.name + ' interfaces must be an Array or a function which returns ' + 'an Array.');
+
+  var implementedTypeNames = {};
   interfaces.forEach(function (iface) {
     (0, _invariant2.default)(iface instanceof GraphQLInterfaceType, type.name + ' may only implement Interface types, it cannot ' + ('implement: ' + String(iface) + '.'));
+    (0, _invariant2.default)(!implementedTypeNames[iface.name], type.name + ' may declare it implements ' + iface.name + ' only once.');
+    implementedTypeNames[iface.name] = true;
     if (typeof iface.resolveType !== 'function') {
       (0, _invariant2.default)(typeof type.isTypeOf === 'function', 'Interface Type ' + iface.name + ' does not provide a "resolveType" ' + ('function and implementing Type ' + type.name + ' does not provide a ') + '"isTypeOf" function. There is no way to resolve this implementing ' + 'type during execution.');
     }
@@ -8996,12 +9397,14 @@ function defineFieldMap(type, fieldsThunk) {
   fieldNames.forEach(function (fieldName) {
     (0, _assertValidName.assertValidName)(fieldName);
     var fieldConfig = fieldMap[fieldName];
+    (0, _invariant2.default)(isPlainObj(fieldConfig), type.name + '.' + fieldName + ' field config must be an object');
     (0, _invariant2.default)(!fieldConfig.hasOwnProperty('isDeprecated'), type.name + '.' + fieldName + ' should provide "deprecationReason" instead ' + 'of "isDeprecated".');
     var field = _extends({}, fieldConfig, {
       isDeprecated: Boolean(fieldConfig.deprecationReason),
       name: fieldName
     });
     (0, _invariant2.default)(isOutputType(field.type), type.name + '.' + fieldName + ' field type must be Output Type but ' + ('got: ' + String(field.type) + '.'));
+    (0, _invariant2.default)(isValidResolver(field.resolve), type.name + '.' + fieldName + ' field resolver must be a function if ' + ('provided, but got: ' + String(field.resolve) + '.'));
     var argsConfig = fieldConfig.args;
     if (!argsConfig) {
       field.args = [];
@@ -9015,7 +9418,7 @@ function defineFieldMap(type, fieldsThunk) {
           name: argName,
           description: arg.description === undefined ? null : arg.description,
           type: arg.type,
-          defaultValue: arg.defaultValue === undefined ? null : arg.defaultValue
+          defaultValue: arg.defaultValue
         };
       });
     }
@@ -9026,6 +9429,11 @@ function defineFieldMap(type, fieldsThunk) {
 
 function isPlainObj(obj) {
   return obj && typeof obj === 'object' && !Array.isArray(obj);
+}
+
+// If a resolver is defined, it must be a function.
+function isValidResolver(resolver) {
+  return resolver == null || typeof resolver === 'function';
 }
 
 /**
@@ -9050,7 +9458,6 @@ var GraphQLInterfaceType = exports.GraphQLInterfaceType = function () {
   function GraphQLInterfaceType(config) {
     _classCallCheck(this, GraphQLInterfaceType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -9071,6 +9478,11 @@ var GraphQLInterfaceType = exports.GraphQLInterfaceType = function () {
 
   return GraphQLInterfaceType;
 }();
+
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLInterfaceType.prototype.toJSON = GraphQLInterfaceType.prototype.inspect = GraphQLInterfaceType.prototype.toString;
 
 /**
  * Union Type Definition
@@ -9099,7 +9511,6 @@ var GraphQLUnionType = exports.GraphQLUnionType = function () {
   function GraphQLUnionType(config) {
     _classCallCheck(this, GraphQLUnionType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -9121,12 +9532,20 @@ var GraphQLUnionType = exports.GraphQLUnionType = function () {
   return GraphQLUnionType;
 }();
 
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLUnionType.prototype.toJSON = GraphQLUnionType.prototype.inspect = GraphQLUnionType.prototype.toString;
+
 function defineTypes(unionType, typesThunk) {
   var types = resolveThunk(typesThunk);
 
   (0, _invariant2.default)(Array.isArray(types) && types.length > 0, 'Must provide Array of types or a function which returns ' + ('such an array for Union ' + unionType.name + '.'));
+  var includedTypeNames = {};
   types.forEach(function (objType) {
     (0, _invariant2.default)(objType instanceof GraphQLObjectType, unionType.name + ' may only contain Object types, it cannot contain: ' + (String(objType) + '.'));
+    (0, _invariant2.default)(!includedTypeNames[objType.name], unionType.name + ' can include ' + objType.name + ' type only once.');
+    includedTypeNames[objType.name] = true;
     if (typeof unionType.resolveType !== 'function') {
       (0, _invariant2.default)(typeof objType.isTypeOf === 'function', 'Union type "' + unionType.name + '" does not provide a "resolveType" ' + ('function and possible type "' + objType.name + '" does not provide an ') + '"isTypeOf" function. There is no way to resolve this possible type ' + 'during execution.');
     }
@@ -9161,7 +9580,7 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
     _classCallCheck(this, GraphQLEnumType);
 
     this.name = config.name;
-    (0, _assertValidName.assertValidName)(config.name);
+    (0, _assertValidName.assertValidName)(config.name, config.isIntrospection);
     this.description = config.description;
     this._values = defineEnumValues(this, config.values);
     this._enumConfig = config;
@@ -9169,6 +9588,10 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
 
   GraphQLEnumType.prototype.getValues = function getValues() {
     return this._values;
+  };
+
+  GraphQLEnumType.prototype.getValue = function getValue(name) {
+    return this._getNameLookup()[name];
   };
 
   GraphQLEnumType.prototype.serialize = function serialize(value /* T */) {
@@ -9185,9 +9608,9 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
     }
   };
 
-  GraphQLEnumType.prototype.parseLiteral = function parseLiteral(valueAST) /* T */{
-    if (valueAST.kind === _kinds.ENUM) {
-      var enumValue = this._getNameLookup()[valueAST.value];
+  GraphQLEnumType.prototype.parseLiteral = function parseLiteral(valueNode) /* T */{
+    if (valueNode.kind === _kinds.ENUM) {
+      var enumValue = this._getNameLookup()[valueNode.value];
       if (enumValue) {
         return enumValue.value;
       }
@@ -9195,31 +9618,23 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
   };
 
   GraphQLEnumType.prototype._getValueLookup = function _getValueLookup() {
-    var _this = this;
-
     if (!this._valueLookup) {
-      (function () {
-        var lookup = new Map();
-        _this.getValues().forEach(function (value) {
-          lookup.set(value.value, value);
-        });
-        _this._valueLookup = lookup;
-      })();
+      var lookup = new Map();
+      this.getValues().forEach(function (value) {
+        lookup.set(value.value, value);
+      });
+      this._valueLookup = lookup;
     }
     return this._valueLookup;
   };
 
   GraphQLEnumType.prototype._getNameLookup = function _getNameLookup() {
-    var _this2 = this;
-
     if (!this._nameLookup) {
-      (function () {
-        var lookup = Object.create(null);
-        _this2.getValues().forEach(function (value) {
-          lookup[value.name] = value;
-        });
-        _this2._nameLookup = lookup;
-      })();
+      var lookup = Object.create(null);
+      this.getValues().forEach(function (value) {
+        lookup[value.name] = value;
+      });
+      this._nameLookup = lookup;
     }
     return this._nameLookup;
   };
@@ -9231,6 +9646,11 @@ var GraphQLEnumType /* <T> */ = exports.GraphQLEnumType = function () {
   return GraphQLEnumType;
 }();
 
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLEnumType.prototype.toJSON = GraphQLEnumType.prototype.inspect = GraphQLEnumType.prototype.toString;
+
 function defineEnumValues(type, valueMap /* <T> */
 ) {
   (0, _invariant2.default)(isPlainObj(valueMap), type.name + ' values must be an object with value names as keys.');
@@ -9238,6 +9658,8 @@ function defineEnumValues(type, valueMap /* <T> */
   (0, _invariant2.default)(valueNames.length > 0, type.name + ' values must be an object with value names as keys.');
   return valueNames.map(function (valueName) {
     (0, _assertValidName.assertValidName)(valueName);
+    (0, _invariant2.default)(['true', 'false', 'null'].indexOf(valueName) === -1, 'Name "' + valueName + '" can not be used as an Enum value.');
+
     var value = valueMap[valueName];
     (0, _invariant2.default)(isPlainObj(value), type.name + '.' + valueName + ' must refer to an object with a "value" key ' + ('representing an internal value but got: ' + String(value) + '.'));
     (0, _invariant2.default)(!value.hasOwnProperty('isDeprecated'), type.name + '.' + valueName + ' should provide "deprecationReason" instead ' + 'of "isDeprecated".');
@@ -9246,7 +9668,7 @@ function defineEnumValues(type, valueMap /* <T> */
       description: value.description,
       isDeprecated: Boolean(value.deprecationReason),
       deprecationReason: value.deprecationReason,
-      value: (0, _isNullish2.default)(value.value) ? valueName : value.value
+      value: value.hasOwnProperty('value') ? value.value : valueName
     };
   });
 } /* <T> */
@@ -9276,7 +9698,6 @@ var GraphQLInputObjectType = exports.GraphQLInputObjectType = function () {
   function GraphQLInputObjectType(config) {
     _classCallCheck(this, GraphQLInputObjectType);
 
-    (0, _invariant2.default)(config.name, 'Type must be named.');
     (0, _assertValidName.assertValidName)(config.name);
     this.name = config.name;
     this.description = config.description;
@@ -9288,7 +9709,7 @@ var GraphQLInputObjectType = exports.GraphQLInputObjectType = function () {
   };
 
   GraphQLInputObjectType.prototype._defineFieldMap = function _defineFieldMap() {
-    var _this3 = this;
+    var _this = this;
 
     var fieldMap = resolveThunk(this._typeConfig.fields);
     (0, _invariant2.default)(isPlainObj(fieldMap), this.name + ' fields must be an object with field names as keys or a ' + 'function which returns such an object.');
@@ -9300,7 +9721,8 @@ var GraphQLInputObjectType = exports.GraphQLInputObjectType = function () {
       var field = _extends({}, fieldMap[fieldName], {
         name: fieldName
       });
-      (0, _invariant2.default)(isInputType(field.type), _this3.name + '.' + fieldName + ' field type must be Input Type but ' + ('got: ' + String(field.type) + '.'));
+      (0, _invariant2.default)(isInputType(field.type), _this.name + '.' + fieldName + ' field type must be Input Type but ' + ('got: ' + String(field.type) + '.'));
+      (0, _invariant2.default)(field.resolve == null, _this.name + '.' + fieldName + ' field type has a resolve property, but ' + 'Input Types cannot define resolvers.');
       resultFieldMap[fieldName] = field;
     });
     return resultFieldMap;
@@ -9312,6 +9734,11 @@ var GraphQLInputObjectType = exports.GraphQLInputObjectType = function () {
 
   return GraphQLInputObjectType;
 }();
+
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLInputObjectType.prototype.toJSON = GraphQLInputObjectType.prototype.inspect = GraphQLInputObjectType.prototype.toString;
 
 /**
  * List Modifier
@@ -9346,6 +9773,11 @@ var GraphQLList = exports.GraphQLList = function () {
   return GraphQLList;
 }();
 
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLList.prototype.toJSON = GraphQLList.prototype.inspect = GraphQLList.prototype.toString;
+
 /**
  * Non-Null Modifier
  *
@@ -9367,7 +9799,6 @@ var GraphQLList = exports.GraphQLList = function () {
  * Note: the enforcement of non-nullability occurs within the executor.
  */
 
-
 var GraphQLNonNull = exports.GraphQLNonNull = function () {
   function GraphQLNonNull(type) {
     _classCallCheck(this, GraphQLNonNull);
@@ -9383,7 +9814,11 @@ var GraphQLNonNull = exports.GraphQLNonNull = function () {
   return GraphQLNonNull;
 }();
 
-},{"../jsutils/invariant":100,"../jsutils/isNullish":101,"../language/kinds":107,"../utilities/assertValidName":121}],115:[function(require,module,exports){
+// Also provide toJSON and inspect aliases for toString.
+
+
+GraphQLNonNull.prototype.toJSON = GraphQLNonNull.prototype.inspect = GraphQLNonNull.prototype.toString;
+},{"../jsutils/invariant":100,"../language/kinds":108,"../utilities/assertValidName":122}],116:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9401,7 +9836,7 @@ var _invariant2 = _interopRequireDefault(_invariant);
 
 var _assertValidName = require('../utilities/assertValidName');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -9465,7 +9900,7 @@ var GraphQLDirective = exports.GraphQLDirective = function GraphQLDirective(conf
         name: argName,
         description: arg.description === undefined ? null : arg.description,
         type: arg.type,
-        defaultValue: arg.defaultValue === undefined ? null : arg.defaultValue
+        defaultValue: arg.defaultValue
       };
     });
   }
@@ -9479,7 +9914,7 @@ var GraphQLIncludeDirective = exports.GraphQLIncludeDirective = new GraphQLDirec
   description: 'Directs the executor to include this field or fragment only when ' + 'the `if` argument is true.',
   locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
   args: {
-    if: {
+    'if': {
       type: new _definition.GraphQLNonNull(_scalars.GraphQLBoolean),
       description: 'Included when true.'
     }
@@ -9494,7 +9929,7 @@ var GraphQLSkipDirective = exports.GraphQLSkipDirective = new GraphQLDirective({
   description: 'Directs the executor to skip this field or fragment when the `if` ' + 'argument is true.',
   locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
   args: {
-    if: {
+    'if': {
       type: new _definition.GraphQLNonNull(_scalars.GraphQLBoolean),
       description: 'Skipped when true.'
     }
@@ -9526,7 +9961,7 @@ var GraphQLDeprecatedDirective = exports.GraphQLDeprecatedDirective = new GraphQ
  * The full list of specified directives.
  */
 var specifiedDirectives = exports.specifiedDirectives = [GraphQLIncludeDirective, GraphQLSkipDirective, GraphQLDeprecatedDirective];
-},{"../jsutils/invariant":100,"../utilities/assertValidName":121,"./definition":114,"./scalars":118}],116:[function(require,module,exports){
+},{"../jsutils/invariant":100,"../utilities/assertValidName":122,"./definition":115,"./scalars":119}],117:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9578,6 +10013,54 @@ Object.defineProperty(exports, 'isAbstractType', {
   enumerable: true,
   get: function get() {
     return _definition.isAbstractType;
+  }
+});
+Object.defineProperty(exports, 'isNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.isNamedType;
+  }
+});
+Object.defineProperty(exports, 'assertType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertType;
+  }
+});
+Object.defineProperty(exports, 'assertInputType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertInputType;
+  }
+});
+Object.defineProperty(exports, 'assertOutputType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertOutputType;
+  }
+});
+Object.defineProperty(exports, 'assertLeafType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertLeafType;
+  }
+});
+Object.defineProperty(exports, 'assertCompositeType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertCompositeType;
+  }
+});
+Object.defineProperty(exports, 'assertAbstractType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertAbstractType;
+  }
+});
+Object.defineProperty(exports, 'assertNamedType', {
+  enumerable: true,
+  get: function get() {
+    return _definition.assertNamedType;
   }
 });
 Object.defineProperty(exports, 'getNullableType', {
@@ -9793,7 +10276,7 @@ Object.defineProperty(exports, 'TypeNameMetaFieldDef', {
     return _introspection.TypeNameMetaFieldDef;
   }
 });
-},{"./definition":114,"./directives":115,"./introspection":117,"./scalars":118,"./schema":119}],117:[function(require,module,exports){
+},{"./definition":115,"./directives":116,"./introspection":118,"./scalars":119,"./schema":120}],118:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9801,9 +10284,9 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.TypeNameMetaFieldDef = exports.TypeMetaFieldDef = exports.SchemaMetaFieldDef = exports.__TypeKind = exports.TypeKind = exports.__EnumValue = exports.__InputValue = exports.__Field = exports.__Type = exports.__DirectiveLocation = exports.__Directive = exports.__Schema = undefined;
 
-var _isNullish = require('../jsutils/isNullish');
+var _isInvalid = require('../jsutils/isInvalid');
 
-var _isNullish2 = _interopRequireDefault(_isNullish);
+var _isInvalid2 = _interopRequireDefault(_isInvalid);
 
 var _astFromValue = require('../utilities/astFromValue');
 
@@ -9815,7 +10298,7 @@ var _scalars = require('./scalars');
 
 var _directives = require('./directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -9828,6 +10311,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var __Schema = exports.__Schema = new _definition.GraphQLObjectType({
   name: '__Schema',
+  isIntrospection: true,
   description: 'A GraphQL Schema defines the capabilities of a GraphQL server. It ' + 'exposes all available types and directives on the server, as well as ' + 'the entry points for query, mutation, and subscription operations.',
   fields: function fields() {
     return {
@@ -9875,6 +10359,7 @@ var __Schema = exports.__Schema = new _definition.GraphQLObjectType({
 
 var __Directive = exports.__Directive = new _definition.GraphQLObjectType({
   name: '__Directive',
+  isIntrospection: true,
   description: 'A Directive provides a way to describe alternate runtime execution and ' + 'type validation behavior in a GraphQL document.' + '\n\nIn some cases, you need to provide options to alter GraphQL\'s ' + 'execution behavior in ways field arguments will not suffice, such as ' + 'conditionally including or skipping a field. Directives provide this by ' + 'describing additional information to the executor.',
   fields: function fields() {
     return {
@@ -9918,6 +10403,7 @@ var __Directive = exports.__Directive = new _definition.GraphQLObjectType({
 
 var __DirectiveLocation = exports.__DirectiveLocation = new _definition.GraphQLEnumType({
   name: '__DirectiveLocation',
+  isIntrospection: true,
   description: 'A Directive can be adjacent to many parts of the GraphQL language, a ' + '__DirectiveLocation describes one such possible adjacencies.',
   values: {
     QUERY: {
@@ -9997,6 +10483,7 @@ var __DirectiveLocation = exports.__DirectiveLocation = new _definition.GraphQLE
 
 var __Type = exports.__Type = new _definition.GraphQLObjectType({
   name: '__Type',
+  isIntrospection: true,
   description: 'The fundamental unit of any GraphQL Schema is the type. There are ' + 'many kinds of types in GraphQL as represented by the `__TypeKind` enum.' + '\n\nDepending on the kind of a type, certain fields describe ' + 'information about that type. Scalar types provide no information ' + 'beyond a name and description, while Enum types provide their values. ' + 'Object and Interface types provide the fields they describe. Abstract ' + 'types, Union and Interface, provide the Object types possible ' + 'at runtime. List and NonNull types compose other types.',
   fields: function fields() {
     return {
@@ -10034,22 +10521,16 @@ var __Type = exports.__Type = new _definition.GraphQLObjectType({
           var includeDeprecated = _ref.includeDeprecated;
 
           if (type instanceof _definition.GraphQLObjectType || type instanceof _definition.GraphQLInterfaceType) {
-            var _ret = function () {
-              var fieldMap = type.getFields();
-              var fields = Object.keys(fieldMap).map(function (fieldName) {
-                return fieldMap[fieldName];
+            var fieldMap = type.getFields();
+            var fields = Object.keys(fieldMap).map(function (fieldName) {
+              return fieldMap[fieldName];
+            });
+            if (!includeDeprecated) {
+              fields = fields.filter(function (field) {
+                return !field.deprecationReason;
               });
-              if (!includeDeprecated) {
-                fields = fields.filter(function (field) {
-                  return !field.deprecationReason;
-                });
-              }
-              return {
-                v: fields
-              };
-            }();
-
-            if (typeof _ret === "object") return _ret.v;
+            }
+            return fields;
           }
           return null;
         }
@@ -10067,7 +10548,7 @@ var __Type = exports.__Type = new _definition.GraphQLObjectType({
         resolve: function resolve(type, args, context, _ref2) {
           var schema = _ref2.schema;
 
-          if (type instanceof _definition.GraphQLInterfaceType || type instanceof _definition.GraphQLUnionType) {
+          if ((0, _definition.isAbstractType)(type)) {
             return schema.getPossibleTypes(type);
           }
         }
@@ -10095,16 +10576,10 @@ var __Type = exports.__Type = new _definition.GraphQLObjectType({
         type: new _definition.GraphQLList(new _definition.GraphQLNonNull(__InputValue)),
         resolve: function resolve(type) {
           if (type instanceof _definition.GraphQLInputObjectType) {
-            var _ret2 = function () {
-              var fieldMap = type.getFields();
-              return {
-                v: Object.keys(fieldMap).map(function (fieldName) {
-                  return fieldMap[fieldName];
-                })
-              };
-            }();
-
-            if (typeof _ret2 === "object") return _ret2.v;
+            var fieldMap = type.getFields();
+            return Object.keys(fieldMap).map(function (fieldName) {
+              return fieldMap[fieldName];
+            });
           }
         }
       },
@@ -10115,6 +10590,7 @@ var __Type = exports.__Type = new _definition.GraphQLObjectType({
 
 var __Field = exports.__Field = new _definition.GraphQLObjectType({
   name: '__Field',
+  isIntrospection: true,
   description: 'Object and Interface types are described by a list of Fields, each of ' + 'which has a name, potentially a list of arguments, and a return type.',
   fields: function fields() {
     return {
@@ -10137,6 +10613,7 @@ var __Field = exports.__Field = new _definition.GraphQLObjectType({
 
 var __InputValue = exports.__InputValue = new _definition.GraphQLObjectType({
   name: '__InputValue',
+  isIntrospection: true,
   description: 'Arguments provided to Fields or Directives and the input fields of an ' + 'InputObject are represented as Input Values which describe their type ' + 'and optionally a default value.',
   fields: function fields() {
     return {
@@ -10147,7 +10624,7 @@ var __InputValue = exports.__InputValue = new _definition.GraphQLObjectType({
         type: _scalars.GraphQLString,
         description: 'A GraphQL-formatted string representing the default value for this ' + 'input value.',
         resolve: function resolve(inputVal) {
-          return (0, _isNullish2.default)(inputVal.defaultValue) ? null : (0, _printer.print)((0, _astFromValue.astFromValue)(inputVal.defaultValue, inputVal.type));
+          return (0, _isInvalid2.default)(inputVal.defaultValue) ? null : (0, _printer.print)((0, _astFromValue.astFromValue)(inputVal.defaultValue, inputVal.type));
         }
       }
     };
@@ -10156,6 +10633,7 @@ var __InputValue = exports.__InputValue = new _definition.GraphQLObjectType({
 
 var __EnumValue = exports.__EnumValue = new _definition.GraphQLObjectType({
   name: '__EnumValue',
+  isIntrospection: true,
   description: 'One possible value for a given Enum. Enum values are unique values, not ' + 'a placeholder for a string or numeric value. However an Enum value is ' + 'returned in a JSON response as a string.',
   fields: function fields() {
     return {
@@ -10182,6 +10660,7 @@ var TypeKind = exports.TypeKind = {
 
 var __TypeKind = exports.__TypeKind = new _definition.GraphQLEnumType({
   name: '__TypeKind',
+  isIntrospection: true,
   description: 'An enum describing what kind of type a given `__Type` is.',
   values: {
     SCALAR: {
@@ -10220,7 +10699,7 @@ var __TypeKind = exports.__TypeKind = new _definition.GraphQLEnumType({
 });
 
 /**
- * Note that these are GraphQLFieldDefinition and not GraphQLFieldConfig,
+ * Note that these are GraphQLField and not GraphQLFieldConfig,
  * so the format for args is different.
  */
 
@@ -10257,7 +10736,7 @@ var TypeNameMetaFieldDef = exports.TypeNameMetaFieldDef = {
     return parentType.name;
   }
 };
-},{"../jsutils/isNullish":101,"../language/printer":111,"../utilities/astFromValue":122,"./definition":114,"./directives":115,"./scalars":118}],118:[function(require,module,exports){
+},{"../jsutils/isInvalid":101,"../language/printer":112,"../utilities/astFromValue":123,"./definition":115,"./directives":116,"./scalars":119}],119:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -10299,7 +10778,7 @@ function coerceInt(value) {
   if (num === num && num <= MAX_INT && num >= MIN_INT) {
     return (num < 0 ? Math.ceil : Math.floor)(num);
   }
-  throw new TypeError('Int cannot represent non 32-bit signed integer value: ' + value);
+  throw new TypeError('Int cannot represent non 32-bit signed integer value: ' + String(value));
 }
 
 var GraphQLInt = exports.GraphQLInt = new _definition.GraphQLScalarType({
@@ -10326,7 +10805,7 @@ function coerceFloat(value) {
   if (num === num) {
     return num;
   }
-  throw new TypeError('Float cannot represent non numeric value: ' + value);
+  throw new TypeError('Float cannot represent non numeric value: ' + String(value));
 }
 
 var GraphQLFloat = exports.GraphQLFloat = new _definition.GraphQLScalarType({
@@ -10368,7 +10847,7 @@ var GraphQLID = exports.GraphQLID = new _definition.GraphQLScalarType({
     return ast.kind === Kind.STRING || ast.kind === Kind.INT ? ast.value : null;
   }
 });
-},{"../language/kinds":107,"./definition":114}],119:[function(require,module,exports){
+},{"../language/kinds":108,"./definition":115}],120:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -10392,7 +10871,7 @@ var _invariant2 = _interopRequireDefault(_invariant);
 
 var _typeComparators = require('../utilities/typeComparators');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -10574,30 +11053,26 @@ function typeMapReducer(map, type) {
   }
 
   if (type instanceof _definition.GraphQLObjectType || type instanceof _definition.GraphQLInterfaceType) {
-    (function () {
-      var fieldMap = type.getFields();
-      Object.keys(fieldMap).forEach(function (fieldName) {
-        var field = fieldMap[fieldName];
+    var fieldMap = type.getFields();
+    Object.keys(fieldMap).forEach(function (fieldName) {
+      var field = fieldMap[fieldName];
 
-        if (field.args) {
-          var fieldArgTypes = field.args.map(function (arg) {
-            return arg.type;
-          });
-          reducedMap = fieldArgTypes.reduce(typeMapReducer, reducedMap);
-        }
-        reducedMap = typeMapReducer(reducedMap, field.type);
-      });
-    })();
+      if (field.args) {
+        var fieldArgTypes = field.args.map(function (arg) {
+          return arg.type;
+        });
+        reducedMap = fieldArgTypes.reduce(typeMapReducer, reducedMap);
+      }
+      reducedMap = typeMapReducer(reducedMap, field.type);
+    });
   }
 
   if (type instanceof _definition.GraphQLInputObjectType) {
-    (function () {
-      var fieldMap = type.getFields();
-      Object.keys(fieldMap).forEach(function (fieldName) {
-        var field = fieldMap[fieldName];
-        reducedMap = typeMapReducer(reducedMap, field.type);
-      });
-    })();
+    var _fieldMap = type.getFields();
+    Object.keys(_fieldMap).forEach(function (fieldName) {
+      var field = _fieldMap[fieldName];
+      reducedMap = typeMapReducer(reducedMap, field.type);
+    });
   }
 
   return reducedMap;
@@ -10646,7 +11121,7 @@ function assertObjectImplementsInterface(schema, object, iface) {
     });
   });
 }
-},{"../jsutils/find":99,"../jsutils/invariant":100,"../utilities/typeComparators":135,"./definition":114,"./directives":115,"./introspection":117}],120:[function(require,module,exports){
+},{"../jsutils/find":99,"../jsutils/invariant":100,"../utilities/typeComparators":137,"./definition":115,"./directives":116,"./introspection":118}],121:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -10668,7 +11143,7 @@ var _find = require('../jsutils/find');
 
 var _find2 = _interopRequireDefault(_find);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
@@ -10701,6 +11176,7 @@ var TypeInfo = exports.TypeInfo = function () {
     this._fieldDefStack = [];
     this._directive = null;
     this._argument = null;
+    this._enumValue = null;
     this._getFieldDef = getFieldDefFn || getFieldDef;
   }
 
@@ -10736,20 +11212,19 @@ var TypeInfo = exports.TypeInfo = function () {
     return this._argument;
   };
 
+  TypeInfo.prototype.getEnumValue = function getEnumValue() {
+    return this._enumValue;
+  };
+
   // Flow does not yet handle this case.
 
 
-  TypeInfo.prototype.enter = function enter(node /* Node */) {
+  TypeInfo.prototype.enter = function enter(node /* ASTNode */) {
     var schema = this._schema;
     switch (node.kind) {
       case Kind.SELECTION_SET:
         var namedType = (0, _definition.getNamedType)(this.getType());
-        var compositeType = void 0;
-        if ((0, _definition.isCompositeType)(namedType)) {
-          // isCompositeType is a type refining predicate, so this is safe.
-          compositeType = namedType;
-        }
-        this._parentTypeStack.push(compositeType);
+        this._parentTypeStack.push((0, _definition.isCompositeType)(namedType) ? namedType : undefined);
         break;
       case Kind.FIELD:
         var parentType = this.getParentType();
@@ -10778,11 +11253,11 @@ var TypeInfo = exports.TypeInfo = function () {
       case Kind.FRAGMENT_DEFINITION:
         var typeConditionAST = node.typeCondition;
         var outputType = typeConditionAST ? (0, _typeFromAST.typeFromAST)(schema, typeConditionAST) : this.getType();
-        this._typeStack.push(outputType);
+        this._typeStack.push((0, _definition.isOutputType)(outputType) ? outputType : undefined);
         break;
       case Kind.VARIABLE_DEFINITION:
         var inputType = (0, _typeFromAST.typeFromAST)(schema, node.type);
-        this._inputTypeStack.push(inputType);
+        this._inputTypeStack.push((0, _definition.isInputType)(inputType) ? inputType : undefined);
         break;
       case Kind.ARGUMENT:
         var argDef = void 0;
@@ -10811,6 +11286,14 @@ var TypeInfo = exports.TypeInfo = function () {
           fieldType = inputField ? inputField.type : undefined;
         }
         this._inputTypeStack.push(fieldType);
+        break;
+      case Kind.ENUM:
+        var enumType = (0, _definition.getNamedType)(this.getInputType());
+        var enumValue = void 0;
+        if (enumType instanceof _definition.GraphQLEnumType) {
+          enumValue = enumType.getValue(node.value);
+        }
+        this._enumValue = enumValue;
         break;
     }
   };
@@ -10843,6 +11326,9 @@ var TypeInfo = exports.TypeInfo = function () {
       case Kind.OBJECT_FIELD:
         this._inputTypeStack.pop();
         break;
+      case Kind.ENUM:
+        this._enumValue = null;
+        break;
     }
   };
 
@@ -10856,38 +11342,30 @@ var TypeInfo = exports.TypeInfo = function () {
  */
 
 
-function getFieldDef(schema, parentType, fieldAST) {
-  var name = fieldAST.name.value;
+function getFieldDef(schema, parentType, fieldNode) {
+  var name = fieldNode.name.value;
   if (name === _introspection.SchemaMetaFieldDef.name && schema.getQueryType() === parentType) {
     return _introspection.SchemaMetaFieldDef;
   }
   if (name === _introspection.TypeMetaFieldDef.name && schema.getQueryType() === parentType) {
     return _introspection.TypeMetaFieldDef;
   }
-  if (name === _introspection.TypeNameMetaFieldDef.name && (parentType instanceof _definition.GraphQLObjectType || parentType instanceof _definition.GraphQLInterfaceType || parentType instanceof _definition.GraphQLUnionType)) {
+  if (name === _introspection.TypeNameMetaFieldDef.name && (0, _definition.isCompositeType)(parentType)) {
     return _introspection.TypeNameMetaFieldDef;
   }
   if (parentType instanceof _definition.GraphQLObjectType || parentType instanceof _definition.GraphQLInterfaceType) {
     return parentType.getFields()[name];
   }
 }
-},{"../jsutils/find":99,"../language/kinds":107,"../type/definition":114,"../type/introspection":117,"./typeFromAST":136}],121:[function(require,module,exports){
+},{"../jsutils/find":99,"../language/kinds":108,"../type/definition":115,"../type/introspection":118,"./typeFromAST":138}],122:[function(require,module,exports){
+(function (process){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.assertValidName = assertValidName;
-
-var _invariant = require('../jsutils/invariant');
-
-var _invariant2 = _interopRequireDefault(_invariant);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
-var NAME_RX = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
-
-// Helper to assert that provided names are valid.
+exports.formatWarning = formatWarning;
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -10898,10 +11376,54 @@ var NAME_RX = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-function assertValidName(name) {
-  (0, _invariant2.default)(NAME_RX.test(name), 'Names must match /^[_a-zA-Z][_a-zA-Z0-9]*$/ but "' + name + '" does not.');
+var NAME_RX = /^[_a-zA-Z][_a-zA-Z0-9]*$/;
+var ERROR_PREFIX_RX = /^Error: /;
+
+// Silences warnings if an environment flag is enabled
+var noNameWarning = Boolean(process && process.env && process.env.GRAPHQL_NO_NAME_WARNING);
+
+// Ensures console warnings are only issued once.
+var hasWarnedAboutDunder = false;
+
+/**
+ * Upholds the spec rules about naming.
+ */
+function assertValidName(name, isIntrospection) {
+  if (!name || typeof name !== 'string') {
+    throw new Error('Must be named. Unexpected name: ' + name + '.');
+  }
+  if (!isIntrospection && !hasWarnedAboutDunder && !noNameWarning && name.slice(0, 2) === '__') {
+    hasWarnedAboutDunder = true;
+    /* eslint-disable no-console */
+    if (console && console.warn) {
+      var error = new Error('Name "' + name + '" must not begin with "__", which is reserved by ' + 'GraphQL introspection. In a future release of graphql this will ' + 'become a hard error.');
+      console.warn(formatWarning(error));
+    }
+    /* eslint-enable no-console */
+  }
+  if (!NAME_RX.test(name)) {
+    throw new Error('Names must match /^[_a-zA-Z][_a-zA-Z0-9]*$/ but "' + name + '" does not.');
+  }
 }
-},{"../jsutils/invariant":100}],122:[function(require,module,exports){
+
+/**
+ * Returns a human-readable warning based an the supplied Error object,
+ * including stack trace information if available.
+ */
+function formatWarning(error) {
+  var formatted = '';
+  var errorString = String(error).replace(ERROR_PREFIX_RX, '');
+  var stack = error.stack;
+  if (stack) {
+    formatted = stack.replace(ERROR_PREFIX_RX, '');
+  }
+  if (formatted.indexOf(errorString) === -1) {
+    formatted = errorString + '\n' + formatted;
+  }
+  return formatted.trim();
+}
+}).call(this,require('_process'))
+},{"_process":170}],123:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -10919,13 +11441,17 @@ var _isNullish = require('../jsutils/isNullish');
 
 var _isNullish2 = _interopRequireDefault(_isNullish);
 
+var _isInvalid = require('../jsutils/isInvalid');
+
+var _isInvalid2 = _interopRequireDefault(_isInvalid);
+
 var _kinds = require('../language/kinds');
 
 var _definition = require('../type/definition');
 
 var _scalars = require('../type/scalars');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Produces a GraphQL Value AST given a JavaScript value.
@@ -10941,91 +11467,68 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  * | String        | String / Enum Value  |
  * | Number        | Int / Float          |
  * | Mixed         | Enum Value           |
+ * | null          | NullValue            |
  *
  */
-
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- *  This source code is licensed under the BSD-style license found in the
- *  LICENSE file in the root directory of this source tree. An additional grant
- *  of patent rights can be found in the PATENTS file in the same directory.
- */
-
 function astFromValue(value, type) {
   // Ensure flow knows that we treat function params as const.
   var _value = value;
 
   if (type instanceof _definition.GraphQLNonNull) {
-    // Note: we're not checking that the result is non-null.
-    // This function is not responsible for validating the input value.
-    return astFromValue(_value, type.ofType);
+    var astValue = astFromValue(_value, type.ofType);
+    if (astValue && astValue.kind === _kinds.NULL) {
+      return null;
+    }
+    return astValue;
   }
 
-  if ((0, _isNullish2.default)(_value)) {
+  // only explicit null, not undefined, NaN
+  if (_value === null) {
+    return { kind: _kinds.NULL };
+  }
+
+  // undefined, NaN
+  if ((0, _isInvalid2.default)(_value)) {
     return null;
   }
 
   // Convert JavaScript array to GraphQL list. If the GraphQLType is a list, but
   // the value is not an array, convert the value using the list's item type.
   if (type instanceof _definition.GraphQLList) {
-    var _ret = function () {
-      var itemType = type.ofType;
-      if ((0, _iterall.isCollection)(_value)) {
-        var _ret2 = function () {
-          var valuesASTs = [];
-          (0, _iterall.forEach)(_value, function (item) {
-            var itemAST = astFromValue(item, itemType);
-            if (itemAST) {
-              valuesASTs.push(itemAST);
-            }
-          });
-          return {
-            v: {
-              v: { kind: _kinds.LIST, values: valuesASTs }
-            }
-          };
-        }();
-
-        if (typeof _ret2 === "object") return _ret2.v;
-      }
-      return {
-        v: astFromValue(_value, itemType)
-      };
-    }();
-
-    if (typeof _ret === "object") return _ret.v;
+    var itemType = type.ofType;
+    if ((0, _iterall.isCollection)(_value)) {
+      var valuesNodes = [];
+      (0, _iterall.forEach)(_value, function (item) {
+        var itemNode = astFromValue(item, itemType);
+        if (itemNode) {
+          valuesNodes.push(itemNode);
+        }
+      });
+      return { kind: _kinds.LIST, values: valuesNodes };
+    }
+    return astFromValue(_value, itemType);
   }
 
   // Populate the fields of the input object by creating ASTs from each value
   // in the JavaScript object according to the fields in the input type.
   if (type instanceof _definition.GraphQLInputObjectType) {
-    var _ret3 = function () {
-      if (_value === null || typeof _value !== 'object') {
-        return {
-          v: null
-        };
+    if (_value === null || typeof _value !== 'object') {
+      return null;
+    }
+    var fields = type.getFields();
+    var fieldNodes = [];
+    Object.keys(fields).forEach(function (fieldName) {
+      var fieldType = fields[fieldName].type;
+      var fieldValue = astFromValue(_value[fieldName], fieldType);
+      if (fieldValue) {
+        fieldNodes.push({
+          kind: _kinds.OBJECT_FIELD,
+          name: { kind: _kinds.NAME, value: fieldName },
+          value: fieldValue
+        });
       }
-      var fields = type.getFields();
-      var fieldASTs = [];
-      Object.keys(fields).forEach(function (fieldName) {
-        var fieldType = fields[fieldName].type;
-        var fieldValue = astFromValue(_value[fieldName], fieldType);
-        if (fieldValue) {
-          fieldASTs.push({
-            kind: _kinds.OBJECT_FIELD,
-            name: { kind: _kinds.NAME, value: fieldName },
-            value: fieldValue
-          });
-        }
-      });
-      return {
-        v: { kind: _kinds.OBJECT, fields: fieldASTs }
-      };
-    }();
-
-    if (typeof _ret3 === "object") return _ret3.v;
+    });
+    return { kind: _kinds.OBJECT, fields: fieldNodes };
   }
 
   (0, _invariant2.default)(type instanceof _definition.GraphQLScalarType || type instanceof _definition.GraphQLEnumType, 'Must provide Input Type, cannot use: ' + String(type));
@@ -11070,13 +11573,22 @@ function astFromValue(value, type) {
 
   throw new TypeError('Cannot convert value to AST: ' + String(serialized));
 }
-},{"../jsutils/invariant":100,"../jsutils/isNullish":101,"../language/kinds":107,"../type/definition":114,"../type/scalars":118,"iterall":167}],123:[function(require,module,exports){
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+},{"../jsutils/invariant":100,"../jsutils/isInvalid":101,"../jsutils/isNullish":102,"../language/kinds":108,"../type/definition":115,"../type/scalars":119,"iterall":169}],124:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.buildASTSchema = buildASTSchema;
+exports.getDeprecationReason = getDeprecationReason;
 exports.getDescription = getDescription;
 exports.buildSchema = buildSchema;
 
@@ -11112,14 +11624,14 @@ var _directives = require('../type/directives');
 
 var _introspection = require('../type/introspection');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
-function buildWrappedType(innerType, inputTypeAST) {
-  if (inputTypeAST.kind === _kinds.LIST_TYPE) {
-    return new _definition.GraphQLList(buildWrappedType(innerType, inputTypeAST.type));
+function buildWrappedType(innerType, inputTypeNode) {
+  if (inputTypeNode.kind === _kinds.LIST_TYPE) {
+    return new _definition.GraphQLList(buildWrappedType(innerType, inputTypeNode.type));
   }
-  if (inputTypeAST.kind === _kinds.NON_NULL_TYPE) {
-    var wrappedType = buildWrappedType(innerType, inputTypeAST.type);
+  if (inputTypeNode.kind === _kinds.NON_NULL_TYPE) {
+    var wrappedType = buildWrappedType(innerType, inputTypeNode.type);
     (0, _invariant2.default)(!(wrappedType instanceof _definition.GraphQLNonNull), 'No nesting nonnull.');
     return new _definition.GraphQLNonNull(wrappedType);
   }
@@ -11134,8 +11646,8 @@ function buildWrappedType(innerType, inputTypeAST) {
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-function getNamedTypeAST(typeAST) {
-  var namedType = typeAST;
+function getNamedTypeNode(typeNode) {
+  var namedType = typeNode;
   while (namedType.kind === _kinds.LIST_TYPE || namedType.kind === _kinds.NON_NULL_TYPE) {
     namedType = namedType.type;
   }
@@ -11160,7 +11672,7 @@ function buildASTSchema(ast) {
   var schemaDef = void 0;
 
   var typeDefs = [];
-  var astMap = Object.create(null);
+  var nodeMap = Object.create(null);
   var directiveDefs = [];
   for (var i = 0; i < ast.definitions.length; i++) {
     var d = ast.definitions[i];
@@ -11178,7 +11690,7 @@ function buildASTSchema(ast) {
       case _kinds.UNION_TYPE_DEFINITION:
       case _kinds.INPUT_OBJECT_TYPE_DEFINITION:
         typeDefs.push(d);
-        astMap[d.name.value] = d;
+        nodeMap[d.name.value] = d;
         break;
       case _kinds.DIRECTIVE_DEFINITION:
         directiveDefs.push(d);
@@ -11196,7 +11708,7 @@ function buildASTSchema(ast) {
         if (queryTypeName) {
           throw new Error('Must provide only one query type in schema.');
         }
-        if (!astMap[typeName]) {
+        if (!nodeMap[typeName]) {
           throw new Error('Specified query type "' + typeName + '" not found in document.');
         }
         queryTypeName = typeName;
@@ -11204,7 +11716,7 @@ function buildASTSchema(ast) {
         if (mutationTypeName) {
           throw new Error('Must provide only one mutation type in schema.');
         }
-        if (!astMap[typeName]) {
+        if (!nodeMap[typeName]) {
           throw new Error('Specified mutation type "' + typeName + '" not found in document.');
         }
         mutationTypeName = typeName;
@@ -11212,20 +11724,20 @@ function buildASTSchema(ast) {
         if (subscriptionTypeName) {
           throw new Error('Must provide only one subscription type in schema.');
         }
-        if (!astMap[typeName]) {
+        if (!nodeMap[typeName]) {
           throw new Error('Specified subscription type "' + typeName + '" not found in document.');
         }
         subscriptionTypeName = typeName;
       }
     });
   } else {
-    if (astMap.Query) {
+    if (nodeMap.Query) {
       queryTypeName = 'Query';
     }
-    if (astMap.Mutation) {
+    if (nodeMap.Mutation) {
       mutationTypeName = 'Mutation';
     }
-    if (astMap.Subscription) {
+    if (nodeMap.Subscription) {
       subscriptionTypeName = 'Subscription';
     }
   }
@@ -11276,57 +11788,53 @@ function buildASTSchema(ast) {
   }
 
   return new _schema.GraphQLSchema({
-    query: getObjectType(astMap[queryTypeName]),
-    mutation: mutationTypeName ? getObjectType(astMap[mutationTypeName]) : null,
-    subscription: subscriptionTypeName ? getObjectType(astMap[subscriptionTypeName]) : null,
+    query: getObjectType(nodeMap[queryTypeName]),
+    mutation: mutationTypeName ? getObjectType(nodeMap[mutationTypeName]) : null,
+    subscription: subscriptionTypeName ? getObjectType(nodeMap[subscriptionTypeName]) : null,
     types: types,
     directives: directives
   });
 
-  function getDirective(directiveAST) {
+  function getDirective(directiveNode) {
     return new _directives.GraphQLDirective({
-      name: directiveAST.name.value,
-      description: getDescription(directiveAST),
-      locations: directiveAST.locations.map(function (node) {
+      name: directiveNode.name.value,
+      description: getDescription(directiveNode),
+      locations: directiveNode.locations.map(function (node) {
         return node.value;
       }),
-      args: directiveAST.arguments && makeInputValues(directiveAST.arguments)
+      args: directiveNode.arguments && makeInputValues(directiveNode.arguments)
     });
   }
 
-  function getObjectType(typeAST) {
-    var type = typeDefNamed(typeAST.name.value);
+  function getObjectType(typeNode) {
+    var type = typeDefNamed(typeNode.name.value);
     (0, _invariant2.default)(type instanceof _definition.GraphQLObjectType, 'AST must provide object type.');
     return type;
   }
 
-  function produceType(typeAST) {
-    var typeName = getNamedTypeAST(typeAST).name.value;
+  function produceType(typeNode) {
+    var typeName = getNamedTypeNode(typeNode).name.value;
     var typeDef = typeDefNamed(typeName);
-    return buildWrappedType(typeDef, typeAST);
+    return buildWrappedType(typeDef, typeNode);
   }
 
-  function produceInputType(typeAST) {
-    var type = produceType(typeAST);
-    (0, _invariant2.default)((0, _definition.isInputType)(type), 'Expected Input type.');
-    return type;
+  function produceInputType(typeNode) {
+    return (0, _definition.assertInputType)(produceType(typeNode));
   }
 
-  function produceOutputType(typeAST) {
-    var type = produceType(typeAST);
-    (0, _invariant2.default)((0, _definition.isOutputType)(type), 'Expected Output type.');
-    return type;
+  function produceOutputType(typeNode) {
+    return (0, _definition.assertOutputType)(produceType(typeNode));
   }
 
-  function produceObjectType(typeAST) {
-    var type = produceType(typeAST);
+  function produceObjectType(typeNode) {
+    var type = produceType(typeNode);
     (0, _invariant2.default)(type instanceof _definition.GraphQLObjectType, 'Expected Object type.');
     return type;
   }
 
-  function produceInterfaceType(typeAST) {
-    var type = produceType(typeAST);
-    (0, _invariant2.default)(type instanceof _definition.GraphQLInterfaceType, 'Expected Object type.');
+  function produceInterfaceType(typeNode) {
+    var type = produceType(typeNode);
+    (0, _invariant2.default)(type instanceof _definition.GraphQLInterfaceType, 'Expected Interface type.');
     return type;
   }
 
@@ -11335,11 +11843,11 @@ function buildASTSchema(ast) {
       return innerTypeMap[typeName];
     }
 
-    if (!astMap[typeName]) {
+    if (!nodeMap[typeName]) {
       throw new Error('Type "' + typeName + '" not found in document.');
     }
 
-    var innerTypeDef = makeSchemaDef(astMap[typeName]);
+    var innerTypeDef = makeSchemaDef(nodeMap[typeName]);
     if (!innerTypeDef) {
       throw new Error('Nothing constructed for "' + typeName + '".');
     }
@@ -11486,6 +11994,10 @@ function buildASTSchema(ast) {
   }
 }
 
+/**
+ * Given a collection of directives, returns the string value for the
+ * deprecation reason.
+ */
 function getDeprecationReason(directives) {
   var deprecatedAST = directives && (0, _find2.default)(directives, function (directive) {
     return directive.name.value === _directives.GraphQLDeprecatedDirective.name;
@@ -11494,9 +12006,8 @@ function getDeprecationReason(directives) {
     return;
   }
 
-  var _getArgumentValues = (0, _values.getArgumentValues)(_directives.GraphQLDeprecatedDirective.args, deprecatedAST.arguments);
-
-  var reason = _getArgumentValues.reason;
+  var _getArgumentValues = (0, _values.getArgumentValues)(_directives.GraphQLDeprecatedDirective, deprecatedAST),
+      reason = _getArgumentValues.reason;
 
   return reason;
 }
@@ -11549,7 +12060,7 @@ function leadingSpaces(str) {
 function cannotExecuteSchema() {
   throw new Error('Generated Schema cannot use Interface or Union types for execution.');
 }
-},{"../execution/values":96,"../jsutils/find":99,"../jsutils/invariant":100,"../jsutils/keyValMap":103,"../language/kinds":107,"../language/lexer":108,"../language/parser":110,"../type/definition":114,"../type/directives":115,"../type/introspection":117,"../type/scalars":118,"../type/schema":119,"./valueFromAST":137}],124:[function(require,module,exports){
+},{"../execution/values":96,"../jsutils/find":99,"../jsutils/invariant":100,"../jsutils/keyValMap":104,"../language/kinds":108,"../language/lexer":109,"../language/parser":111,"../type/definition":115,"../type/directives":116,"../type/introspection":118,"../type/scalars":119,"../type/schema":120,"./valueFromAST":139}],125:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -11583,7 +12094,7 @@ var _scalars = require('../type/scalars');
 
 var _directives = require('../type/directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Build a GraphQLSchema for use by client tools.
@@ -11800,7 +12311,7 @@ function buildClientSchema(introspection) {
 
   function buildInputValue(inputValueIntrospection) {
     var type = getInputType(inputValueIntrospection.type);
-    var defaultValue = inputValueIntrospection.defaultValue ? (0, _valueFromAST.valueFromAST)((0, _parser.parseValue)(inputValueIntrospection.defaultValue), type) : null;
+    var defaultValue = inputValueIntrospection.defaultValue ? (0, _valueFromAST.valueFromAST)((0, _parser.parseValue)(inputValueIntrospection.defaultValue), type) : undefined;
     return {
       name: inputValueIntrospection.name,
       description: inputValueIntrospection.description,
@@ -11859,7 +12370,7 @@ function buildClientSchema(introspection) {
 function cannotExecuteClientSchema() {
   throw new Error('Client Schema cannot use Interface or Union types for execution.');
 }
-},{"../jsutils/invariant":100,"../jsutils/keyMap":102,"../jsutils/keyValMap":103,"../language/parser":110,"../type/definition":114,"../type/directives":115,"../type/introspection":117,"../type/scalars":118,"../type/schema":119,"./valueFromAST":137}],125:[function(require,module,exports){
+},{"../jsutils/invariant":100,"../jsutils/keyMap":103,"../jsutils/keyValMap":104,"../language/parser":111,"../type/definition":115,"../type/directives":116,"../type/introspection":118,"../type/scalars":119,"../type/schema":120,"./valueFromAST":139}],126:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -11894,7 +12405,7 @@ function concatAST(asts) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{}],126:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -11932,7 +12443,7 @@ var _scalars = require('../type/scalars');
 
 var _kinds = require('../language/kinds');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Produces a new schema given an existing schema and a document which may
@@ -12079,8 +12590,8 @@ function extendSchema(schema, documentAST) {
     var existingDirectives = schema.getDirectives();
     (0, _invariant2.default)(existingDirectives, 'schema must have default directives');
 
-    var newDirectives = directiveDefinitions.map(function (directiveAST) {
-      return getDirective(directiveAST);
+    var newDirectives = directiveDefinitions.map(function (directiveNode) {
+      return getDirective(directiveNode);
     });
     return existingDirectives.concat(newDirectives);
   }
@@ -12091,36 +12602,32 @@ function extendSchema(schema, documentAST) {
     return type;
   }
 
-  function getTypeFromAST(astNode) {
-    var type = _getNamedType(astNode.name.value);
+  function getTypeFromAST(node) {
+    var type = _getNamedType(node.name.value);
     if (!type) {
-      throw new _GraphQLError.GraphQLError('Unknown type: "' + astNode.name.value + '". Ensure that this type exists ' + 'either in the original schema, or is added in a type definition.', [astNode]);
+      throw new _GraphQLError.GraphQLError('Unknown type: "' + node.name.value + '". Ensure that this type exists ' + 'either in the original schema, or is added in a type definition.', [node]);
     }
     return type;
   }
 
-  function getObjectTypeFromAST(astNode) {
-    var type = getTypeFromAST(astNode);
+  function getObjectTypeFromAST(node) {
+    var type = getTypeFromAST(node);
     (0, _invariant2.default)(type instanceof _definition.GraphQLObjectType, 'Must be Object type.');
     return type;
   }
 
-  function getInterfaceTypeFromAST(astNode) {
-    var type = getTypeFromAST(astNode);
+  function getInterfaceTypeFromAST(node) {
+    var type = getTypeFromAST(node);
     (0, _invariant2.default)(type instanceof _definition.GraphQLInterfaceType, 'Must be Interface type.');
     return type;
   }
 
-  function getInputTypeFromAST(astNode) {
-    var type = getTypeFromAST(astNode);
-    (0, _invariant2.default)((0, _definition.isInputType)(type), 'Must be Input type.');
-    return type;
+  function getInputTypeFromAST(node) {
+    return (0, _definition.assertInputType)(getTypeFromAST(node));
   }
 
-  function getOutputTypeFromAST(astNode) {
-    var type = getTypeFromAST(astNode);
-    (0, _invariant2.default)((0, _definition.isOutputType)(type), 'Must be Output type.');
-    return type;
+  function getOutputTypeFromAST(node) {
+    return (0, _definition.assertOutputType)(getTypeFromAST(node));
   }
 
   // Given a name, returns a type from either the existing schema or an
@@ -12138,9 +12645,9 @@ function extendSchema(schema, documentAST) {
       return typeDef;
     }
 
-    var typeAST = typeDefinitionMap[typeName];
-    if (typeAST) {
-      var _typeDef = buildType(typeAST);
+    var typeNode = typeDefinitionMap[typeName];
+    if (typeNode) {
+      var _typeDef = buildType(typeNode);
       typeDefCache[typeName] = _typeDef;
       return _typeDef;
     }
@@ -12245,7 +12752,8 @@ function extendSchema(schema, documentAST) {
           newFieldMap[fieldName] = {
             description: (0, _buildASTSchema.getDescription)(field),
             type: buildOutputFieldType(field.type),
-            args: buildInputValues(field.arguments)
+            args: buildInputValues(field.arguments),
+            deprecationReason: (0, _buildASTSchema.getDeprecationReason)(field.directives)
           };
         });
       });
@@ -12264,61 +12772,61 @@ function extendSchema(schema, documentAST) {
     return getTypeFromDef(typeDef);
   }
 
-  function buildType(typeAST) {
-    switch (typeAST.kind) {
+  function buildType(typeNode) {
+    switch (typeNode.kind) {
       case _kinds.OBJECT_TYPE_DEFINITION:
-        return buildObjectType(typeAST);
+        return buildObjectType(typeNode);
       case _kinds.INTERFACE_TYPE_DEFINITION:
-        return buildInterfaceType(typeAST);
+        return buildInterfaceType(typeNode);
       case _kinds.UNION_TYPE_DEFINITION:
-        return buildUnionType(typeAST);
+        return buildUnionType(typeNode);
       case _kinds.SCALAR_TYPE_DEFINITION:
-        return buildScalarType(typeAST);
+        return buildScalarType(typeNode);
       case _kinds.ENUM_TYPE_DEFINITION:
-        return buildEnumType(typeAST);
+        return buildEnumType(typeNode);
       case _kinds.INPUT_OBJECT_TYPE_DEFINITION:
-        return buildInputObjectType(typeAST);
+        return buildInputObjectType(typeNode);
     }
-    throw new TypeError('Unknown type kind ' + typeAST.kind);
+    throw new TypeError('Unknown type kind ' + typeNode.kind);
   }
 
-  function buildObjectType(typeAST) {
+  function buildObjectType(typeNode) {
     return new _definition.GraphQLObjectType({
-      name: typeAST.name.value,
-      description: (0, _buildASTSchema.getDescription)(typeAST),
+      name: typeNode.name.value,
+      description: (0, _buildASTSchema.getDescription)(typeNode),
       interfaces: function interfaces() {
-        return buildImplementedInterfaces(typeAST);
+        return buildImplementedInterfaces(typeNode);
       },
       fields: function fields() {
-        return buildFieldMap(typeAST);
+        return buildFieldMap(typeNode);
       }
     });
   }
 
-  function buildInterfaceType(typeAST) {
+  function buildInterfaceType(typeNode) {
     return new _definition.GraphQLInterfaceType({
-      name: typeAST.name.value,
-      description: (0, _buildASTSchema.getDescription)(typeAST),
+      name: typeNode.name.value,
+      description: (0, _buildASTSchema.getDescription)(typeNode),
       fields: function fields() {
-        return buildFieldMap(typeAST);
+        return buildFieldMap(typeNode);
       },
       resolveType: cannotExecuteExtendedSchema
     });
   }
 
-  function buildUnionType(typeAST) {
+  function buildUnionType(typeNode) {
     return new _definition.GraphQLUnionType({
-      name: typeAST.name.value,
-      description: (0, _buildASTSchema.getDescription)(typeAST),
-      types: typeAST.types.map(getObjectTypeFromAST),
+      name: typeNode.name.value,
+      description: (0, _buildASTSchema.getDescription)(typeNode),
+      types: typeNode.types.map(getObjectTypeFromAST),
       resolveType: cannotExecuteExtendedSchema
     });
   }
 
-  function buildScalarType(typeAST) {
+  function buildScalarType(typeNode) {
     return new _definition.GraphQLScalarType({
-      name: typeAST.name.value,
-      description: (0, _buildASTSchema.getDescription)(typeAST),
+      name: typeNode.name.value,
+      description: (0, _buildASTSchema.getDescription)(typeNode),
       serialize: function serialize(id) {
         return id;
       },
@@ -12335,50 +12843,54 @@ function extendSchema(schema, documentAST) {
     });
   }
 
-  function buildEnumType(typeAST) {
+  function buildEnumType(typeNode) {
     return new _definition.GraphQLEnumType({
-      name: typeAST.name.value,
-      description: (0, _buildASTSchema.getDescription)(typeAST),
-      values: (0, _keyValMap2.default)(typeAST.values, function (v) {
-        return v.name.value;
-      }, function () {
-        return {};
+      name: typeNode.name.value,
+      description: (0, _buildASTSchema.getDescription)(typeNode),
+      values: (0, _keyValMap2.default)(typeNode.values, function (enumValue) {
+        return enumValue.name.value;
+      }, function (enumValue) {
+        return {
+          description: (0, _buildASTSchema.getDescription)(enumValue),
+          deprecationReason: (0, _buildASTSchema.getDeprecationReason)(enumValue.directives)
+        };
       })
     });
   }
 
-  function buildInputObjectType(typeAST) {
+  function buildInputObjectType(typeNode) {
     return new _definition.GraphQLInputObjectType({
-      name: typeAST.name.value,
-      description: (0, _buildASTSchema.getDescription)(typeAST),
+      name: typeNode.name.value,
+      description: (0, _buildASTSchema.getDescription)(typeNode),
       fields: function fields() {
-        return buildInputValues(typeAST.fields);
+        return buildInputValues(typeNode.fields);
       }
     });
   }
 
-  function getDirective(directiveAST) {
+  function getDirective(directiveNode) {
     return new _directives.GraphQLDirective({
-      name: directiveAST.name.value,
-      locations: directiveAST.locations.map(function (node) {
+      name: directiveNode.name.value,
+      locations: directiveNode.locations.map(function (node) {
         return node.value;
       }),
-      args: directiveAST.arguments && buildInputValues(directiveAST.arguments)
+      args: directiveNode.arguments && buildInputValues(directiveNode.arguments)
     });
   }
 
-  function buildImplementedInterfaces(typeAST) {
-    return typeAST.interfaces && typeAST.interfaces.map(getInterfaceTypeFromAST);
+  function buildImplementedInterfaces(typeNode) {
+    return typeNode.interfaces && typeNode.interfaces.map(getInterfaceTypeFromAST);
   }
 
-  function buildFieldMap(typeAST) {
-    return (0, _keyValMap2.default)(typeAST.fields, function (field) {
+  function buildFieldMap(typeNode) {
+    return (0, _keyValMap2.default)(typeNode.fields, function (field) {
       return field.name.value;
     }, function (field) {
       return {
         type: buildOutputFieldType(field.type),
         description: (0, _buildASTSchema.getDescription)(field),
-        args: buildInputValues(field.arguments)
+        args: buildInputValues(field.arguments),
+        deprecationReason: (0, _buildASTSchema.getDeprecationReason)(field.directives)
       };
     });
   }
@@ -12396,44 +12908,46 @@ function extendSchema(schema, documentAST) {
     });
   }
 
-  function buildInputFieldType(typeAST) {
-    if (typeAST.kind === _kinds.LIST_TYPE) {
-      return new _definition.GraphQLList(buildInputFieldType(typeAST.type));
+  function buildInputFieldType(typeNode) {
+    if (typeNode.kind === _kinds.LIST_TYPE) {
+      return new _definition.GraphQLList(buildInputFieldType(typeNode.type));
     }
-    if (typeAST.kind === _kinds.NON_NULL_TYPE) {
-      var nullableType = buildInputFieldType(typeAST.type);
+    if (typeNode.kind === _kinds.NON_NULL_TYPE) {
+      var nullableType = buildInputFieldType(typeNode.type);
       (0, _invariant2.default)(!(nullableType instanceof _definition.GraphQLNonNull), 'Must be nullable');
       return new _definition.GraphQLNonNull(nullableType);
     }
-    return getInputTypeFromAST(typeAST);
+    return getInputTypeFromAST(typeNode);
   }
 
-  function buildOutputFieldType(typeAST) {
-    if (typeAST.kind === _kinds.LIST_TYPE) {
-      return new _definition.GraphQLList(buildOutputFieldType(typeAST.type));
+  function buildOutputFieldType(typeNode) {
+    if (typeNode.kind === _kinds.LIST_TYPE) {
+      return new _definition.GraphQLList(buildOutputFieldType(typeNode.type));
     }
-    if (typeAST.kind === _kinds.NON_NULL_TYPE) {
-      var nullableType = buildOutputFieldType(typeAST.type);
+    if (typeNode.kind === _kinds.NON_NULL_TYPE) {
+      var nullableType = buildOutputFieldType(typeNode.type);
       (0, _invariant2.default)(!(nullableType instanceof _definition.GraphQLNonNull), 'Must be nullable');
       return new _definition.GraphQLNonNull(nullableType);
     }
-    return getOutputTypeFromAST(typeAST);
+    return getOutputTypeFromAST(typeNode);
   }
 }
 
 function cannotExecuteExtendedSchema() {
   throw new Error('Extended Schema cannot use Interface or Union types for execution.');
 }
-},{"../error/GraphQLError":89,"../jsutils/invariant":100,"../jsutils/keyMap":102,"../jsutils/keyValMap":103,"../language/kinds":107,"../type/definition":114,"../type/directives":115,"../type/introspection":117,"../type/scalars":118,"../type/schema":119,"./buildASTSchema":123,"./valueFromAST":137}],127:[function(require,module,exports){
+},{"../error/GraphQLError":89,"../jsutils/invariant":100,"../jsutils/keyMap":103,"../jsutils/keyValMap":104,"../language/kinds":108,"../type/definition":115,"../type/directives":116,"../type/introspection":118,"../type/scalars":119,"../type/schema":120,"./buildASTSchema":124,"./valueFromAST":139}],128:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.BreakingChangeType = undefined;
+exports.DangerousChangeType = exports.BreakingChangeType = undefined;
 exports.findBreakingChanges = findBreakingChanges;
+exports.findDangerousChanges = findDangerousChanges;
 exports.findRemovedTypes = findRemovedTypes;
 exports.findTypesThatChangedKind = findTypesThatChangedKind;
+exports.findArgChanges = findArgChanges;
 exports.findFieldsThatChangedType = findFieldsThatChangedType;
 exports.findTypesRemovedFromUnions = findTypesRemovedFromUnions;
 exports.findValuesRemovedFromEnums = findValuesRemovedFromEnums;
@@ -12457,7 +12971,13 @@ var BreakingChangeType = exports.BreakingChangeType = {
   TYPE_CHANGED_KIND: 'TYPE_CHANGED_KIND',
   TYPE_REMOVED: 'TYPE_REMOVED',
   TYPE_REMOVED_FROM_UNION: 'TYPE_REMOVED_FROM_UNION',
-  VALUE_REMOVED_FROM_ENUM: 'VALUE_REMOVED_FROM_ENUM'
+  VALUE_REMOVED_FROM_ENUM: 'VALUE_REMOVED_FROM_ENUM',
+  ARG_REMOVED: 'ARG_REMOVED',
+  ARG_CHANGED_KIND: 'ARG_CHANGED_KIND'
+};
+
+var DangerousChangeType = exports.DangerousChangeType = {
+  ARG_DEFAULT_VALUE_CHANGE: 'ARG_DEFAULT_VALUE_CHANGE'
 };
 
 /**
@@ -12465,7 +12985,15 @@ var BreakingChangeType = exports.BreakingChangeType = {
  * of breaking changes covered by the other functions down below.
  */
 function findBreakingChanges(oldSchema, newSchema) {
-  return [].concat(findRemovedTypes(oldSchema, newSchema), findTypesThatChangedKind(oldSchema, newSchema), findFieldsThatChangedType(oldSchema, newSchema), findTypesRemovedFromUnions(oldSchema, newSchema), findValuesRemovedFromEnums(oldSchema, newSchema));
+  return [].concat(findRemovedTypes(oldSchema, newSchema), findTypesThatChangedKind(oldSchema, newSchema), findFieldsThatChangedType(oldSchema, newSchema), findTypesRemovedFromUnions(oldSchema, newSchema), findValuesRemovedFromEnums(oldSchema, newSchema), findArgChanges(oldSchema, newSchema).breakingChanges);
+}
+
+/**
+ * Given two schemas, returns an Array containing descriptions of all the types
+ * of potentially dangerous changes covered by the other functions down below.
+ */
+function findDangerousChanges(oldSchema, newSchema) {
+  return [].concat(findArgChanges(oldSchema, newSchema).dangerousChanges);
 }
 
 /**
@@ -12511,6 +13039,79 @@ function findTypesThatChangedKind(oldSchema, newSchema) {
     }
   });
   return breakingChanges;
+}
+
+/**
+ * Given two schemas, returns an Array containing descriptions of any
+ * breaking or dangerous changes in the newSchema related to arguments
+ * (such as removal or change of type of an argument, or a change in an
+ * argument's default value).
+ */
+function findArgChanges(oldSchema, newSchema) {
+  var oldTypeMap = oldSchema.getTypeMap();
+  var newTypeMap = newSchema.getTypeMap();
+
+  var breakingChanges = [];
+  var dangerousChanges = [];
+
+  Object.keys(oldTypeMap).forEach(function (typeName) {
+    var oldType = oldTypeMap[typeName];
+    var newType = newTypeMap[typeName];
+    if (!(oldType instanceof _definition.GraphQLObjectType) || !(newType instanceof oldType.constructor)) {
+      return;
+    }
+
+    var oldTypeFields = oldType.getFields();
+    var newTypeFields = newType.getFields();
+
+    Object.keys(oldTypeFields).forEach(function (fieldName) {
+      if (!newTypeFields[fieldName]) {
+        return;
+      }
+
+      oldTypeFields[fieldName].args.forEach(function (oldArgDef) {
+        var newArgs = newTypeFields[fieldName].args;
+        var newTypeArgIndex = newArgs.findIndex(function (arg) {
+          return arg.name === oldArgDef.name;
+        });
+        var newArgDef = newArgs[newTypeArgIndex];
+
+        var oldArgTypeName = (0, _definition.getNamedType)(oldArgDef.type);
+        var newArgTypeName = newArgDef ? (0, _definition.getNamedType)(newArgDef.type) : null;
+
+        if (!oldArgTypeName) {
+          return;
+        }
+
+        // Arg not present
+        if (!newArgTypeName) {
+          breakingChanges.push({
+            type: BreakingChangeType.ARG_REMOVED,
+            description: oldType.name + '.' + fieldName + ' arg ' + (oldArgDef.name + ' was removed')
+          });
+
+          // Arg changed type in a breaking way
+        } else if (oldArgTypeName.name !== newArgTypeName.name) {
+          breakingChanges.push({
+            type: BreakingChangeType.ARG_CHANGED_KIND,
+            description: oldType.name + '.' + fieldName + ' arg ' + (oldArgDef.name + ' has changed type from ') + (oldArgDef.type.toString() + ' to ' + newArgDef.type.toString())
+          });
+
+          // Arg default value has changed
+        } else if (oldArgDef.defaultValue !== undefined && oldArgDef.defaultValue !== newArgDef.defaultValue) {
+          dangerousChanges.push({
+            type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+            description: oldType.name + '.' + fieldName + ' arg ' + oldArgDef.name + ' ' + 'has changed defaultValue'
+          });
+        }
+      });
+    });
+  });
+
+  return {
+    breakingChanges: breakingChanges,
+    dangerousChanges: dangerousChanges
+  };
 }
 
 function typeKindName(type) {
@@ -12565,7 +13166,7 @@ function findFieldsThatChangedType(oldSchema, newSchema) {
         // Check if the field's type has changed in the new schema.
         var oldFieldType = (0, _definition.getNamedType)(oldTypeFieldsDef[fieldName].type);
         var newFieldType = (0, _definition.getNamedType)(newTypeFieldsDef[fieldName].type);
-        if (oldFieldType && newFieldType && oldFieldType.name !== newFieldType.name) {
+        if (oldFieldType.name !== newFieldType.name) {
           breakingFieldChanges.push({
             type: BreakingChangeType.FIELD_CHANGED_KIND,
             description: typeName + '.' + fieldName + ' changed type from ' + (oldFieldType.name + ' to ' + newFieldType.name + '.')
@@ -12638,7 +13239,67 @@ function findValuesRemovedFromEnums(oldSchema, newSchema) {
   });
   return valuesRemovedFromEnums;
 }
-},{"../type/definition":114,"../type/schema":119}],128:[function(require,module,exports){
+},{"../type/definition":115,"../type/schema":120}],129:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.findDeprecatedUsages = findDeprecatedUsages;
+
+var _GraphQLError = require('../error/GraphQLError');
+
+var _visitor = require('../language/visitor');
+
+var _definition = require('../type/definition');
+
+var _schema = require('../type/schema');
+
+var _TypeInfo = require('./TypeInfo');
+
+/**
+ * A validation rule which reports deprecated usages.
+ *
+ * Returns a list of GraphQLError instances describing each deprecated use.
+ */
+function findDeprecatedUsages(schema, ast) {
+  var errors = [];
+  var typeInfo = new _TypeInfo.TypeInfo(schema);
+
+  (0, _visitor.visit)(ast, (0, _visitor.visitWithTypeInfo)(typeInfo, {
+    Field: function Field(node) {
+      var fieldDef = typeInfo.getFieldDef();
+      if (fieldDef && fieldDef.isDeprecated) {
+        var parentType = typeInfo.getParentType();
+        if (parentType) {
+          var reason = fieldDef.deprecationReason;
+          errors.push(new _GraphQLError.GraphQLError('The field ' + parentType.name + '.' + fieldDef.name + ' is deprecated.' + (reason ? ' ' + reason : ''), [node]));
+        }
+      }
+    },
+    EnumValue: function EnumValue(node) {
+      var enumVal = typeInfo.getEnumValue();
+      if (enumVal && enumVal.isDeprecated) {
+        var type = (0, _definition.getNamedType)(typeInfo.getInputType());
+        if (type) {
+          var reason = enumVal.deprecationReason;
+          errors.push(new _GraphQLError.GraphQLError('The enum value ' + type.name + '.' + enumVal.name + ' is deprecated.' + (reason ? ' ' + reason : ''), [node]));
+        }
+      }
+    }
+  }));
+
+  return errors;
+}
+/**
+ *  Copyright (c) Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+},{"../error/GraphQLError":89,"../language/visitor":114,"../type/definition":115,"../type/schema":120,"./TypeInfo":121}],130:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -12681,7 +13342,7 @@ function getOperationAST(documentAST, operationName) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../language/kinds":107}],129:[function(require,module,exports){
+},{"../language/kinds":108}],131:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -12745,6 +13406,12 @@ Object.defineProperty(exports, 'printSchema', {
   enumerable: true,
   get: function get() {
     return _schemaPrinter.printSchema;
+  }
+});
+Object.defineProperty(exports, 'printType', {
+  enumerable: true,
+  get: function get() {
+    return _schemaPrinter.printType;
   }
 });
 Object.defineProperty(exports, 'printIntrospectionSchema', {
@@ -12864,7 +13531,16 @@ Object.defineProperty(exports, 'findBreakingChanges', {
     return _findBreakingChanges.findBreakingChanges;
   }
 });
-},{"./TypeInfo":120,"./assertValidName":121,"./astFromValue":122,"./buildASTSchema":123,"./buildClientSchema":124,"./concatAST":125,"./extendSchema":126,"./findBreakingChanges":127,"./getOperationAST":128,"./introspectionQuery":130,"./isValidJSValue":131,"./isValidLiteralValue":132,"./schemaPrinter":133,"./separateOperations":134,"./typeComparators":135,"./typeFromAST":136,"./valueFromAST":137}],130:[function(require,module,exports){
+
+var _findDeprecatedUsages = require('./findDeprecatedUsages');
+
+Object.defineProperty(exports, 'findDeprecatedUsages', {
+  enumerable: true,
+  get: function get() {
+    return _findDeprecatedUsages.findDeprecatedUsages;
+  }
+});
+},{"./TypeInfo":121,"./assertValidName":122,"./astFromValue":123,"./buildASTSchema":124,"./buildClientSchema":125,"./concatAST":126,"./extendSchema":127,"./findBreakingChanges":128,"./findDeprecatedUsages":129,"./getOperationAST":130,"./introspectionQuery":132,"./isValidJSValue":133,"./isValidLiteralValue":134,"./schemaPrinter":135,"./separateOperations":136,"./typeComparators":137,"./typeFromAST":138,"./valueFromAST":139}],132:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -12879,7 +13555,7 @@ var introspectionQuery = exports.introspectionQuery = '\n  query IntrospectionQu
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{}],131:[function(require,module,exports){
+},{}],133:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -12899,7 +13575,7 @@ var _isNullish2 = _interopRequireDefault(_isNullish);
 
 var _definition = require('../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Given a JavaScript value and a GraphQL type, determine if the value will be
@@ -12920,10 +13596,7 @@ function isValidJSValue(value, type) {
   // A value must be provided if the type is non-null.
   if (type instanceof _definition.GraphQLNonNull) {
     if ((0, _isNullish2.default)(value)) {
-      if (type.ofType.name) {
-        return ['Expected "' + String(type.ofType.name) + '!", found null.'];
-      }
-      return ['Expected non-null value, found null.'];
+      return ['Expected "' + String(type) + '", found null.'];
     }
     return isValidJSValue(value, type.ofType);
   }
@@ -12934,80 +13607,62 @@ function isValidJSValue(value, type) {
 
   // Lists accept a non-list value as a list of one.
   if (type instanceof _definition.GraphQLList) {
-    var _ret = function () {
-      var itemType = type.ofType;
-      if ((0, _iterall.isCollection)(value)) {
-        var _ret2 = function () {
-          var errors = [];
-          (0, _iterall.forEach)(value, function (item, index) {
-            errors.push.apply(errors, isValidJSValue(item, itemType).map(function (error) {
-              return 'In element #' + index + ': ' + error;
-            }));
-          });
-          return {
-            v: {
-              v: errors
-            }
-          };
-        }();
-
-        if (typeof _ret2 === "object") return _ret2.v;
-      }
-      return {
-        v: isValidJSValue(value, itemType)
-      };
-    }();
-
-    if (typeof _ret === "object") return _ret.v;
+    var itemType = type.ofType;
+    if ((0, _iterall.isCollection)(value)) {
+      var errors = [];
+      (0, _iterall.forEach)(value, function (item, index) {
+        errors.push.apply(errors, isValidJSValue(item, itemType).map(function (error) {
+          return 'In element #' + index + ': ' + error;
+        }));
+      });
+      return errors;
+    }
+    return isValidJSValue(value, itemType);
   }
 
   // Input objects check each defined field.
   if (type instanceof _definition.GraphQLInputObjectType) {
-    var _ret3 = function () {
-      if (typeof value !== 'object' || value === null) {
-        return {
-          v: ['Expected "' + type.name + '", found not an object.']
-        };
+    if (typeof value !== 'object' || value === null) {
+      return ['Expected "' + type.name + '", found not an object.'];
+    }
+    var fields = type.getFields();
+
+    var _errors = [];
+
+    // Ensure every provided field is defined.
+    Object.keys(value).forEach(function (providedField) {
+      if (!fields[providedField]) {
+        _errors.push('In field "' + providedField + '": Unknown field.');
       }
-      var fields = type.getFields();
+    });
 
-      var errors = [];
+    // Ensure every defined field is valid.
+    Object.keys(fields).forEach(function (fieldName) {
+      var newErrors = isValidJSValue(value[fieldName], fields[fieldName].type);
+      _errors.push.apply(_errors, newErrors.map(function (error) {
+        return 'In field "' + fieldName + '": ' + error;
+      }));
+    });
 
-      // Ensure every provided field is defined.
-      Object.keys(value).forEach(function (providedField) {
-        if (!fields[providedField]) {
-          errors.push('In field "' + providedField + '": Unknown field.');
-        }
-      });
-
-      // Ensure every defined field is valid.
-      Object.keys(fields).forEach(function (fieldName) {
-        var newErrors = isValidJSValue(value[fieldName], fields[fieldName].type);
-        errors.push.apply(errors, newErrors.map(function (error) {
-          return 'In field "' + fieldName + '": ' + error;
-        }));
-      });
-
-      return {
-        v: errors
-      };
-    }();
-
-    if (typeof _ret3 === "object") return _ret3.v;
+    return _errors;
   }
 
   (0, _invariant2.default)(type instanceof _definition.GraphQLScalarType || type instanceof _definition.GraphQLEnumType, 'Must be input type');
 
   // Scalar/Enum input checks to ensure the type can parse the value to
   // a non-null value.
-  var parseResult = type.parseValue(value);
-  if ((0, _isNullish2.default)(parseResult)) {
-    return ['Expected type "' + type.name + '", found ' + JSON.stringify(value) + '.'];
+  try {
+    var parseResult = type.parseValue(value);
+    if ((0, _isNullish2.default)(parseResult)) {
+      return ['Expected type "' + type.name + '", found ' + JSON.stringify(value) + '.'];
+    }
+  } catch (error) {
+    return ['Expected type "' + type.name + '", found ' + JSON.stringify(value) + ': ' + error.message];
   }
 
   return [];
 }
-},{"../jsutils/invariant":100,"../jsutils/isNullish":101,"../type/definition":114,"iterall":167}],132:[function(require,module,exports){
+},{"../jsutils/invariant":100,"../jsutils/isNullish":102,"../type/definition":115,"iterall":169}],134:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13033,11 +13688,11 @@ var _isNullish = require('../jsutils/isNullish');
 
 var _isNullish2 = _interopRequireDefault(_isNullish);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
- * Utility for validators which determines if a value literal AST is valid given
- * an input type.
+ * Utility for validators which determines if a value literal node is valid
+ * given an input type.
  *
  * Note that this only validates literal values, variables are assumed to
  * provide values of the correct type.
@@ -13052,101 +13707,82 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-function isValidLiteralValue(type, valueAST) {
+function isValidLiteralValue(type, valueNode) {
   // A value must be provided if the type is non-null.
   if (type instanceof _definition.GraphQLNonNull) {
-    if (!valueAST) {
-      if (type.ofType.name) {
-        return ['Expected "' + String(type.ofType.name) + '!", found null.'];
-      }
-      return ['Expected non-null value, found null.'];
+    if (!valueNode || valueNode.kind === _kinds.NULL) {
+      return ['Expected "' + String(type) + '", found null.'];
     }
-    return isValidLiteralValue(type.ofType, valueAST);
+    return isValidLiteralValue(type.ofType, valueNode);
   }
 
-  if (!valueAST) {
+  if (!valueNode || valueNode.kind === _kinds.NULL) {
     return [];
   }
 
   // This function only tests literals, and assumes variables will provide
   // values of the correct type.
-  if (valueAST.kind === _kinds.VARIABLE) {
+  if (valueNode.kind === _kinds.VARIABLE) {
     return [];
   }
 
   // Lists accept a non-list value as a list of one.
   if (type instanceof _definition.GraphQLList) {
-    var _ret = function () {
-      var itemType = type.ofType;
-      if (valueAST.kind === _kinds.LIST) {
-        return {
-          v: valueAST.values.reduce(function (acc, itemAST, index) {
-            var errors = isValidLiteralValue(itemType, itemAST);
-            return acc.concat(errors.map(function (error) {
-              return 'In element #' + index + ': ' + error;
-            }));
-          }, [])
-        };
-      }
-      return {
-        v: isValidLiteralValue(itemType, valueAST)
-      };
-    }();
-
-    if (typeof _ret === "object") return _ret.v;
+    var itemType = type.ofType;
+    if (valueNode.kind === _kinds.LIST) {
+      return valueNode.values.reduce(function (acc, item, index) {
+        var errors = isValidLiteralValue(itemType, item);
+        return acc.concat(errors.map(function (error) {
+          return 'In element #' + index + ': ' + error;
+        }));
+      }, []);
+    }
+    return isValidLiteralValue(itemType, valueNode);
   }
 
   // Input objects check each defined field and look for undefined fields.
   if (type instanceof _definition.GraphQLInputObjectType) {
-    var _ret2 = function () {
-      if (valueAST.kind !== _kinds.OBJECT) {
-        return {
-          v: ['Expected "' + type.name + '", found not an object.']
-        };
+    if (valueNode.kind !== _kinds.OBJECT) {
+      return ['Expected "' + type.name + '", found not an object.'];
+    }
+    var fields = type.getFields();
+
+    var errors = [];
+
+    // Ensure every provided field is defined.
+    var fieldNodes = valueNode.fields;
+    fieldNodes.forEach(function (providedFieldNode) {
+      if (!fields[providedFieldNode.name.value]) {
+        errors.push('In field "' + providedFieldNode.name.value + '": Unknown field.');
       }
-      var fields = type.getFields();
+    });
 
-      var errors = [];
+    // Ensure every defined field is valid.
+    var fieldNodeMap = (0, _keyMap2.default)(fieldNodes, function (fieldNode) {
+      return fieldNode.name.value;
+    });
+    Object.keys(fields).forEach(function (fieldName) {
+      var result = isValidLiteralValue(fields[fieldName].type, fieldNodeMap[fieldName] && fieldNodeMap[fieldName].value);
+      errors.push.apply(errors, result.map(function (error) {
+        return 'In field "' + fieldName + '": ' + error;
+      }));
+    });
 
-      // Ensure every provided field is defined.
-      var fieldASTs = valueAST.fields;
-      fieldASTs.forEach(function (providedFieldAST) {
-        if (!fields[providedFieldAST.name.value]) {
-          errors.push('In field "' + providedFieldAST.name.value + '": Unknown field.');
-        }
-      });
-
-      // Ensure every defined field is valid.
-      var fieldASTMap = (0, _keyMap2.default)(fieldASTs, function (fieldAST) {
-        return fieldAST.name.value;
-      });
-      Object.keys(fields).forEach(function (fieldName) {
-        var result = isValidLiteralValue(fields[fieldName].type, fieldASTMap[fieldName] && fieldASTMap[fieldName].value);
-        errors.push.apply(errors, result.map(function (error) {
-          return 'In field "' + fieldName + '": ' + error;
-        }));
-      });
-
-      return {
-        v: errors
-      };
-    }();
-
-    if (typeof _ret2 === "object") return _ret2.v;
+    return errors;
   }
 
   (0, _invariant2.default)(type instanceof _definition.GraphQLScalarType || type instanceof _definition.GraphQLEnumType, 'Must be input type');
 
   // Scalar/Enum input checks to ensure the type can parse the value to
   // a non-null value.
-  var parseResult = type.parseLiteral(valueAST);
+  var parseResult = type.parseLiteral(valueNode);
   if ((0, _isNullish2.default)(parseResult)) {
-    return ['Expected type "' + type.name + '", found ' + (0, _printer.print)(valueAST) + '.'];
+    return ['Expected type "' + type.name + '", found ' + (0, _printer.print)(valueNode) + '.'];
   }
 
   return [];
 }
-},{"../jsutils/invariant":100,"../jsutils/isNullish":101,"../jsutils/keyMap":102,"../language/kinds":107,"../language/printer":111,"../type/definition":114}],133:[function(require,module,exports){
+},{"../jsutils/invariant":100,"../jsutils/isNullish":102,"../jsutils/keyMap":103,"../language/kinds":108,"../language/printer":112,"../type/definition":115}],135:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13154,6 +13790,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.printSchema = printSchema;
 exports.printIntrospectionSchema = printIntrospectionSchema;
+exports.printType = printType;
 
 var _invariant = require('../jsutils/invariant');
 
@@ -13162,6 +13799,10 @@ var _invariant2 = _interopRequireDefault(_invariant);
 var _isNullish = require('../jsutils/isNullish');
 
 var _isNullish2 = _interopRequireDefault(_isNullish);
+
+var _isInvalid = require('../jsutils/isInvalid');
+
+var _isInvalid2 = _interopRequireDefault(_isInvalid);
 
 var _astFromValue = require('../utilities/astFromValue');
 
@@ -13173,13 +13814,8 @@ var _scalars = require('../type/scalars');
 
 var _directives = require('../type/directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
-function printSchema(schema) {
-  return printFilteredSchema(schema, function (n) {
-    return !isSpecDirective(n);
-  }, isDefinedType);
-}
 /**
  *  Copyright (c) 2015, Facebook, Inc.
  *  All rights reserved.
@@ -13188,6 +13824,12 @@ function printSchema(schema) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
+
+function printSchema(schema) {
+  return printFilteredSchema(schema, function (n) {
+    return !isSpecDirective(n);
+  }, isDefinedType);
+}
 
 function printIntrospectionSchema(schema) {
   return printFilteredSchema(schema, isSpecDirective, isIntrospectionType);
@@ -13346,7 +13988,7 @@ function printFields(type) {
 }
 
 function printArgs(args) {
-  var indentation = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
+  var indentation = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
 
   if (args.length === 0) {
     return '';
@@ -13366,7 +14008,7 @@ function printArgs(args) {
 
 function printInputValue(arg) {
   var argDecl = arg.name + ': ' + String(arg.type);
-  if (!(0, _isNullish2.default)(arg.defaultValue)) {
+  if (!(0, _isInvalid2.default)(arg.defaultValue)) {
     argDecl += ' = ' + (0, _printer.print)((0, _astFromValue.astFromValue)(arg.defaultValue, arg.type));
   }
   return argDecl;
@@ -13388,8 +14030,8 @@ function printDeprecated(fieldOrEnumVal) {
 }
 
 function printDescription(def) {
-  var indentation = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
-  var firstInBlock = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
+  var indentation = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  var firstInBlock = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
 
   if (!def.description) {
     return '';
@@ -13425,7 +14067,7 @@ function breakLine(line, len) {
   }
   return sublines;
 }
-},{"../jsutils/invariant":100,"../jsutils/isNullish":101,"../language/printer":111,"../type/definition":114,"../type/directives":115,"../type/scalars":118,"../utilities/astFromValue":122}],134:[function(require,module,exports){
+},{"../jsutils/invariant":100,"../jsutils/isInvalid":101,"../jsutils/isNullish":102,"../language/printer":112,"../type/definition":115,"../type/directives":116,"../type/scalars":119,"../utilities/astFromValue":123}],136:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13444,17 +14086,23 @@ var _visitor = require('../language/visitor');
 function separateOperations(documentAST) {
 
   var operations = [];
+  var fragments = Object.create(null);
+  var positions = new Map();
   var depGraph = Object.create(null);
   var fromName = void 0;
+  var idx = 0;
 
-  // Populate the list of operations and build a dependency graph.
+  // Populate metadata and build a dependency graph.
   (0, _visitor.visit)(documentAST, {
     OperationDefinition: function OperationDefinition(node) {
-      operations.push(node);
       fromName = opName(node);
+      operations.push(node);
+      positions.set(node, idx++);
     },
     FragmentDefinition: function FragmentDefinition(node) {
       fromName = node.name.value;
+      fragments[fromName] = node;
+      positions.set(node, idx++);
     },
     FragmentSpread: function FragmentSpread(node) {
       var toName = node.name.value;
@@ -13470,11 +14118,19 @@ function separateOperations(documentAST) {
     var dependencies = Object.create(null);
     collectTransitiveDependencies(dependencies, depGraph, operationName);
 
+    // The list of definition nodes to be included for this operation, sorted
+    // to retain the same order as the original document.
+    var definitions = [operation];
+    Object.keys(dependencies).forEach(function (name) {
+      definitions.push(fragments[name]);
+    });
+    definitions.sort(function (n1, n2) {
+      return (positions.get(n1) || 0) - (positions.get(n2) || 0);
+    });
+
     separatedDocumentASTs[operationName] = {
       kind: 'Document',
-      definitions: documentAST.definitions.filter(function (def) {
-        return def === operation || def.kind === 'FragmentDefinition' && dependencies[def.name.value];
-      })
+      definitions: definitions
     };
   });
 
@@ -13507,7 +14163,7 @@ function collectTransitiveDependencies(collected, depGraph, fromName) {
     });
   }
 }
-},{"../language/visitor":113}],135:[function(require,module,exports){
+},{"../language/visitor":114}],137:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13612,8 +14268,8 @@ function doTypesOverlap(schema, typeA, typeB) {
     return true;
   }
 
-  if (typeA instanceof _definition.GraphQLInterfaceType || typeA instanceof _definition.GraphQLUnionType) {
-    if (_typeB instanceof _definition.GraphQLInterfaceType || _typeB instanceof _definition.GraphQLUnionType) {
+  if ((0, _definition.isAbstractType)(typeA)) {
+    if ((0, _definition.isAbstractType)(_typeB)) {
       // If both types are abstract, then determine if there is any intersection
       // between possible concrete types of each.
       return schema.getPossibleTypes(typeA).some(function (type) {
@@ -13624,7 +14280,7 @@ function doTypesOverlap(schema, typeA, typeB) {
     return schema.isPossibleType(typeA, _typeB);
   }
 
-  if (_typeB instanceof _definition.GraphQLInterfaceType || _typeB instanceof _definition.GraphQLUnionType) {
+  if ((0, _definition.isAbstractType)(_typeB)) {
     // Determine if the former type is a possible concrete type of the latter.
     return schema.isPossibleType(_typeB, typeA);
   }
@@ -13632,7 +14288,7 @@ function doTypesOverlap(schema, typeA, typeB) {
   // Otherwise the types do not overlap.
   return false;
 }
-},{"../type/definition":114}],136:[function(require,module,exports){
+},{"../type/definition":115}],138:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13648,20 +14304,29 @@ var _kinds = require('../language/kinds');
 
 var _definition = require('../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
-function typeFromAST(schema, inputTypeAST) {
+/**
+ * Given a Schema and an AST node describing a type, return a GraphQLType
+ * definition which applies to that type. For example, if provided the parsed
+ * AST node for `[User]`, a GraphQLList instance will be returned, containing
+ * the type called "User" found in the schema. If a type called "User" is not
+ * found in the schema, then undefined will be returned.
+ */
+/* eslint-disable no-redeclare */
+function typeFromAST(schema, typeNode) {
+  /* eslint-enable no-redeclare */
   var innerType = void 0;
-  if (inputTypeAST.kind === _kinds.LIST_TYPE) {
-    innerType = typeFromAST(schema, inputTypeAST.type);
+  if (typeNode.kind === _kinds.LIST_TYPE) {
+    innerType = typeFromAST(schema, typeNode.type);
     return innerType && new _definition.GraphQLList(innerType);
   }
-  if (inputTypeAST.kind === _kinds.NON_NULL_TYPE) {
-    innerType = typeFromAST(schema, inputTypeAST.type);
+  if (typeNode.kind === _kinds.NON_NULL_TYPE) {
+    innerType = typeFromAST(schema, typeNode.type);
     return innerType && new _definition.GraphQLNonNull(innerType);
   }
-  (0, _invariant2.default)(inputTypeAST.kind === _kinds.NAMED_TYPE, 'Must be a named type.');
-  return schema.getType(inputTypeAST.name.value);
+  (0, _invariant2.default)(typeNode.kind === _kinds.NAMED_TYPE, 'Must be a named type.');
+  return schema.getType(typeNode.name.value);
 }
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -13671,7 +14336,7 @@ function typeFromAST(schema, inputTypeAST) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../jsutils/invariant":100,"../language/kinds":107,"../type/definition":114}],137:[function(require,module,exports){
+},{"../jsutils/invariant":100,"../language/kinds":108,"../type/definition":115}],139:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13691,6 +14356,10 @@ var _isNullish = require('../jsutils/isNullish');
 
 var _isNullish2 = _interopRequireDefault(_isNullish);
 
+var _isInvalid = require('../jsutils/isInvalid');
+
+var _isInvalid2 = _interopRequireDefault(_isInvalid);
+
 var _kinds = require('../language/kinds');
 
 var Kind = _interopRequireWildcard(_kinds);
@@ -13699,13 +14368,16 @@ var _definition = require('../type/definition');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  * Produces a JavaScript value given a GraphQL Value AST.
  *
  * A GraphQL type must be provided, which will be used to interpret different
  * GraphQL Value literals.
+ *
+ * Returns `undefined` when the value could not be validly coerced according to
+ * the provided type.
  *
  * | GraphQL Value        | JSON Value    |
  * | -------------------- | ------------- |
@@ -13715,86 +14387,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  * | String               | String        |
  * | Int / Float          | Number        |
  * | Enum Value           | Mixed         |
+ * | NullValue            | null          |
  *
  */
-function valueFromAST(valueAST, type, variables) {
-  if (type instanceof _definition.GraphQLNonNull) {
-    // Note: we're not checking that the result of valueFromAST is non-null.
-    // We're assuming that this query has been validated and the value used
-    // here is of the correct type.
-    return valueFromAST(valueAST, type.ofType, variables);
-  }
 
-  if (!valueAST) {
-    return null;
-  }
-
-  if (valueAST.kind === Kind.VARIABLE) {
-    var variableName = valueAST.name.value;
-    if (!variables || !variables.hasOwnProperty(variableName)) {
-      return null;
-    }
-    // Note: we're not doing any checking that this variable is correct. We're
-    // assuming that this query has been validated and the variable usage here
-    // is of the correct type.
-    return variables[variableName];
-  }
-
-  if (type instanceof _definition.GraphQLList) {
-    var _ret = function () {
-      var itemType = type.ofType;
-      if (valueAST.kind === Kind.LIST) {
-        return {
-          v: valueAST.values.map(function (itemAST) {
-            return valueFromAST(itemAST, itemType, variables);
-          })
-        };
-      }
-      return {
-        v: [valueFromAST(valueAST, itemType, variables)]
-      };
-    }();
-
-    if (typeof _ret === "object") return _ret.v;
-  }
-
-  if (type instanceof _definition.GraphQLInputObjectType) {
-    var _ret2 = function () {
-      if (valueAST.kind !== Kind.OBJECT) {
-        return {
-          v: null
-        };
-      }
-      var fields = type.getFields();
-      var fieldASTs = (0, _keyMap2.default)(valueAST.fields, function (field) {
-        return field.name.value;
-      });
-      return {
-        v: Object.keys(fields).reduce(function (obj, fieldName) {
-          var field = fields[fieldName];
-          var fieldAST = fieldASTs[fieldName];
-          var fieldValue = valueFromAST(fieldAST && fieldAST.value, field.type, variables);
-          if ((0, _isNullish2.default)(fieldValue)) {
-            fieldValue = field.defaultValue;
-          }
-          if (!(0, _isNullish2.default)(fieldValue)) {
-            obj[fieldName] = fieldValue;
-          }
-          return obj;
-        }, {})
-      };
-    }();
-
-    if (typeof _ret2 === "object") return _ret2.v;
-  }
-
-  (0, _invariant2.default)(type instanceof _definition.GraphQLScalarType || type instanceof _definition.GraphQLEnumType, 'Must be input type');
-
-  var parsed = type.parseLiteral(valueAST);
-  if (!(0, _isNullish2.default)(parsed)) {
-    return parsed;
-  }
-}
 /**
  *  Copyright (c) 2015, Facebook, Inc.
  *  All rights reserved.
@@ -13803,7 +14399,117 @@ function valueFromAST(valueAST, type, variables) {
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-},{"../jsutils/invariant":100,"../jsutils/isNullish":101,"../jsutils/keyMap":102,"../language/kinds":107,"../type/definition":114}],138:[function(require,module,exports){
+
+function valueFromAST(valueNode, type, variables) {
+  if (!valueNode) {
+    // When there is no node, then there is also no value.
+    // Importantly, this is different from returning the value null.
+    return;
+  }
+
+  if (type instanceof _definition.GraphQLNonNull) {
+    if (valueNode.kind === Kind.NULL) {
+      return; // Invalid: intentionally return no value.
+    }
+    return valueFromAST(valueNode, type.ofType, variables);
+  }
+
+  if (valueNode.kind === Kind.NULL) {
+    // This is explicitly returning the value null.
+    return null;
+  }
+
+  if (valueNode.kind === Kind.VARIABLE) {
+    var variableName = valueNode.name.value;
+    if (!variables || (0, _isInvalid2.default)(variables[variableName])) {
+      // No valid return value.
+      return;
+    }
+    // Note: we're not doing any checking that this variable is correct. We're
+    // assuming that this query has been validated and the variable usage here
+    // is of the correct type.
+    return variables[variableName];
+  }
+
+  if (type instanceof _definition.GraphQLList) {
+    var itemType = type.ofType;
+    if (valueNode.kind === Kind.LIST) {
+      var coercedValues = [];
+      var itemNodes = valueNode.values;
+      for (var i = 0; i < itemNodes.length; i++) {
+        if (isMissingVariable(itemNodes[i], variables)) {
+          // If an array contains a missing variable, it is either coerced to
+          // null or if the item type is non-null, it considered invalid.
+          if (itemType instanceof _definition.GraphQLNonNull) {
+            return; // Invalid: intentionally return no value.
+          }
+          coercedValues.push(null);
+        } else {
+          var itemValue = valueFromAST(itemNodes[i], itemType, variables);
+          if ((0, _isInvalid2.default)(itemValue)) {
+            return; // Invalid: intentionally return no value.
+          }
+          coercedValues.push(itemValue);
+        }
+      }
+      return coercedValues;
+    }
+    var coercedValue = valueFromAST(valueNode, itemType, variables);
+    if ((0, _isInvalid2.default)(coercedValue)) {
+      return; // Invalid: intentionally return no value.
+    }
+    return [coercedValue];
+  }
+
+  if (type instanceof _definition.GraphQLInputObjectType) {
+    if (valueNode.kind !== Kind.OBJECT) {
+      return; // Invalid: intentionally return no value.
+    }
+    var coercedObj = Object.create(null);
+    var fields = type.getFields();
+    var fieldNodes = (0, _keyMap2.default)(valueNode.fields, function (field) {
+      return field.name.value;
+    });
+    var fieldNames = Object.keys(fields);
+    for (var _i = 0; _i < fieldNames.length; _i++) {
+      var fieldName = fieldNames[_i];
+      var field = fields[fieldName];
+      var fieldNode = fieldNodes[fieldName];
+      if (!fieldNode || isMissingVariable(fieldNode.value, variables)) {
+        if (!(0, _isInvalid2.default)(field.defaultValue)) {
+          coercedObj[fieldName] = field.defaultValue;
+        } else if (field.type instanceof _definition.GraphQLNonNull) {
+          return; // Invalid: intentionally return no value.
+        }
+        continue;
+      }
+      var fieldValue = valueFromAST(fieldNode.value, field.type, variables);
+      if ((0, _isInvalid2.default)(fieldValue)) {
+        return; // Invalid: intentionally return no value.
+      }
+      coercedObj[fieldName] = fieldValue;
+    }
+    return coercedObj;
+  }
+
+  (0, _invariant2.default)(type instanceof _definition.GraphQLScalarType || type instanceof _definition.GraphQLEnumType, 'Must be input type');
+
+  var parsed = type.parseLiteral(valueNode);
+  if ((0, _isNullish2.default)(parsed)) {
+    // null or invalid values represent a failure to parse correctly,
+    // in which case no value is returned.
+    return;
+  }
+
+  return parsed;
+}
+
+// Returns true if the provided valueNode is a variable which is not defined
+// in the set of variables.
+function isMissingVariable(valueNode, variables) {
+  return valueNode.kind === Kind.VARIABLE && (!variables || (0, _isInvalid2.default)(variables[valueNode.name.value]));
+}
+},{"../jsutils/invariant":100,"../jsutils/isInvalid":101,"../jsutils/isNullish":102,"../jsutils/keyMap":103,"../language/kinds":108,"../type/definition":115}],140:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13818,6 +14524,12 @@ Object.defineProperty(exports, 'validate', {
     return _validate.validate;
   }
 });
+Object.defineProperty(exports, 'ValidationContext', {
+  enumerable: true,
+  get: function get() {
+    return _validate.ValidationContext;
+  }
+});
 
 var _specifiedRules = require('./specifiedRules');
 
@@ -13827,7 +14539,232 @@ Object.defineProperty(exports, 'specifiedRules', {
     return _specifiedRules.specifiedRules;
   }
 });
-},{"./specifiedRules":163,"./validate":164}],139:[function(require,module,exports){
+
+var _ArgumentsOfCorrectType = require('./rules/ArgumentsOfCorrectType');
+
+Object.defineProperty(exports, 'ArgumentsOfCorrectTypeRule', {
+  enumerable: true,
+  get: function get() {
+    return _ArgumentsOfCorrectType.ArgumentsOfCorrectType;
+  }
+});
+
+var _DefaultValuesOfCorrectType = require('./rules/DefaultValuesOfCorrectType');
+
+Object.defineProperty(exports, 'DefaultValuesOfCorrectTypeRule', {
+  enumerable: true,
+  get: function get() {
+    return _DefaultValuesOfCorrectType.DefaultValuesOfCorrectType;
+  }
+});
+
+var _FieldsOnCorrectType = require('./rules/FieldsOnCorrectType');
+
+Object.defineProperty(exports, 'FieldsOnCorrectTypeRule', {
+  enumerable: true,
+  get: function get() {
+    return _FieldsOnCorrectType.FieldsOnCorrectType;
+  }
+});
+
+var _FragmentsOnCompositeTypes = require('./rules/FragmentsOnCompositeTypes');
+
+Object.defineProperty(exports, 'FragmentsOnCompositeTypesRule', {
+  enumerable: true,
+  get: function get() {
+    return _FragmentsOnCompositeTypes.FragmentsOnCompositeTypes;
+  }
+});
+
+var _KnownArgumentNames = require('./rules/KnownArgumentNames');
+
+Object.defineProperty(exports, 'KnownArgumentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _KnownArgumentNames.KnownArgumentNames;
+  }
+});
+
+var _KnownDirectives = require('./rules/KnownDirectives');
+
+Object.defineProperty(exports, 'KnownDirectivesRule', {
+  enumerable: true,
+  get: function get() {
+    return _KnownDirectives.KnownDirectives;
+  }
+});
+
+var _KnownFragmentNames = require('./rules/KnownFragmentNames');
+
+Object.defineProperty(exports, 'KnownFragmentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _KnownFragmentNames.KnownFragmentNames;
+  }
+});
+
+var _KnownTypeNames = require('./rules/KnownTypeNames');
+
+Object.defineProperty(exports, 'KnownTypeNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _KnownTypeNames.KnownTypeNames;
+  }
+});
+
+var _LoneAnonymousOperation = require('./rules/LoneAnonymousOperation');
+
+Object.defineProperty(exports, 'LoneAnonymousOperationRule', {
+  enumerable: true,
+  get: function get() {
+    return _LoneAnonymousOperation.LoneAnonymousOperation;
+  }
+});
+
+var _NoFragmentCycles = require('./rules/NoFragmentCycles');
+
+Object.defineProperty(exports, 'NoFragmentCyclesRule', {
+  enumerable: true,
+  get: function get() {
+    return _NoFragmentCycles.NoFragmentCycles;
+  }
+});
+
+var _NoUndefinedVariables = require('./rules/NoUndefinedVariables');
+
+Object.defineProperty(exports, 'NoUndefinedVariablesRule', {
+  enumerable: true,
+  get: function get() {
+    return _NoUndefinedVariables.NoUndefinedVariables;
+  }
+});
+
+var _NoUnusedFragments = require('./rules/NoUnusedFragments');
+
+Object.defineProperty(exports, 'NoUnusedFragmentsRule', {
+  enumerable: true,
+  get: function get() {
+    return _NoUnusedFragments.NoUnusedFragments;
+  }
+});
+
+var _NoUnusedVariables = require('./rules/NoUnusedVariables');
+
+Object.defineProperty(exports, 'NoUnusedVariablesRule', {
+  enumerable: true,
+  get: function get() {
+    return _NoUnusedVariables.NoUnusedVariables;
+  }
+});
+
+var _OverlappingFieldsCanBeMerged = require('./rules/OverlappingFieldsCanBeMerged');
+
+Object.defineProperty(exports, 'OverlappingFieldsCanBeMergedRule', {
+  enumerable: true,
+  get: function get() {
+    return _OverlappingFieldsCanBeMerged.OverlappingFieldsCanBeMerged;
+  }
+});
+
+var _PossibleFragmentSpreads = require('./rules/PossibleFragmentSpreads');
+
+Object.defineProperty(exports, 'PossibleFragmentSpreadsRule', {
+  enumerable: true,
+  get: function get() {
+    return _PossibleFragmentSpreads.PossibleFragmentSpreads;
+  }
+});
+
+var _ProvidedNonNullArguments = require('./rules/ProvidedNonNullArguments');
+
+Object.defineProperty(exports, 'ProvidedNonNullArgumentsRule', {
+  enumerable: true,
+  get: function get() {
+    return _ProvidedNonNullArguments.ProvidedNonNullArguments;
+  }
+});
+
+var _ScalarLeafs = require('./rules/ScalarLeafs');
+
+Object.defineProperty(exports, 'ScalarLeafsRule', {
+  enumerable: true,
+  get: function get() {
+    return _ScalarLeafs.ScalarLeafs;
+  }
+});
+
+var _UniqueArgumentNames = require('./rules/UniqueArgumentNames');
+
+Object.defineProperty(exports, 'UniqueArgumentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _UniqueArgumentNames.UniqueArgumentNames;
+  }
+});
+
+var _UniqueDirectivesPerLocation = require('./rules/UniqueDirectivesPerLocation');
+
+Object.defineProperty(exports, 'UniqueDirectivesPerLocationRule', {
+  enumerable: true,
+  get: function get() {
+    return _UniqueDirectivesPerLocation.UniqueDirectivesPerLocation;
+  }
+});
+
+var _UniqueFragmentNames = require('./rules/UniqueFragmentNames');
+
+Object.defineProperty(exports, 'UniqueFragmentNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _UniqueFragmentNames.UniqueFragmentNames;
+  }
+});
+
+var _UniqueInputFieldNames = require('./rules/UniqueInputFieldNames');
+
+Object.defineProperty(exports, 'UniqueInputFieldNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _UniqueInputFieldNames.UniqueInputFieldNames;
+  }
+});
+
+var _UniqueOperationNames = require('./rules/UniqueOperationNames');
+
+Object.defineProperty(exports, 'UniqueOperationNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _UniqueOperationNames.UniqueOperationNames;
+  }
+});
+
+var _UniqueVariableNames = require('./rules/UniqueVariableNames');
+
+Object.defineProperty(exports, 'UniqueVariableNamesRule', {
+  enumerable: true,
+  get: function get() {
+    return _UniqueVariableNames.UniqueVariableNames;
+  }
+});
+
+var _VariablesAreInputTypes = require('./rules/VariablesAreInputTypes');
+
+Object.defineProperty(exports, 'VariablesAreInputTypesRule', {
+  enumerable: true,
+  get: function get() {
+    return _VariablesAreInputTypes.VariablesAreInputTypes;
+  }
+});
+
+var _VariablesInAllowedPosition = require('./rules/VariablesInAllowedPosition');
+
+Object.defineProperty(exports, 'VariablesInAllowedPositionRule', {
+  enumerable: true,
+  get: function get() {
+    return _VariablesInAllowedPosition.VariablesInAllowedPosition;
+  }
+});
+},{"./rules/ArgumentsOfCorrectType":141,"./rules/DefaultValuesOfCorrectType":142,"./rules/FieldsOnCorrectType":143,"./rules/FragmentsOnCompositeTypes":144,"./rules/KnownArgumentNames":145,"./rules/KnownDirectives":146,"./rules/KnownFragmentNames":147,"./rules/KnownTypeNames":148,"./rules/LoneAnonymousOperation":149,"./rules/NoFragmentCycles":150,"./rules/NoUndefinedVariables":151,"./rules/NoUnusedFragments":152,"./rules/NoUnusedVariables":153,"./rules/OverlappingFieldsCanBeMerged":154,"./rules/PossibleFragmentSpreads":155,"./rules/ProvidedNonNullArguments":156,"./rules/ScalarLeafs":157,"./rules/UniqueArgumentNames":158,"./rules/UniqueDirectivesPerLocation":159,"./rules/UniqueFragmentNames":160,"./rules/UniqueInputFieldNames":161,"./rules/UniqueOperationNames":162,"./rules/UniqueVariableNames":163,"./rules/VariablesAreInputTypes":164,"./rules/VariablesInAllowedPosition":165,"./specifiedRules":166,"./validate":167}],141:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13864,19 +14801,19 @@ function badValueMessage(argName, type, value, verboseErrors) {
  */
 function ArgumentsOfCorrectType(context) {
   return {
-    Argument: function Argument(argAST) {
+    Argument: function Argument(node) {
       var argDef = context.getArgument();
       if (argDef) {
-        var errors = (0, _isValidLiteralValue.isValidLiteralValue)(argDef.type, argAST.value);
+        var errors = (0, _isValidLiteralValue.isValidLiteralValue)(argDef.type, node.value);
         if (errors && errors.length > 0) {
-          context.reportError(new _error.GraphQLError(badValueMessage(argAST.name.value, argDef.type, (0, _printer.print)(argAST.value), errors), [argAST.value]));
+          context.reportError(new _error.GraphQLError(badValueMessage(node.name.value, argDef.type, (0, _printer.print)(node.value), errors), [node.value]));
         }
       }
       return false;
     }
   };
 }
-},{"../../error":91,"../../language/printer":111,"../../utilities/isValidLiteralValue":132}],140:[function(require,module,exports){
+},{"../../error":91,"../../language/printer":112,"../../utilities/isValidLiteralValue":134}],142:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13919,9 +14856,9 @@ function badValueForDefaultArgMessage(varName, type, value, verboseErrors) {
  */
 function DefaultValuesOfCorrectType(context) {
   return {
-    VariableDefinition: function VariableDefinition(varDefAST) {
-      var name = varDefAST.variable.name.value;
-      var defaultValue = varDefAST.defaultValue;
+    VariableDefinition: function VariableDefinition(node) {
+      var name = node.variable.name.value;
+      var defaultValue = node.defaultValue;
       var type = context.getInputType();
       if (type instanceof _definition.GraphQLNonNull && defaultValue) {
         context.reportError(new _error.GraphQLError(defaultForNonNullArgMessage(name, type, type.ofType), [defaultValue]));
@@ -13943,7 +14880,7 @@ function DefaultValuesOfCorrectType(context) {
     }
   };
 }
-},{"../../error":91,"../../language/printer":111,"../../type/definition":114,"../../utilities/isValidLiteralValue":132}],141:[function(require,module,exports){
+},{"../../error":91,"../../language/printer":112,"../../type/definition":115,"../../utilities/isValidLiteralValue":134}],143:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -13964,7 +14901,7 @@ var _quotedOrList2 = _interopRequireDefault(_quotedOrList);
 
 var _definition = require('../../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function undefinedFieldMessage(fieldName, type, suggestedTypeNames, suggestedFieldNames) {
   var message = 'Cannot query field "' + fieldName + '" on type "' + type + '".';
@@ -14023,37 +14960,31 @@ function FieldsOnCorrectType(context) {
  * with Interfaces.
  */
 function getSuggestedTypeNames(schema, type, fieldName) {
-  if (type instanceof _definition.GraphQLInterfaceType || type instanceof _definition.GraphQLUnionType) {
-    var _ret = function () {
-      var suggestedObjectTypes = [];
-      var interfaceUsageCount = Object.create(null);
-      schema.getPossibleTypes(type).forEach(function (possibleType) {
-        if (!possibleType.getFields()[fieldName]) {
+  if ((0, _definition.isAbstractType)(type)) {
+    var suggestedObjectTypes = [];
+    var interfaceUsageCount = Object.create(null);
+    schema.getPossibleTypes(type).forEach(function (possibleType) {
+      if (!possibleType.getFields()[fieldName]) {
+        return;
+      }
+      // This object type defines this field.
+      suggestedObjectTypes.push(possibleType.name);
+      possibleType.getInterfaces().forEach(function (possibleInterface) {
+        if (!possibleInterface.getFields()[fieldName]) {
           return;
         }
-        // This object type defines this field.
-        suggestedObjectTypes.push(possibleType.name);
-        possibleType.getInterfaces().forEach(function (possibleInterface) {
-          if (!possibleInterface.getFields()[fieldName]) {
-            return;
-          }
-          // This interface type defines this field.
-          interfaceUsageCount[possibleInterface.name] = (interfaceUsageCount[possibleInterface.name] || 0) + 1;
-        });
+        // This interface type defines this field.
+        interfaceUsageCount[possibleInterface.name] = (interfaceUsageCount[possibleInterface.name] || 0) + 1;
       });
+    });
 
-      // Suggest interface types based on how common they are.
-      var suggestedInterfaceTypes = Object.keys(interfaceUsageCount).sort(function (a, b) {
-        return interfaceUsageCount[b] - interfaceUsageCount[a];
-      });
+    // Suggest interface types based on how common they are.
+    var suggestedInterfaceTypes = Object.keys(interfaceUsageCount).sort(function (a, b) {
+      return interfaceUsageCount[b] - interfaceUsageCount[a];
+    });
 
-      // Suggest both interface and object types.
-      return {
-        v: suggestedInterfaceTypes.concat(suggestedObjectTypes)
-      };
-    }();
-
-    if (typeof _ret === "object") return _ret.v;
+    // Suggest both interface and object types.
+    return suggestedInterfaceTypes.concat(suggestedObjectTypes);
   }
 
   // Otherwise, must be an Object type, which does not have possible fields.
@@ -14072,7 +15003,7 @@ function getSuggestedFieldNames(schema, type, fieldName) {
   // Otherwise, must be a Union type, which does not define fields.
   return [];
 }
-},{"../../error":91,"../../jsutils/quotedOrList":104,"../../jsutils/suggestionList":105,"../../type/definition":114}],142:[function(require,module,exports){
+},{"../../error":91,"../../jsutils/quotedOrList":105,"../../jsutils/suggestionList":106,"../../type/definition":115}],144:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14088,6 +15019,11 @@ var _printer = require('../../language/printer');
 
 var _definition = require('../../type/definition');
 
+var _typeFromAST = require('../../utilities/typeFromAST');
+
+function inlineFragmentOnNonCompositeErrorMessage(type) {
+  return 'Fragment cannot condition on non composite type "' + String(type) + '".';
+}
 /**
  *  Copyright (c) 2015, Facebook, Inc.
  *  All rights reserved.
@@ -14096,10 +15032,6 @@ var _definition = require('../../type/definition');
  *  LICENSE file in the root directory of this source tree. An additional grant
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
-
-function inlineFragmentOnNonCompositeErrorMessage(type) {
-  return 'Fragment cannot condition on non composite type "' + String(type) + '".';
-}
 
 function fragmentOnNonCompositeErrorMessage(fragName, type) {
   return 'Fragment "' + fragName + '" cannot condition on non composite ' + ('type "' + String(type) + '".');
@@ -14115,20 +15047,22 @@ function fragmentOnNonCompositeErrorMessage(fragName, type) {
 function FragmentsOnCompositeTypes(context) {
   return {
     InlineFragment: function InlineFragment(node) {
-      var type = context.getType();
-      if (node.typeCondition && type && !(0, _definition.isCompositeType)(type)) {
-        context.reportError(new _error.GraphQLError(inlineFragmentOnNonCompositeErrorMessage((0, _printer.print)(node.typeCondition)), [node.typeCondition]));
+      if (node.typeCondition) {
+        var type = (0, _typeFromAST.typeFromAST)(context.getSchema(), node.typeCondition);
+        if (type && !(0, _definition.isCompositeType)(type)) {
+          context.reportError(new _error.GraphQLError(inlineFragmentOnNonCompositeErrorMessage((0, _printer.print)(node.typeCondition)), [node.typeCondition]));
+        }
       }
     },
     FragmentDefinition: function FragmentDefinition(node) {
-      var type = context.getType();
+      var type = (0, _typeFromAST.typeFromAST)(context.getSchema(), node.typeCondition);
       if (type && !(0, _definition.isCompositeType)(type)) {
         context.reportError(new _error.GraphQLError(fragmentOnNonCompositeErrorMessage(node.name.value, (0, _printer.print)(node.typeCondition)), [node.typeCondition]));
       }
     }
   };
 }
-},{"../../error":91,"../../language/printer":111,"../../type/definition":114}],143:[function(require,module,exports){
+},{"../../error":91,"../../language/printer":112,"../../type/definition":115,"../../utilities/typeFromAST":138}],145:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14158,7 +15092,7 @@ var _quotedOrList2 = _interopRequireDefault(_quotedOrList);
 
 var _kinds = require('../../language/kinds');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function unknownArgMessage(argName, fieldName, type, suggestedArgs) {
   var message = 'Unknown argument "' + argName + '" on field "' + fieldName + '" of ' + ('type "' + String(type) + '".');
@@ -14224,7 +15158,7 @@ function KnownArgumentNames(context) {
     }
   };
 }
-},{"../../error":91,"../../jsutils/find":99,"../../jsutils/invariant":100,"../../jsutils/quotedOrList":104,"../../jsutils/suggestionList":105,"../../language/kinds":107}],144:[function(require,module,exports){
+},{"../../error":91,"../../jsutils/find":99,"../../jsutils/invariant":100,"../../jsutils/quotedOrList":105,"../../jsutils/suggestionList":106,"../../language/kinds":108}],146:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14244,7 +15178,7 @@ var _kinds = require('../../language/kinds');
 
 var _directives = require('../../type/directives');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function unknownDirectiveMessage(directiveName) {
   return 'Unknown directive "' + directiveName + '".';
@@ -14332,7 +15266,7 @@ function getDirectiveLocationForASTPath(ancestors) {
       return parentNode.kind === _kinds.INPUT_OBJECT_TYPE_DEFINITION ? _directives.DirectiveLocation.INPUT_FIELD_DEFINITION : _directives.DirectiveLocation.ARGUMENT_DEFINITION;
   }
 }
-},{"../../error":91,"../../jsutils/find":99,"../../language/kinds":107,"../../type/directives":115}],145:[function(require,module,exports){
+},{"../../error":91,"../../jsutils/find":99,"../../language/kinds":108,"../../type/directives":116}],147:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14373,7 +15307,7 @@ function KnownFragmentNames(context) {
     }
   };
 }
-},{"../../error":91}],146:[function(require,module,exports){
+},{"../../error":91}],148:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14392,7 +15326,7 @@ var _quotedOrList = require('../../jsutils/quotedOrList');
 
 var _quotedOrList2 = _interopRequireDefault(_quotedOrList);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -14444,7 +15378,7 @@ function KnownTypeNames(context) {
     }
   };
 }
-},{"../../error":91,"../../jsutils/quotedOrList":104,"../../jsutils/suggestionList":105}],147:[function(require,module,exports){
+},{"../../error":91,"../../jsutils/quotedOrList":105,"../../jsutils/suggestionList":106}],149:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14492,7 +15426,7 @@ function LoneAnonymousOperation(context) {
     }
   };
 }
-},{"../../error":91,"../../language/kinds":107}],148:[function(require,module,exports){
+},{"../../error":91,"../../language/kinds":108}],150:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14579,7 +15513,7 @@ function NoFragmentCycles(context) {
     spreadPathIndexByName[fragmentName] = undefined;
   }
 }
-},{"../../error":91}],149:[function(require,module,exports){
+},{"../../error":91}],151:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14630,12 +15564,12 @@ function NoUndefinedVariables(context) {
         });
       }
     },
-    VariableDefinition: function VariableDefinition(varDefAST) {
-      variableNameDefined[varDefAST.variable.name.value] = true;
+    VariableDefinition: function VariableDefinition(node) {
+      variableNameDefined[node.variable.name.value] = true;
     }
   };
 }
-},{"../../error":91}],150:[function(require,module,exports){
+},{"../../error":91}],152:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14698,7 +15632,7 @@ function NoUnusedFragments(context) {
     }
   };
 }
-},{"../../error":91}],151:[function(require,module,exports){
+},{"../../error":91}],153:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14760,7 +15694,7 @@ function NoUnusedVariables(context) {
     }
   };
 }
-},{"../../error":91}],152:[function(require,module,exports){
+},{"../../error":91}],154:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -14783,7 +15717,7 @@ var _definition = require('../../type/definition');
 
 var _typeFromAST = require('../../utilities/typeFromAST');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -14802,8 +15736,8 @@ function fieldsConflictMessage(responseName, reason) {
 function reasonMessage(reason) {
   if (Array.isArray(reason)) {
     return reason.map(function (_ref) {
-      var responseName = _ref[0];
-      var subreason = _ref[1];
+      var responseName = _ref[0],
+          subreason = _ref[1];
       return 'subfields "' + responseName + '" conflict because ' + reasonMessage(subreason);
     }).join(' and ');
   }
@@ -14832,11 +15766,11 @@ function OverlappingFieldsCanBeMerged(context) {
     SelectionSet: function SelectionSet(selectionSet) {
       var conflicts = findConflictsWithinSelectionSet(context, cachedFieldsAndFragmentNames, comparedFragments, context.getParentType(), selectionSet);
       conflicts.forEach(function (_ref2) {
-        var _ref2$ = _ref2[0];
-        var responseName = _ref2$[0];
-        var reason = _ref2$[1];
-        var fields1 = _ref2[1];
-        var fields2 = _ref2[2];
+        var _ref2$ = _ref2[0],
+            responseName = _ref2$[0],
+            reason = _ref2$[1],
+            fields1 = _ref2[1],
+            fields2 = _ref2[2];
         return context.reportError(new _error.GraphQLError(fieldsConflictMessage(responseName, reason), fields1.concat(fields2)));
       });
     }
@@ -14846,7 +15780,7 @@ function OverlappingFieldsCanBeMerged(context) {
 
 // Reason is a string, or a nested list of conflicts.
 
-// Tuple defining an AST in a context
+// Tuple defining a field node in a context.
 
 // Map of array of those.
 
@@ -14912,13 +15846,13 @@ function OverlappingFieldsCanBeMerged(context) {
 function findConflictsWithinSelectionSet(context, cachedFieldsAndFragmentNames, comparedFragments, parentType, selectionSet) {
   var conflicts = [];
 
-  var _getFieldsAndFragment = getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType, selectionSet);
-
-  var fieldMap = _getFieldsAndFragment[0];
-  var fragmentNames = _getFieldsAndFragment[1];
+  var _getFieldsAndFragment = getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType, selectionSet),
+      fieldMap = _getFieldsAndFragment[0],
+      fragmentNames = _getFieldsAndFragment[1];
 
   // (A) Find find all conflicts "within" the fields of this selection set.
   // Note: this is the *only place* `collectConflictsWithin` is called.
+
 
   collectConflictsWithin(context, conflicts, cachedFieldsAndFragmentNames, comparedFragments, fieldMap);
 
@@ -14945,13 +15879,13 @@ function collectConflictsBetweenFieldsAndFragment(context, conflicts, cachedFiel
     return;
   }
 
-  var _getReferencedFieldsA = getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment);
-
-  var fieldMap2 = _getReferencedFieldsA[0];
-  var fragmentNames2 = _getReferencedFieldsA[1];
+  var _getReferencedFieldsA = getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment),
+      fieldMap2 = _getReferencedFieldsA[0],
+      fragmentNames2 = _getReferencedFieldsA[1];
 
   // (D) First collect any conflicts between the provided collection of fields
   // and the collection of fields represented by the given fragment.
+
 
   collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentNames, comparedFragments, areMutuallyExclusive, fieldMap, fieldMap2);
 
@@ -14982,18 +15916,17 @@ function collectConflictsBetweenFragments(context, conflicts, cachedFieldsAndFra
   }
   comparedFragments.add(fragmentName1, fragmentName2, areMutuallyExclusive);
 
-  var _getReferencedFieldsA2 = getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment1);
+  var _getReferencedFieldsA2 = getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment1),
+      fieldMap1 = _getReferencedFieldsA2[0],
+      fragmentNames1 = _getReferencedFieldsA2[1];
 
-  var fieldMap1 = _getReferencedFieldsA2[0];
-  var fragmentNames1 = _getReferencedFieldsA2[1];
-
-  var _getReferencedFieldsA3 = getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment2);
-
-  var fieldMap2 = _getReferencedFieldsA3[0];
-  var fragmentNames2 = _getReferencedFieldsA3[1];
+  var _getReferencedFieldsA3 = getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment2),
+      fieldMap2 = _getReferencedFieldsA3[0],
+      fragmentNames2 = _getReferencedFieldsA3[1];
 
   // (F) First, collect all conflicts between these two collections of fields
   // (not including any nested fragments).
+
 
   collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentNames, comparedFragments, areMutuallyExclusive, fieldMap1, fieldMap2);
 
@@ -15016,17 +15949,16 @@ function collectConflictsBetweenFragments(context, conflicts, cachedFieldsAndFra
 function findConflictsBetweenSubSelectionSets(context, cachedFieldsAndFragmentNames, comparedFragments, areMutuallyExclusive, parentType1, selectionSet1, parentType2, selectionSet2) {
   var conflicts = [];
 
-  var _getFieldsAndFragment2 = getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType1, selectionSet1);
+  var _getFieldsAndFragment2 = getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType1, selectionSet1),
+      fieldMap1 = _getFieldsAndFragment2[0],
+      fragmentNames1 = _getFieldsAndFragment2[1];
 
-  var fieldMap1 = _getFieldsAndFragment2[0];
-  var fragmentNames1 = _getFieldsAndFragment2[1];
-
-  var _getFieldsAndFragment3 = getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType2, selectionSet2);
-
-  var fieldMap2 = _getFieldsAndFragment3[0];
-  var fragmentNames2 = _getFieldsAndFragment3[1];
+  var _getFieldsAndFragment3 = getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType2, selectionSet2),
+      fieldMap2 = _getFieldsAndFragment3[0],
+      fragmentNames2 = _getFieldsAndFragment3[1];
 
   // (H) First, collect all conflicts between these two collections of field.
+
 
   collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentNames, comparedFragments, areMutuallyExclusive, fieldMap1, fieldMap2);
 
@@ -15108,12 +16040,12 @@ function collectConflictsBetween(context, conflicts, cachedFieldsAndFragmentName
 // Determines if there is a conflict between two particular fields, including
 // comparing their sub-fields.
 function findConflict(context, cachedFieldsAndFragmentNames, comparedFragments, parentFieldsAreMutuallyExclusive, responseName, field1, field2) {
-  var parentType1 = field1[0];
-  var ast1 = field1[1];
-  var def1 = field1[2];
-  var parentType2 = field2[0];
-  var ast2 = field2[1];
-  var def2 = field2[2];
+  var parentType1 = field1[0],
+      node1 = field1[1],
+      def1 = field1[2];
+  var parentType2 = field2[0],
+      node2 = field2[1],
+      def2 = field2[2];
 
   // If it is known that two fields could not possibly apply at the same
   // time, due to the parent types, then it is safe to permit them to diverge
@@ -15132,30 +16064,30 @@ function findConflict(context, cachedFieldsAndFragmentNames, comparedFragments, 
 
   if (!areMutuallyExclusive) {
     // Two aliases must refer to the same field.
-    var name1 = ast1.name.value;
-    var name2 = ast2.name.value;
+    var name1 = node1.name.value;
+    var name2 = node2.name.value;
     if (name1 !== name2) {
-      return [[responseName, name1 + ' and ' + name2 + ' are different fields'], [ast1], [ast2]];
+      return [[responseName, name1 + ' and ' + name2 + ' are different fields'], [node1], [node2]];
     }
 
     // Two field calls must have the same arguments.
-    if (!sameArguments(ast1.arguments || [], ast2.arguments || [])) {
-      return [[responseName, 'they have differing arguments'], [ast1], [ast2]];
+    if (!sameArguments(node1.arguments || [], node2.arguments || [])) {
+      return [[responseName, 'they have differing arguments'], [node1], [node2]];
     }
   }
 
   if (type1 && type2 && doTypesConflict(type1, type2)) {
-    return [[responseName, 'they return conflicting types ' + String(type1) + ' and ' + String(type2)], [ast1], [ast2]];
+    return [[responseName, 'they return conflicting types ' + String(type1) + ' and ' + String(type2)], [node1], [node2]];
   }
 
   // Collect and compare sub-fields. Use the same "visited fragment names" list
   // for both collections so fields in a fragment reference are never
   // compared to themselves.
-  var selectionSet1 = ast1.selectionSet;
-  var selectionSet2 = ast2.selectionSet;
+  var selectionSet1 = node1.selectionSet;
+  var selectionSet2 = node2.selectionSet;
   if (selectionSet1 && selectionSet2) {
     var conflicts = findConflictsBetweenSubSelectionSets(context, cachedFieldsAndFragmentNames, comparedFragments, areMutuallyExclusive, (0, _definition.getNamedType)(type1), selectionSet1, (0, _definition.getNamedType)(type2), selectionSet2);
-    return subfieldConflicts(conflicts, responseName, ast1, ast2);
+    return subfieldConflicts(conflicts, responseName, node1, node2);
   }
 }
 
@@ -15201,15 +16133,15 @@ function doTypesConflict(type1, type2) {
 }
 
 // Given a selection set, return the collection of fields (a mapping of response
-// name to field ASTs and definitions) as well as a list of fragment names
+// name to field nodes and definitions) as well as a list of fragment names
 // referenced via fragment spreads.
 function getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parentType, selectionSet) {
   var cached = cachedFieldsAndFragmentNames.get(selectionSet);
   if (!cached) {
-    var astAndDefs = {};
+    var nodeAndDefs = {};
     var fragmentNames = {};
-    _collectFieldsAndFragmentNames(context, parentType, selectionSet, astAndDefs, fragmentNames);
-    cached = [astAndDefs, Object.keys(fragmentNames)];
+    _collectFieldsAndFragmentNames(context, parentType, selectionSet, nodeAndDefs, fragmentNames);
+    cached = [nodeAndDefs, Object.keys(fragmentNames)];
     cachedFieldsAndFragmentNames.set(selectionSet, cached);
   }
   return cached;
@@ -15218,7 +16150,7 @@ function getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, parent
 // Given a reference to a fragment, return the represented collection of fields
 // as well as a list of nested fragment names referenced via fragment spreads.
 function getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragment) {
-  // Short-circuit building a type from the AST if possible.
+  // Short-circuit building a type from the node if possible.
   var cached = cachedFieldsAndFragmentNames.get(fragment.selectionSet);
   if (cached) {
     return cached;
@@ -15228,7 +16160,7 @@ function getReferencedFieldsAndFragmentNames(context, cachedFieldsAndFragmentNam
   return getFieldsAndFragmentNames(context, cachedFieldsAndFragmentNames, fragmentType, fragment.selectionSet);
 }
 
-function _collectFieldsAndFragmentNames(context, parentType, selectionSet, astAndDefs, fragmentNames) {
+function _collectFieldsAndFragmentNames(context, parentType, selectionSet, nodeAndDefs, fragmentNames) {
   for (var i = 0; i < selectionSet.selections.length; i++) {
     var selection = selectionSet.selections[i];
     switch (selection.kind) {
@@ -15239,10 +16171,10 @@ function _collectFieldsAndFragmentNames(context, parentType, selectionSet, astAn
           fieldDef = parentType.getFields()[fieldName];
         }
         var responseName = selection.alias ? selection.alias.value : fieldName;
-        if (!astAndDefs[responseName]) {
-          astAndDefs[responseName] = [];
+        if (!nodeAndDefs[responseName]) {
+          nodeAndDefs[responseName] = [];
         }
-        astAndDefs[responseName].push([parentType, selection, fieldDef]);
+        nodeAndDefs[responseName].push([parentType, selection, fieldDef]);
         break;
       case _kinds.FRAGMENT_SPREAD:
         fragmentNames[selection.name.value] = true;
@@ -15250,7 +16182,7 @@ function _collectFieldsAndFragmentNames(context, parentType, selectionSet, astAn
       case _kinds.INLINE_FRAGMENT:
         var typeCondition = selection.typeCondition;
         var inlineFragmentType = typeCondition ? (0, _typeFromAST.typeFromAST)(context.getSchema(), typeCondition) : parentType;
-        _collectFieldsAndFragmentNames(context, inlineFragmentType, selection.selectionSet, astAndDefs, fragmentNames);
+        _collectFieldsAndFragmentNames(context, inlineFragmentType, selection.selectionSet, nodeAndDefs, fragmentNames);
         break;
     }
   }
@@ -15258,7 +16190,7 @@ function _collectFieldsAndFragmentNames(context, parentType, selectionSet, astAn
 
 // Given a series of Conflicts which occurred between two sub-fields, generate
 // a single Conflict.
-function subfieldConflicts(conflicts, responseName, ast1, ast2) {
+function subfieldConflicts(conflicts, responseName, node1, node2) {
   if (conflicts.length > 0) {
     return [[responseName, conflicts.map(function (_ref3) {
       var reason = _ref3[0];
@@ -15266,10 +16198,10 @@ function subfieldConflicts(conflicts, responseName, ast1, ast2) {
     })], conflicts.reduce(function (allFields, _ref4) {
       var fields1 = _ref4[1];
       return allFields.concat(fields1);
-    }, [ast1]), conflicts.reduce(function (allFields, _ref5) {
+    }, [node1]), conflicts.reduce(function (allFields, _ref5) {
       var fields2 = _ref5[2];
       return allFields.concat(fields2);
-    }, [ast2])];
+    }, [node2])];
   }
 }
 
@@ -15316,7 +16248,7 @@ function _pairSetAdd(data, a, b, areMutuallyExclusive) {
   }
   map[b] = areMutuallyExclusive;
 }
-},{"../../error":91,"../../jsutils/find":99,"../../language/kinds":107,"../../language/printer":111,"../../type/definition":114,"../../utilities/typeFromAST":136}],153:[function(require,module,exports){
+},{"../../error":91,"../../jsutils/find":99,"../../language/kinds":108,"../../language/printer":112,"../../type/definition":115,"../../utilities/typeFromAST":138}],155:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15380,7 +16312,7 @@ function getFragmentType(context, name) {
   var frag = context.getFragment(name);
   return frag && (0, _typeFromAST.typeFromAST)(context.getSchema(), frag.typeCondition);
 }
-},{"../../error":91,"../../utilities/typeComparators":135,"../../utilities/typeFromAST":136}],154:[function(require,module,exports){
+},{"../../error":91,"../../utilities/typeComparators":137,"../../utilities/typeFromAST":138}],156:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15398,7 +16330,7 @@ var _keyMap2 = _interopRequireDefault(_keyMap);
 
 var _definition = require('../../type/definition');
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 /**
  *  Copyright (c) 2015, Facebook, Inc.
@@ -15427,20 +16359,20 @@ function ProvidedNonNullArguments(context) {
   return {
     Field: {
       // Validate on leave to allow for deeper errors to appear first.
-      leave: function leave(fieldAST) {
+      leave: function leave(node) {
         var fieldDef = context.getFieldDef();
         if (!fieldDef) {
           return false;
         }
-        var argASTs = fieldAST.arguments || [];
+        var argNodes = node.arguments || [];
 
-        var argASTMap = (0, _keyMap2.default)(argASTs, function (arg) {
+        var argNodeMap = (0, _keyMap2.default)(argNodes, function (arg) {
           return arg.name.value;
         });
         fieldDef.args.forEach(function (argDef) {
-          var argAST = argASTMap[argDef.name];
-          if (!argAST && argDef.type instanceof _definition.GraphQLNonNull) {
-            context.reportError(new _error.GraphQLError(missingFieldArgMessage(fieldAST.name.value, argDef.name, argDef.type), [fieldAST]));
+          var argNode = argNodeMap[argDef.name];
+          if (!argNode && argDef.type instanceof _definition.GraphQLNonNull) {
+            context.reportError(new _error.GraphQLError(missingFieldArgMessage(node.name.value, argDef.name, argDef.type), [node]));
           }
         });
       }
@@ -15448,27 +16380,27 @@ function ProvidedNonNullArguments(context) {
 
     Directive: {
       // Validate on leave to allow for deeper errors to appear first.
-      leave: function leave(directiveAST) {
+      leave: function leave(node) {
         var directiveDef = context.getDirective();
         if (!directiveDef) {
           return false;
         }
-        var argASTs = directiveAST.arguments || [];
+        var argNodes = node.arguments || [];
 
-        var argASTMap = (0, _keyMap2.default)(argASTs, function (arg) {
+        var argNodeMap = (0, _keyMap2.default)(argNodes, function (arg) {
           return arg.name.value;
         });
         directiveDef.args.forEach(function (argDef) {
-          var argAST = argASTMap[argDef.name];
-          if (!argAST && argDef.type instanceof _definition.GraphQLNonNull) {
-            context.reportError(new _error.GraphQLError(missingDirectiveArgMessage(directiveAST.name.value, argDef.name, argDef.type), [directiveAST]));
+          var argNode = argNodeMap[argDef.name];
+          if (!argNode && argDef.type instanceof _definition.GraphQLNonNull) {
+            context.reportError(new _error.GraphQLError(missingDirectiveArgMessage(node.name.value, argDef.name, argDef.type), [node]));
           }
         });
       }
     }
   };
 }
-},{"../../error":91,"../../jsutils/keyMap":102,"../../type/definition":114}],155:[function(require,module,exports){
+},{"../../error":91,"../../jsutils/keyMap":103,"../../type/definition":115}],157:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15509,7 +16441,7 @@ function ScalarLeafs(context) {
     Field: function Field(node) {
       var type = context.getType();
       if (type) {
-        if ((0, _definition.isLeafType)(type)) {
+        if ((0, _definition.isLeafType)((0, _definition.getNamedType)(type))) {
           if (node.selectionSet) {
             context.reportError(new _error.GraphQLError(noSubselectionAllowedMessage(node.name.value, type), [node.selectionSet]));
           }
@@ -15520,7 +16452,7 @@ function ScalarLeafs(context) {
     }
   };
 }
-},{"../../error":91,"../../type/definition":114}],156:[function(require,module,exports){
+},{"../../error":91,"../../type/definition":115}],158:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15570,7 +16502,57 @@ function UniqueArgumentNames(context) {
     }
   };
 }
-},{"../../error":91}],157:[function(require,module,exports){
+},{"../../error":91}],159:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.duplicateDirectiveMessage = duplicateDirectiveMessage;
+exports.UniqueDirectivesPerLocation = UniqueDirectivesPerLocation;
+
+var _error = require('../../error');
+
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ */
+
+function duplicateDirectiveMessage(directiveName) {
+  return 'The directive "' + directiveName + '" can only be used once at ' + 'this location.';
+}
+
+/**
+ * Unique directive names per location
+ *
+ * A GraphQL document is only valid if all directives at a given location
+ * are uniquely named.
+ */
+function UniqueDirectivesPerLocation(context) {
+  return {
+    // Many different AST nodes may contain directives. Rather than listing
+    // them all, just listen for entering any node, and check to see if it
+    // defines any directives.
+    enter: function enter(node) {
+      if (node.directives) {
+        var knownDirectives = Object.create(null);
+        node.directives.forEach(function (directive) {
+          var directiveName = directive.name.value;
+          if (knownDirectives[directiveName]) {
+            context.reportError(new _error.GraphQLError(duplicateDirectiveMessage(directiveName), [knownDirectives[directiveName], directive]));
+          } else {
+            knownDirectives[directiveName] = directive;
+          }
+        });
+      }
+    }
+  };
+}
+},{"../../error":91}],160:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15591,7 +16573,7 @@ var _error = require('../../error');
  */
 
 function duplicateFragmentNameMessage(fragName) {
-  return 'There can only be one fragment named "' + fragName + '".';
+  return 'There can be only one fragment named "' + fragName + '".';
 }
 
 /**
@@ -15616,7 +16598,7 @@ function UniqueFragmentNames(context) {
     }
   };
 }
-},{"../../error":91}],158:[function(require,module,exports){
+},{"../../error":91}],161:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15671,7 +16653,7 @@ function UniqueInputFieldNames(context) {
     }
   };
 }
-},{"../../error":91}],159:[function(require,module,exports){
+},{"../../error":91}],162:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15692,7 +16674,7 @@ var _error = require('../../error');
  */
 
 function duplicateOperationNameMessage(operationName) {
-  return 'There can only be one operation named "' + operationName + '".';
+  return 'There can be only one operation named "' + operationName + '".';
 }
 
 /**
@@ -15720,7 +16702,7 @@ function UniqueOperationNames(context) {
     }
   };
 }
-},{"../../error":91}],160:[function(require,module,exports){
+},{"../../error":91}],163:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15766,7 +16748,7 @@ function UniqueVariableNames(context) {
     }
   };
 }
-},{"../../error":91}],161:[function(require,module,exports){
+},{"../../error":91}],164:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15816,7 +16798,7 @@ function VariablesAreInputTypes(context) {
     }
   };
 }
-},{"../../error":91,"../../language/printer":111,"../../type/definition":114,"../../utilities/typeFromAST":136}],162:[function(require,module,exports){
+},{"../../error":91,"../../language/printer":112,"../../type/definition":115,"../../utilities/typeFromAST":138}],165:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15862,8 +16844,8 @@ function VariablesInAllowedPosition(context) {
         var usages = context.getRecursiveVariableUsages(operation);
 
         usages.forEach(function (_ref) {
-          var node = _ref.node;
-          var type = _ref.type;
+          var node = _ref.node,
+              type = _ref.type;
 
           var varName = node.name.value;
           var varDef = varDefMap[varName];
@@ -15882,8 +16864,8 @@ function VariablesInAllowedPosition(context) {
         });
       }
     },
-    VariableDefinition: function VariableDefinition(varDefAST) {
-      varDefMap[varDefAST.variable.name.value] = varDefAST;
+    VariableDefinition: function VariableDefinition(node) {
+      varDefMap[node.variable.name.value] = node;
     }
   };
 }
@@ -15892,7 +16874,7 @@ function VariablesInAllowedPosition(context) {
 function effectiveType(varType, varDef) {
   return !varDef.defaultValue || varType instanceof _definition.GraphQLNonNull ? varType : new _definition.GraphQLNonNull(varType);
 }
-},{"../../error":91,"../../type/definition":114,"../../utilities/typeComparators":135,"../../utilities/typeFromAST":136}],163:[function(require,module,exports){
+},{"../../error":91,"../../type/definition":115,"../../utilities/typeComparators":137,"../../utilities/typeFromAST":138}],166:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -15932,6 +16914,8 @@ var _NoUnusedVariables = require('./rules/NoUnusedVariables');
 
 var _KnownDirectives = require('./rules/KnownDirectives');
 
+var _UniqueDirectivesPerLocation = require('./rules/UniqueDirectivesPerLocation');
+
 var _KnownArgumentNames = require('./rules/KnownArgumentNames');
 
 var _UniqueArgumentNames = require('./rules/UniqueArgumentNames');
@@ -15950,6 +16934,9 @@ var _UniqueInputFieldNames = require('./rules/UniqueInputFieldNames');
 
 /**
  * This set includes all validation rules defined by the GraphQL spec.
+ *
+ * The order of the rules in this list has been adjusted to lead to the
+ * most clear output when encountering multiple validation errors.
  */
 
 
@@ -15963,6 +16950,45 @@ var _UniqueInputFieldNames = require('./rules/UniqueInputFieldNames');
 
 
 // Spec Section: "Argument Names"
+
+
+// Spec Section: "Directives Are Defined"
+
+
+// Spec Section: "All Variable Used Defined"
+
+
+// Spec Section: "Fragments must not form cycles"
+
+
+// Spec Section: "Fragments must be used"
+
+
+// Spec Section: "Fragment Name Uniqueness"
+
+
+// Spec Section: "Leaf Field Selections"
+
+
+// Spec Section: "Fragments on Composite Types"
+
+
+// Spec Section: "Lone Anonymous Operation"
+var specifiedRules = exports.specifiedRules = [_UniqueOperationNames.UniqueOperationNames, _LoneAnonymousOperation.LoneAnonymousOperation, _KnownTypeNames.KnownTypeNames, _FragmentsOnCompositeTypes.FragmentsOnCompositeTypes, _VariablesAreInputTypes.VariablesAreInputTypes, _ScalarLeafs.ScalarLeafs, _FieldsOnCorrectType.FieldsOnCorrectType, _UniqueFragmentNames.UniqueFragmentNames, _KnownFragmentNames.KnownFragmentNames, _NoUnusedFragments.NoUnusedFragments, _PossibleFragmentSpreads.PossibleFragmentSpreads, _NoFragmentCycles.NoFragmentCycles, _UniqueVariableNames.UniqueVariableNames, _NoUndefinedVariables.NoUndefinedVariables, _NoUnusedVariables.NoUnusedVariables, _KnownDirectives.KnownDirectives, _UniqueDirectivesPerLocation.UniqueDirectivesPerLocation, _KnownArgumentNames.KnownArgumentNames, _UniqueArgumentNames.UniqueArgumentNames, _ArgumentsOfCorrectType.ArgumentsOfCorrectType, _ProvidedNonNullArguments.ProvidedNonNullArguments, _DefaultValuesOfCorrectType.DefaultValuesOfCorrectType, _VariablesInAllowedPosition.VariablesInAllowedPosition, _OverlappingFieldsCanBeMerged.OverlappingFieldsCanBeMerged, _UniqueInputFieldNames.UniqueInputFieldNames];
+
+// Spec Section: "Input Object Field Uniqueness"
+
+
+// Spec Section: "All Variable Usages Are Allowed"
+
+
+// Spec Section: "Argument Optionality"
+
+
+// Spec Section: "Argument Uniqueness"
+
+
+// Spec Section: "Directives Are Unique Per Location"
 
 
 // Spec Section: "All Variables Used"
@@ -15995,43 +17021,7 @@ var _UniqueInputFieldNames = require('./rules/UniqueInputFieldNames');
  */
 
 // Spec Section: "Operation Name Uniqueness"
-var specifiedRules = exports.specifiedRules = [_UniqueOperationNames.UniqueOperationNames, _LoneAnonymousOperation.LoneAnonymousOperation, _KnownTypeNames.KnownTypeNames, _FragmentsOnCompositeTypes.FragmentsOnCompositeTypes, _VariablesAreInputTypes.VariablesAreInputTypes, _ScalarLeafs.ScalarLeafs, _FieldsOnCorrectType.FieldsOnCorrectType, _UniqueFragmentNames.UniqueFragmentNames, _KnownFragmentNames.KnownFragmentNames, _NoUnusedFragments.NoUnusedFragments, _PossibleFragmentSpreads.PossibleFragmentSpreads, _NoFragmentCycles.NoFragmentCycles, _UniqueVariableNames.UniqueVariableNames, _NoUndefinedVariables.NoUndefinedVariables, _NoUnusedVariables.NoUnusedVariables, _KnownDirectives.KnownDirectives, _KnownArgumentNames.KnownArgumentNames, _UniqueArgumentNames.UniqueArgumentNames, _ArgumentsOfCorrectType.ArgumentsOfCorrectType, _ProvidedNonNullArguments.ProvidedNonNullArguments, _DefaultValuesOfCorrectType.DefaultValuesOfCorrectType, _VariablesInAllowedPosition.VariablesInAllowedPosition, _OverlappingFieldsCanBeMerged.OverlappingFieldsCanBeMerged, _UniqueInputFieldNames.UniqueInputFieldNames];
-
-// Spec Section: "Input Object Field Uniqueness"
-
-
-// Spec Section: "All Variable Usages Are Allowed"
-
-
-// Spec Section: "Argument Optionality"
-
-
-// Spec Section: "Argument Uniqueness"
-
-
-// Spec Section: "Directives Are Defined"
-
-
-// Spec Section: "All Variable Used Defined"
-
-
-// Spec Section: "Fragments must not form cycles"
-
-
-// Spec Section: "Fragments must be used"
-
-
-// Spec Section: "Fragment Name Uniqueness"
-
-
-// Spec Section: "Leaf Field Selections"
-
-
-// Spec Section: "Fragments on Composite Types"
-
-
-// Spec Section: "Lone Anonymous Operation"
-},{"./rules/ArgumentsOfCorrectType":139,"./rules/DefaultValuesOfCorrectType":140,"./rules/FieldsOnCorrectType":141,"./rules/FragmentsOnCompositeTypes":142,"./rules/KnownArgumentNames":143,"./rules/KnownDirectives":144,"./rules/KnownFragmentNames":145,"./rules/KnownTypeNames":146,"./rules/LoneAnonymousOperation":147,"./rules/NoFragmentCycles":148,"./rules/NoUndefinedVariables":149,"./rules/NoUnusedFragments":150,"./rules/NoUnusedVariables":151,"./rules/OverlappingFieldsCanBeMerged":152,"./rules/PossibleFragmentSpreads":153,"./rules/ProvidedNonNullArguments":154,"./rules/ScalarLeafs":155,"./rules/UniqueArgumentNames":156,"./rules/UniqueFragmentNames":157,"./rules/UniqueInputFieldNames":158,"./rules/UniqueOperationNames":159,"./rules/UniqueVariableNames":160,"./rules/VariablesAreInputTypes":161,"./rules/VariablesInAllowedPosition":162}],164:[function(require,module,exports){
+},{"./rules/ArgumentsOfCorrectType":141,"./rules/DefaultValuesOfCorrectType":142,"./rules/FieldsOnCorrectType":143,"./rules/FragmentsOnCompositeTypes":144,"./rules/KnownArgumentNames":145,"./rules/KnownDirectives":146,"./rules/KnownFragmentNames":147,"./rules/KnownTypeNames":148,"./rules/LoneAnonymousOperation":149,"./rules/NoFragmentCycles":150,"./rules/NoUndefinedVariables":151,"./rules/NoUnusedFragments":152,"./rules/NoUnusedVariables":153,"./rules/OverlappingFieldsCanBeMerged":154,"./rules/PossibleFragmentSpreads":155,"./rules/ProvidedNonNullArguments":156,"./rules/ScalarLeafs":157,"./rules/UniqueArgumentNames":158,"./rules/UniqueDirectivesPerLocation":159,"./rules/UniqueFragmentNames":160,"./rules/UniqueInputFieldNames":161,"./rules/UniqueOperationNames":162,"./rules/UniqueVariableNames":163,"./rules/VariablesAreInputTypes":164,"./rules/VariablesInAllowedPosition":165}],167:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -16061,7 +17051,7 @@ var _specifiedRules = require('./specifiedRules');
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 /**
@@ -16085,13 +17075,15 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
  * Each validation rules is a function which returns a visitor
  * (see the language/visitor API). Visitor methods are expected to return
  * GraphQLErrors, or Arrays of GraphQLErrors when invalid.
+ *
+ * Optionally a custom TypeInfo instance may be provided. If not provided, one
+ * will be created from the provided schema.
  */
-function validate(schema, ast, rules) {
+function validate(schema, ast, rules, typeInfo) {
   (0, _invariant2.default)(schema, 'Must provide schema');
   (0, _invariant2.default)(ast, 'Must provide document');
   (0, _invariant2.default)(schema instanceof _schema.GraphQLSchema, 'Schema must be an instance of GraphQLSchema. Also ensure that there are ' + 'not multiple versions of GraphQL installed in your node_modules directory.');
-  var typeInfo = new _TypeInfo.TypeInfo(schema);
-  return visitUsingRules(schema, typeInfo, ast, rules || _specifiedRules.specifiedRules);
+  return visitUsingRules(schema, typeInfo || new _TypeInfo.TypeInfo(schema), ast, rules || _specifiedRules.specifiedRules);
 }
 
 /**
@@ -16206,24 +17198,20 @@ var ValidationContext = exports.ValidationContext = function () {
   };
 
   ValidationContext.prototype.getVariableUsages = function getVariableUsages(node) {
-    var _this = this;
-
     var usages = this._variableUsages.get(node);
     if (!usages) {
-      (function () {
-        var newUsages = [];
-        var typeInfo = new _TypeInfo.TypeInfo(_this._schema);
-        (0, _visitor.visit)(node, (0, _visitor.visitWithTypeInfo)(typeInfo, {
-          VariableDefinition: function VariableDefinition() {
-            return false;
-          },
-          Variable: function Variable(variable) {
-            newUsages.push({ node: variable, type: typeInfo.getInputType() });
-          }
-        }));
-        usages = newUsages;
-        _this._variableUsages.set(node, usages);
-      })();
+      var newUsages = [];
+      var typeInfo = new _TypeInfo.TypeInfo(this._schema);
+      (0, _visitor.visit)(node, (0, _visitor.visitWithTypeInfo)(typeInfo, {
+        VariableDefinition: function VariableDefinition() {
+          return false;
+        },
+        Variable: function Variable(variable) {
+          newUsages.push({ node: variable, type: typeInfo.getInputType() });
+        }
+      }));
+      usages = newUsages;
+      this._variableUsages.set(node, usages);
     }
     return usages;
   };
@@ -16267,7 +17255,7 @@ var ValidationContext = exports.ValidationContext = function () {
 
   return ValidationContext;
 }();
-},{"../error":91,"../jsutils/invariant":100,"../language/kinds":107,"../language/visitor":113,"../type/schema":119,"../utilities/TypeInfo":120,"./specifiedRules":163}],165:[function(require,module,exports){
+},{"../error":91,"../jsutils/invariant":100,"../language/kinds":108,"../language/visitor":114,"../type/schema":120,"../utilities/TypeInfo":121,"./specifiedRules":166}],168:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -16353,14 +17341,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],166:[function(require,module,exports){
-var toString = {}.toString;
-
-module.exports = Array.isArray || function (arr) {
-  return toString.call(arr) == '[object Array]';
-};
-
-},{}],167:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 /**
  * Copyright (c) 2016, Lee Byron
  * All rights reserved.
@@ -16463,7 +17444,7 @@ exports.$$iterator = $$iterator
  *   A value which might implement the Iterable protocol.
  * @return {boolean} true if Iterable.
  */
-function isIterable (obj) {
+function isIterable(obj) {
   return !!getIteratorMethod(obj)
 }
 exports.isIterable = isIterable
@@ -16485,7 +17466,7 @@ exports.isIterable = isIterable
  *   A value which might implement the Array-like protocol.
  * @return {boolean} true if Array-like.
  */
-function isArrayLike (obj) {
+function isArrayLike(obj) {
   var length = obj != null && obj.length
   return typeof length === 'number' && length >= 0 && length % 1 === 0
 }
@@ -16522,7 +17503,7 @@ exports.isArrayLike = isArrayLike
  *   An Object value which might implement the Iterable or Array-like protocols.
  * @return {boolean} true if Iterable or Array-like Object.
  */
-function isCollection (obj) {
+function isCollection(obj) {
   return Object(obj) === obj && (isArrayLike(obj) || isIterable(obj))
 }
 exports.isCollection = isCollection
@@ -16545,7 +17526,7 @@ exports.isCollection = isCollection
  *   An Iterable object which is the source of an Iterator.
  * @return {Iterator<T>} new Iterator instance.
  */
-function getIterator (iterable) {
+function getIterator(iterable) {
   var method = getIteratorMethod(iterable)
   if (method) {
     return method.call(iterable)
@@ -16574,15 +17555,79 @@ exports.getIterator = getIterator
  *   An Iterable object which defines an `@@iterator` method.
  * @return {function(): Iterator<T>} `@@iterator` method.
  */
-function getIteratorMethod (iterable) {
+function getIteratorMethod(iterable) {
   if (iterable != null) {
-    var method = SYMBOL_ITERATOR && iterable[SYMBOL_ITERATOR] || iterable['@@iterator']
+    var method =
+      (SYMBOL_ITERATOR && iterable[SYMBOL_ITERATOR]) || iterable['@@iterator']
     if (typeof method === 'function') {
       return method
     }
   }
 }
 exports.getIteratorMethod = getIteratorMethod
+
+/**
+ * Similar to `getIterator()`, this method returns a new Iterator given an
+ * Iterable. However it will also create an Iterator for a non-Iterable
+ * Array-like collection, such as Array in a non-ES2015 environment.
+ *
+ * `createIterator` is complimentary to `forEach`, but allows a "pull"-based
+ * iteration as opposed to `forEach`'s "push"-based iteration.
+ *
+ * `createIterator` produces an Iterator for Array-likes with the same behavior
+ * as ArrayIteratorPrototype described in the ECMAScript specification, and
+ * does *not* skip over "holes".
+ *
+ * @example
+ *
+ * var createIterator = require('iterall').createIterator
+ *
+ * var myArraylike = { length: 3, 0: 'Alpha', 1: 'Bravo', 2: 'Charlie' }
+ * var iterator = createIterator(myArraylike)
+ * iterator.next() // { value: 'Alpha', done: false }
+ * iterator.next() // { value: 'Bravo', done: false }
+ * iterator.next() // { value: 'Charlie', done: false }
+ * iterator.next() // { value: undefined, done: true }
+ *
+ * @template T the type of each iterated value
+ * @param {Iterable<T>|{ length: number }} collection
+ *   An Iterable or Array-like object to produce an Iterator.
+ * @return {Iterator<T>} new Iterator instance.
+ */
+function createIterator(collection) {
+  if (collection != null) {
+    var iterator = getIterator(collection)
+    if (iterator) {
+      return iterator
+    }
+    if (isArrayLike(collection)) {
+      return new ArrayLikeIterator(collection)
+    }
+  }
+}
+exports.createIterator = createIterator
+
+// When the object provided to `createIterator` is not Iterable but is
+// Array-like, this simple Iterator is created.
+function ArrayLikeIterator(obj) {
+  this._o = obj
+  this._i = 0
+}
+
+// Note: all Iterators are themselves Iterable.
+ArrayLikeIterator.prototype[$$iterator] = function() {
+  return this
+}
+
+// A simple state-machine determines the IteratorResult returned, yielding
+// each value in the Array-like object in order of their indicies.
+ArrayLikeIterator.prototype.next = function() {
+  if (this._o === void 0 || this._i >= this._o.length) {
+    this._o = void 0
+    return { value: void 0, done: true }
+  }
+  return { value: this._o[this._i++], done: false }
+}
 
 /**
  * Given an object which either implements the Iterable protocol or is
@@ -16629,7 +17674,7 @@ exports.getIteratorMethod = getIteratorMethod
  * @param [thisArg]
  *   Optional. Value to use as `this` when executing `callback`.
  */
-function forEach (collection, callback, thisArg) {
+function forEach(collection, callback, thisArg) {
   if (collection != null) {
     if (typeof collection.forEach === 'function') {
       return collection.forEach(callback, thisArg)
@@ -16658,70 +17703,303 @@ function forEach (collection, callback, thisArg) {
 }
 exports.forEach = forEach
 
+/////////////////////////////////////////////////////
+//                                                 //
+//                 ASYNC ITERATORS                 //
+//                                                 //
+/////////////////////////////////////////////////////
+
 /**
- * Similar to `getIterator()`, this method returns a new Iterator given an
- * Iterable. However it will also create an Iterator for a non-Iterable
- * Array-like collection, such as Array in a non-ES2015 environment.
+ * [AsyncIterator](https://tc39.github.io/proposal-async-iteration/)
+ * is a *protocol* which describes a standard way to produce and consume an
+ * asynchronous sequence of values, typically the values of the AsyncIterable
+ * represented by this AsyncIterator.
  *
- * `createIterator` is complimentary to `forEach`, but allows a "pull"-based
- * iteration as opposed to `forEach`'s "push"-based iteration.
+ * AsyncIterator is similar to Observable or Stream.
  *
- * `createIterator` produces an Iterator for Array-likes with the same behavior
- * as ArrayIteratorPrototype described in the ECMAScript specification, and
- * does *not* skip over "holes".
+ * While described as a proposed addition to the [ES2017 version of JavaScript](https://tc39.github.io/proposal-async-iteration/)
+ * it can be utilized by any version of JavaScript.
+ *
+ * @typedef {Object} AsyncIterator
+ * @template T The type of each iterated value
+ * @property {function (): Promise<{ value: T, done: boolean }>} next
+ *   A method which produces a Promise which resolves to either the next value
+ *   in a sequence or a result where the `done` property is `true` indicating
+ *   the end of the sequence of values. It may also produce a Promise which
+ *   becomes rejected, indicating a failure.
+ */
+
+/**
+ * AsyncIterable is a *protocol* which when implemented allows a JavaScript
+ * object to define their asynchronous iteration behavior, such as what values
+ * are looped over in a `for-await-of` loop or `iterall`'s `forAwaitEach`
+ * function.
+ *
+ * While described as a proposed addition to the [ES2017 version of JavaScript](https://tc39.github.io/proposal-async-iteration/)
+ * it can be utilized by any version of JavaScript.
+ *
+ * @typedef {Object} AsyncIterable
+ * @template T The type of each iterated value
+ * @property {function (): AsyncIterator<T>} Symbol.asyncIterator
+ *   A method which produces an AsyncIterator for this AsyncIterable.
+ */
+
+// In ES2017 (or a polyfilled) environment, this will be Symbol.asyncIterator
+var SYMBOL_ASYNC_ITERATOR = typeof Symbol === 'function' && Symbol.asyncIterator
+
+/**
+ * A property name to be used as the name of an AsyncIterable's method
+ * responsible for producing an Iterator, referred to as `@@asyncIterator`.
+ * Typically represents the value `Symbol.asyncIterator` but falls back to the
+ * string `"@@asyncIterator"` when `Symbol.asyncIterator` is not defined.
+ *
+ * Use `$$asyncIterator` for defining new AsyncIterables instead of
+ * `Symbol.asyncIterator`, but do not use it for accessing existing Iterables,
+ * instead use `getAsyncIterator()` or `isAsyncIterable()`.
  *
  * @example
  *
- * var createIterator = require('iterall').createIterator
+ * var $$asyncIterator = require('iterall').$$asyncIterator
  *
- * var myArraylike = { length: 3, 0: 'Alpha', 1: 'Bravo', 2: 'Charlie' }
- * var iterator = createIterator(myArraylike)
- * iterator.next() // { value: 'Alpha', done: false }
- * iterator.next() // { value: 'Bravo', done: false }
- * iterator.next() // { value: 'Charlie', done: false }
- * iterator.next() // { value: undefined, done: true }
+ * function Chirper (to) {
+ *   this.to = to
+ * }
+ *
+ * Chirper.prototype[$$asyncIterator] = function () {
+ *   return {
+ *     to: this.to,
+ *     num: 0,
+ *     next () {
+ *       return new Promise(function (resolve) {
+ *         if (this.num >= this.to) {
+ *           resolve({ value: undefined, done: true })
+ *         } else {
+ *           setTimeout(function () {
+ *             resolve({ value: this.num++, done: false })
+ *           }, 1000)
+ *         }
+ *       }
+ *     }
+ *   }
+ * }
+ *
+ * var chirper = new Chirper(3)
+ * for await (var number of chirper) {
+ *   console.log(number) // 0 ...wait... 1 ...wait... 2
+ * }
+ *
+ * @type {Symbol|string}
+ */
+var $$asyncIterator = SYMBOL_ASYNC_ITERATOR || '@@asyncIterator'
+exports.$$asyncIterator = $$asyncIterator
+
+/**
+ * Returns true if the provided object implements the AsyncIterator protocol via
+ * either implementing a `Symbol.asyncIterator` or `"@@asyncIterator"` method.
+ *
+ * @example
+ *
+ * var isAsyncIterable = require('iterall').isAsyncIterable
+ * isAsyncIterable(myStream) // true
+ * isAsyncIterable('ABC') // false
+ *
+ * @param obj
+ *   A value which might implement the AsyncIterable protocol.
+ * @return {boolean} true if AsyncIterable.
+ */
+function isAsyncIterable(obj) {
+  return !!getAsyncIteratorMethod(obj)
+}
+exports.isAsyncIterable = isAsyncIterable
+
+/**
+ * If the provided object implements the AsyncIterator protocol, its
+ * AsyncIterator object is returned. Otherwise returns undefined.
+ *
+ * @example
+ *
+ * var getAsyncIterator = require('iterall').getAsyncIterator
+ * var asyncIterator = getAsyncIterator(myStream)
+ * asyncIterator.next().then(console.log) // { value: 1, done: false }
+ * asyncIterator.next().then(console.log) // { value: 2, done: false }
+ * asyncIterator.next().then(console.log) // { value: 3, done: false }
+ * asyncIterator.next().then(console.log) // { value: undefined, done: true }
  *
  * @template T the type of each iterated value
- * @param {Iterable<T>|{ length: number }} collection
- *   An Iterable or Array-like object to produce an Iterator.
- * @return {Iterator<T>} new Iterator instance.
+ * @param {AsyncIterable<T>} asyncIterable
+ *   An AsyncIterable object which is the source of an AsyncIterator.
+ * @return {AsyncIterator<T>} new AsyncIterator instance.
  */
-function createIterator (collection) {
-  if (collection != null) {
-    var iterator = getIterator(collection)
-    if (iterator) {
-      return iterator
-    }
-    if (isArrayLike(collection)) {
-      return new ArrayLikeIterator(collection)
+function getAsyncIterator(asyncIterable) {
+  var method = getAsyncIteratorMethod(asyncIterable)
+  if (method) {
+    return method.call(asyncIterable)
+  }
+}
+exports.getAsyncIterator = getAsyncIterator
+
+/**
+ * If the provided object implements the AsyncIterator protocol, the method
+ * responsible for producing its AsyncIterator object is returned.
+ *
+ * This is used in rare cases for performance tuning. This method must be called
+ * with obj as the contextual this-argument.
+ *
+ * @example
+ *
+ * var getAsyncIteratorMethod = require('iterall').getAsyncIteratorMethod
+ * var method = getAsyncIteratorMethod(myStream)
+ * if (method) {
+ *   var asyncIterator = method.call(myStream)
+ * }
+ *
+ * @template T the type of each iterated value
+ * @param {AsyncIterable<T>} asyncIterable
+ *   An AsyncIterable object which defines an `@@asyncIterator` method.
+ * @return {function(): AsyncIterator<T>} `@@asyncIterator` method.
+ */
+function getAsyncIteratorMethod(asyncIterable) {
+  if (asyncIterable != null) {
+    var method =
+      (SYMBOL_ASYNC_ITERATOR && asyncIterable[SYMBOL_ASYNC_ITERATOR]) ||
+      asyncIterable['@@asyncIterator']
+    if (typeof method === 'function') {
+      return method
     }
   }
 }
-exports.createIterator = createIterator
+exports.getAsyncIteratorMethod = getAsyncIteratorMethod
 
-// When the object provided to `createIterator` is not Iterable but is
-// Array-like, this simple Iterator is created.
-function ArrayLikeIterator (obj) {
-  this._o = obj
-  this._i = 0
+/**
+ * Similar to `getAsyncIterator()`, this method returns a new AsyncIterator
+ * given an AsyncIterable. However it will also create an AsyncIterator for a
+ * non-async Iterable as well as non-Iterable Array-like collection, such as
+ * Array in a pre-ES2015 environment.
+ *
+ * `createAsyncIterator` is complimentary to `forAwaitEach`, but allows a
+ * buffering "pull"-based iteration as opposed to `forAwaitEach`'s
+ * "push"-based iteration.
+ *
+ * `createAsyncIterator` produces an AsyncIterator for non-async Iterables as
+ * described in the ECMAScript proposal [Async-from-Sync Iterator Objects](https://tc39.github.io/proposal-async-iteration/#sec-async-from-sync-iterator-objects).
+ *
+ * > Note: Creating `AsyncIterator`s requires the existence of `Promise`.
+ * > While `Promise` has been available in modern browsers for a number of
+ * > years, legacy browsers (like IE 11) may require a polyfill.
+ *
+ * @example
+ *
+ * var createAsyncIterator = require('iterall').createAsyncIterator
+ *
+ * var myArraylike = { length: 3, 0: 'Alpha', 1: 'Bravo', 2: 'Charlie' }
+ * var iterator = createAsyncIterator(myArraylike)
+ * iterator.next().then(console.log) // { value: 'Alpha', done: false }
+ * iterator.next().then(console.log) // { value: 'Bravo', done: false }
+ * iterator.next().then(console.log) // { value: 'Charlie', done: false }
+ * iterator.next().then(console.log) // { value: undefined, done: true }
+ *
+ * @template T the type of each iterated value
+ * @param {AsyncIterable<T>|Iterable<T>|{ length: number }} source
+ *   An AsyncIterable, Iterable, or Array-like object to produce an Iterator.
+ * @return {AsyncIterator<T>} new AsyncIterator instance.
+ */
+function createAsyncIterator(source) {
+  if (source != null) {
+    var asyncIterator = getAsyncIterator(source)
+    if (asyncIterator) {
+      return asyncIterator
+    }
+    var iterator = createIterator(source)
+    if (iterator) {
+      return new AsyncFromSyncIterator(iterator)
+    }
+  }
+}
+exports.createAsyncIterator = createAsyncIterator
+
+// When the object provided to `createAsyncIterator` is not AsyncIterable but is
+// sync Iterable, this simple wrapper is created.
+function AsyncFromSyncIterator(iterator) {
+  this._i = iterator
 }
 
-// Note: all Iterators are themselves Iterable.
-ArrayLikeIterator.prototype[$$iterator] = function () {
+// Note: all AsyncIterators are themselves AsyncIterable.
+AsyncFromSyncIterator.prototype[$$asyncIterator] = function() {
   return this
 }
 
 // A simple state-machine determines the IteratorResult returned, yielding
 // each value in the Array-like object in order of their indicies.
-ArrayLikeIterator.prototype.next = function () {
-  if (this._o === void 0 || this._i >= this._o.length) {
-    this._o = void 0
-    return { value: void 0, done: true }
-  }
-  return { value: this._o[this._i++], done: false }
+AsyncFromSyncIterator.prototype.next = function() {
+  var step = this._i.next()
+  return Promise.resolve(step.value).then(function(value) {
+    return { value: value, done: step.done }
+  })
 }
 
-},{}],168:[function(require,module,exports){
+/**
+ * Given an object which either implements the AsyncIterable protocol or is
+ * Array-like, iterate over it, calling the `callback` at each iteration.
+ *
+ * Use `forAwaitEach` where you would expect to use a `for-await-of` loop.
+ *
+ * Similar to [Array#forEach][], the `callback` function accepts three
+ * arguments, and is provided with `thisArg` as the calling context.
+ *
+ * > Note: Using `forAwaitEach` requires the existence of `Promise`.
+ * > While `Promise` has been available in modern browsers for a number of
+ * > years, legacy browsers (like IE 11) may require a polyfill.
+ *
+ * @example
+ *
+ * var forAwaitEach = require('iterall').forAwaitEach
+ *
+ * forAwaitEach(myIterable, function (value, index, iterable) {
+ *   console.log(value, index, iterable === myIterable)
+ * })
+ *
+ * @example
+ *
+ * // ES2017:
+ * for await (let value of myAsyncIterable) {
+ *   console.log(await doSomethingAsync(value))
+ * }
+ * console.log('done')
+ *
+ * // Any JavaScript environment:
+ * forAwaitEach(myAsyncIterable, function (value) {
+ *   return doSomethingAsync(value).then(console.log)
+ * }).then(function () {
+ *   console.log('done')
+ * })
+ *
+ * @template T the type of each iterated value
+ * @param {AsyncIterable<T>|Iterable<Promise<T> | T>|{ length: number }} source
+ *   The AsyncIterable or array to iterate over.
+ * @param {function(T, number, object)} callback
+ *   Function to execute for each iteration, taking up to three arguments
+ * @param [thisArg]
+ *   Optional. Value to use as `this` when executing `callback`.
+ */
+function forAwaitEach(source, callback, thisArg) {
+  var asyncIterator = createAsyncIterator(source)
+  if (asyncIterator) {
+    var i = 0
+    function next() {
+      return asyncIterator.next().then(function(step) {
+        if (!step.done) {
+          return Promise.resolve(
+            callback.call(thisArg, step.value, i++, source)
+          ).then(next)
+        }
+      })
+    }
+    return next()
+  }
+}
+exports.forAwaitEach = forAwaitEach
+
+},{}],170:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -16903,7 +18181,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],169:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 (function (global){
 // This method of obtaining a reference to the global object needs to be
 // kept identical to the way it is obtained in runtime.js
@@ -16938,7 +18216,7 @@ if (hadRuntime) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./runtime":170}],170:[function(require,module,exports){
+},{"./runtime":172}],172:[function(require,module,exports){
 (function (process,global){
 /**
  * Copyright (c) 2014, Facebook, Inc.
@@ -16953,7 +18231,8 @@ if (hadRuntime) {
 !(function(global) {
   "use strict";
 
-  var hasOwn = Object.prototype.hasOwnProperty;
+  var Op = Object.prototype;
+  var hasOwn = Op.hasOwnProperty;
   var undefined; // More compressible than void 0.
   var $Symbol = typeof Symbol === "function" ? Symbol : {};
   var iteratorSymbol = $Symbol.iterator || "@@iterator";
@@ -17025,10 +18304,29 @@ if (hadRuntime) {
   function GeneratorFunction() {}
   function GeneratorFunctionPrototype() {}
 
-  var Gp = GeneratorFunctionPrototype.prototype = Generator.prototype;
+  // This is a polyfill for %IteratorPrototype% for environments that
+  // don't natively support it.
+  var IteratorPrototype = {};
+  IteratorPrototype[iteratorSymbol] = function () {
+    return this;
+  };
+
+  var getProto = Object.getPrototypeOf;
+  var NativeIteratorPrototype = getProto && getProto(getProto(values([])));
+  if (NativeIteratorPrototype &&
+      NativeIteratorPrototype !== Op &&
+      hasOwn.call(NativeIteratorPrototype, iteratorSymbol)) {
+    // This environment has a native %IteratorPrototype%; use it instead
+    // of the polyfill.
+    IteratorPrototype = NativeIteratorPrototype;
+  }
+
+  var Gp = GeneratorFunctionPrototype.prototype =
+    Generator.prototype = Object.create(IteratorPrototype);
   GeneratorFunction.prototype = Gp.constructor = GeneratorFunctionPrototype;
   GeneratorFunctionPrototype.constructor = GeneratorFunction;
-  GeneratorFunctionPrototype[toStringTagSymbol] = GeneratorFunction.displayName = "GeneratorFunction";
+  GeneratorFunctionPrototype[toStringTagSymbol] =
+    GeneratorFunction.displayName = "GeneratorFunction";
 
   // Helper for defining the .next, .throw, and .return methods of the
   // Iterator interface in terms of a single ._invoke method.
@@ -17065,16 +18363,11 @@ if (hadRuntime) {
 
   // Within the body of any async function, `await x` is transformed to
   // `yield regeneratorRuntime.awrap(x)`, so that the runtime can test
-  // `value instanceof AwaitArgument` to determine if the yielded value is
-  // meant to be awaited. Some may consider the name of this method too
-  // cutesy, but they are curmudgeons.
+  // `hasOwn.call(value, "__await")` to determine if the yielded value is
+  // meant to be awaited.
   runtime.awrap = function(arg) {
-    return new AwaitArgument(arg);
+    return { __await: arg };
   };
-
-  function AwaitArgument(arg) {
-    this.arg = arg;
-  }
 
   function AsyncIterator(generator) {
     function invoke(method, arg, resolve, reject) {
@@ -17084,8 +18377,10 @@ if (hadRuntime) {
       } else {
         var result = record.arg;
         var value = result.value;
-        if (value instanceof AwaitArgument) {
-          return Promise.resolve(value.arg).then(function(value) {
+        if (value &&
+            typeof value === "object" &&
+            hasOwn.call(value, "__await")) {
+          return Promise.resolve(value.__await).then(function(value) {
             invoke("next", value, resolve, reject);
           }, function(err) {
             invoke("throw", err, resolve, reject);
@@ -17154,6 +18449,7 @@ if (hadRuntime) {
   }
 
   defineIteratorMethods(AsyncIterator.prototype);
+  runtime.AsyncIterator = AsyncIterator;
 
   // Note that simple async functions are implemented on top of
   // AsyncIterator objects; they just return a Promise for the value of
@@ -17188,90 +18484,34 @@ if (hadRuntime) {
         return doneResult();
       }
 
+      context.method = method;
+      context.arg = arg;
+
       while (true) {
         var delegate = context.delegate;
         if (delegate) {
-          if (method === "return" ||
-              (method === "throw" && delegate.iterator[method] === undefined)) {
-            // A return or throw (when the delegate iterator has no throw
-            // method) always terminates the yield* loop.
-            context.delegate = null;
-
-            // If the delegate iterator has a return method, give it a
-            // chance to clean up.
-            var returnMethod = delegate.iterator["return"];
-            if (returnMethod) {
-              var record = tryCatch(returnMethod, delegate.iterator, arg);
-              if (record.type === "throw") {
-                // If the return method threw an exception, let that
-                // exception prevail over the original return or throw.
-                method = "throw";
-                arg = record.arg;
-                continue;
-              }
-            }
-
-            if (method === "return") {
-              // Continue with the outer return, now that the delegate
-              // iterator has been terminated.
-              continue;
-            }
+          var delegateResult = maybeInvokeDelegate(delegate, context);
+          if (delegateResult) {
+            if (delegateResult === ContinueSentinel) continue;
+            return delegateResult;
           }
-
-          var record = tryCatch(
-            delegate.iterator[method],
-            delegate.iterator,
-            arg
-          );
-
-          if (record.type === "throw") {
-            context.delegate = null;
-
-            // Like returning generator.throw(uncaught), but without the
-            // overhead of an extra function call.
-            method = "throw";
-            arg = record.arg;
-            continue;
-          }
-
-          // Delegate generator ran and handled its own exceptions so
-          // regardless of what the method was, we continue as if it is
-          // "next" with an undefined arg.
-          method = "next";
-          arg = undefined;
-
-          var info = record.arg;
-          if (info.done) {
-            context[delegate.resultName] = info.value;
-            context.next = delegate.nextLoc;
-          } else {
-            state = GenStateSuspendedYield;
-            return info;
-          }
-
-          context.delegate = null;
         }
 
-        if (method === "next") {
+        if (context.method === "next") {
           // Setting context._sent for legacy support of Babel's
           // function.sent implementation.
-          context.sent = context._sent = arg;
+          context.sent = context._sent = context.arg;
 
-        } else if (method === "throw") {
+        } else if (context.method === "throw") {
           if (state === GenStateSuspendedStart) {
             state = GenStateCompleted;
-            throw arg;
+            throw context.arg;
           }
 
-          if (context.dispatchException(arg)) {
-            // If the dispatched exception was caught by a catch block,
-            // then let that catch block handle the exception normally.
-            method = "next";
-            arg = undefined;
-          }
+          context.dispatchException(context.arg);
 
-        } else if (method === "return") {
-          context.abrupt("return", arg);
+        } else if (context.method === "return") {
+          context.abrupt("return", context.arg);
         }
 
         state = GenStateExecuting;
@@ -17284,39 +18524,111 @@ if (hadRuntime) {
             ? GenStateCompleted
             : GenStateSuspendedYield;
 
-          var info = {
+          if (record.arg === ContinueSentinel) {
+            continue;
+          }
+
+          return {
             value: record.arg,
             done: context.done
           };
 
-          if (record.arg === ContinueSentinel) {
-            if (context.delegate && method === "next") {
-              // Deliberately forget the last sent value so that we don't
-              // accidentally pass it on to the delegate.
-              arg = undefined;
-            }
-          } else {
-            return info;
-          }
-
         } else if (record.type === "throw") {
           state = GenStateCompleted;
           // Dispatch the exception by looping back around to the
-          // context.dispatchException(arg) call above.
-          method = "throw";
-          arg = record.arg;
+          // context.dispatchException(context.arg) call above.
+          context.method = "throw";
+          context.arg = record.arg;
         }
       }
     };
   }
 
+  // Call delegate.iterator[context.method](context.arg) and handle the
+  // result, either by returning a { value, done } result from the
+  // delegate iterator, or by modifying context.method and context.arg,
+  // setting context.delegate to null, and returning the ContinueSentinel.
+  function maybeInvokeDelegate(delegate, context) {
+    var method = delegate.iterator[context.method];
+    if (method === undefined) {
+      // A .throw or .return when the delegate iterator has no .throw
+      // method always terminates the yield* loop.
+      context.delegate = null;
+
+      if (context.method === "throw") {
+        if (delegate.iterator.return) {
+          // If the delegate iterator has a return method, give it a
+          // chance to clean up.
+          context.method = "return";
+          context.arg = undefined;
+          maybeInvokeDelegate(delegate, context);
+
+          if (context.method === "throw") {
+            // If maybeInvokeDelegate(context) changed context.method from
+            // "return" to "throw", let that override the TypeError below.
+            return ContinueSentinel;
+          }
+        }
+
+        context.method = "throw";
+        context.arg = new TypeError(
+          "The iterator does not provide a 'throw' method");
+      }
+
+      return ContinueSentinel;
+    }
+
+    var record = tryCatch(method, delegate.iterator, context.arg);
+
+    if (record.type === "throw") {
+      context.method = "throw";
+      context.arg = record.arg;
+      context.delegate = null;
+      return ContinueSentinel;
+    }
+
+    var info = record.arg;
+
+    if (! info) {
+      context.method = "throw";
+      context.arg = new TypeError("iterator result is not an object");
+      context.delegate = null;
+      return ContinueSentinel;
+    }
+
+    if (info.done) {
+      // Assign the result of the finished delegate to the temporary
+      // variable specified by delegate.resultName (see delegateYield).
+      context[delegate.resultName] = info.value;
+
+      // Resume execution at the desired location (see delegateYield).
+      context.next = delegate.nextLoc;
+
+      // If context.method was "throw" but the delegate handled the
+      // exception, let the outer generator proceed normally. If
+      // context.method was "next", forget context.arg since it has been
+      // "consumed" by the delegate iterator. If context.method was
+      // "return", allow the original .return call to continue in the
+      // outer generator.
+      if (context.method !== "return") {
+        context.method = "next";
+        context.arg = undefined;
+      }
+
+    } else {
+      // Re-yield the result returned by the delegate method.
+      return info;
+    }
+
+    // The delegate iterator is finished, so forget it and continue with
+    // the outer generator.
+    context.delegate = null;
+    return ContinueSentinel;
+  }
+
   // Define Generator.prototype.{next,throw,return} in terms of the
   // unified ._invoke helper method.
   defineIteratorMethods(Gp);
-
-  Gp[iteratorSymbol] = function() {
-    return this;
-  };
 
   Gp[toStringTagSymbol] = "Generator";
 
@@ -17434,6 +18746,9 @@ if (hadRuntime) {
       this.done = false;
       this.delegate = null;
 
+      this.method = "next";
+      this.arg = undefined;
+
       this.tryEntries.forEach(resetTryEntry);
 
       if (!skipTempReset) {
@@ -17470,7 +18785,15 @@ if (hadRuntime) {
         record.type = "throw";
         record.arg = exception;
         context.next = loc;
-        return !!caught;
+
+        if (caught) {
+          // If the dispatched exception was caught by a catch block,
+          // then let that catch block handle the exception normally.
+          context.method = "next";
+          context.arg = undefined;
+        }
+
+        return !! caught;
       }
 
       for (var i = this.tryEntries.length - 1; i >= 0; --i) {
@@ -17538,12 +18861,12 @@ if (hadRuntime) {
       record.arg = arg;
 
       if (finallyEntry) {
+        this.method = "next";
         this.next = finallyEntry.finallyLoc;
-      } else {
-        this.complete(record);
+        return ContinueSentinel;
       }
 
-      return ContinueSentinel;
+      return this.complete(record);
     },
 
     complete: function(record, afterLoc) {
@@ -17555,11 +18878,14 @@ if (hadRuntime) {
           record.type === "continue") {
         this.next = record.arg;
       } else if (record.type === "return") {
-        this.rval = record.arg;
+        this.rval = this.arg = record.arg;
+        this.method = "return";
         this.next = "end";
       } else if (record.type === "normal" && afterLoc) {
         this.next = afterLoc;
       }
+
+      return ContinueSentinel;
     },
 
     finish: function(finallyLoc) {
@@ -17598,6 +18924,12 @@ if (hadRuntime) {
         nextLoc: nextLoc
       };
 
+      if (this.method === "next") {
+        // Deliberately forget the last sent value so that we don't
+        // accidentally pass it on to the delegate.
+        this.arg = undefined;
+      }
+
       return ContinueSentinel;
     }
   };
@@ -17611,7 +18943,7 @@ if (hadRuntime) {
 );
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":168}],171:[function(require,module,exports){
+},{"_process":170}],173:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -17713,13 +19045,13 @@ var data = {
   "http://swapi.co/api/people/?page=8": "{\"count\":82,\"previous\":\"http://swapi.co/api/people/?page=7\",\"next\":\"http://swapi.co/api/people/?page=9\",\"results\":[{\"edited\":\"2014-12-20T21:17:50.473Z\",\"name\":\"Lama Su\",\"created\":\"2014-12-20T17:30:50.416Z\",\"gender\":\"male\",\"skin_color\":\"grey\",\"hair_color\":\"none\",\"height\":\"229\",\"eye_color\":\"black\",\"mass\":\"88\",\"homeworld\":\"http://swapi.co/api/planets/10/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\"],\"species\":[\"http://swapi.co/api/species/32/\"],\"planets\":[\"http://swapi.co/api/planets/10/\"],\"url\":\"http://swapi.co/api/people/72/\"},{\"edited\":\"2014-12-20T21:17:50.474Z\",\"name\":\"Taun We\",\"created\":\"2014-12-20T17:31:21.195Z\",\"gender\":\"female\",\"skin_color\":\"grey\",\"hair_color\":\"none\",\"height\":\"213\",\"eye_color\":\"black\",\"mass\":\"unknown\",\"homeworld\":\"http://swapi.co/api/planets/10/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\"],\"species\":[\"http://swapi.co/api/species/32/\"],\"planets\":[\"http://swapi.co/api/planets/10/\"],\"url\":\"http://swapi.co/api/people/73/\"},{\"edited\":\"2014-12-20T21:17:50.476Z\",\"name\":\"Jocasta Nu\",\"created\":\"2014-12-20T17:32:51.996Z\",\"gender\":\"female\",\"skin_color\":\"fair\",\"hair_color\":\"white\",\"height\":\"167\",\"eye_color\":\"blue\",\"mass\":\"unknown\",\"homeworld\":\"http://swapi.co/api/planets/9/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\"],\"species\":[\"http://swapi.co/api/species/1/\"],\"planets\":[\"http://swapi.co/api/planets/9/\"],\"url\":\"http://swapi.co/api/people/74/\"},{\"edited\":\"2014-12-20T21:17:50.478Z\",\"name\":\"R4-P17\",\"created\":\"2014-12-20T17:43:36.409Z\",\"gender\":\"female\",\"skin_color\":\"silver, red\",\"hair_color\":\"none\",\"height\":\"96\",\"eye_color\":\"red, blue\",\"mass\":\"unknown\",\"homeworld\":\"http://swapi.co/api/planets/28/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"planets\":[\"http://swapi.co/api/planets/28/\"],\"url\":\"http://swapi.co/api/people/75/\"},{\"edited\":\"2014-12-20T21:17:50.481Z\",\"name\":\"Wat Tambor\",\"created\":\"2014-12-20T17:53:52.607Z\",\"gender\":\"male\",\"skin_color\":\"green, grey\",\"hair_color\":\"none\",\"height\":\"193\",\"eye_color\":\"unknown\",\"mass\":\"48\",\"homeworld\":\"http://swapi.co/api/planets/56/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\"],\"species\":[\"http://swapi.co/api/species/33/\"],\"planets\":[\"http://swapi.co/api/planets/56/\"],\"url\":\"http://swapi.co/api/people/76/\"},{\"edited\":\"2014-12-20T21:17:50.484Z\",\"name\":\"San Hill\",\"created\":\"2014-12-20T17:58:17.049Z\",\"gender\":\"male\",\"skin_color\":\"grey\",\"hair_color\":\"none\",\"height\":\"191\",\"eye_color\":\"gold\",\"mass\":\"unknown\",\"homeworld\":\"http://swapi.co/api/planets/57/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\"],\"species\":[\"http://swapi.co/api/species/34/\"],\"planets\":[\"http://swapi.co/api/planets/57/\"],\"url\":\"http://swapi.co/api/people/77/\"},{\"edited\":\"2014-12-20T21:17:50.486Z\",\"name\":\"Shaak Ti\",\"created\":\"2014-12-20T18:44:01.103Z\",\"gender\":\"female\",\"skin_color\":\"red, blue, white\",\"hair_color\":\"none\",\"height\":\"178\",\"eye_color\":\"black\",\"mass\":\"57\",\"homeworld\":\"http://swapi.co/api/planets/58/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"species\":[\"http://swapi.co/api/species/35/\"],\"planets\":[\"http://swapi.co/api/planets/58/\"],\"url\":\"http://swapi.co/api/people/78/\"},{\"edited\":\"2014-12-20T21:17:50.488Z\",\"name\":\"Grievous\",\"created\":\"2014-12-20T19:43:53.348Z\",\"gender\":\"male\",\"skin_color\":\"brown, white\",\"hair_color\":\"none\",\"height\":\"216\",\"eye_color\":\"green, yellow\",\"mass\":\"159\",\"homeworld\":\"http://swapi.co/api/planets/59/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/6/\"],\"starships\":[\"http://swapi.co/api/starships/74/\"],\"vehicles\":[\"http://swapi.co/api/vehicles/60/\"],\"species\":[\"http://swapi.co/api/species/36/\"],\"planets\":[\"http://swapi.co/api/planets/59/\"],\"url\":\"http://swapi.co/api/people/79/\"},{\"edited\":\"2014-12-20T21:17:50.491Z\",\"name\":\"Tarfful\",\"created\":\"2014-12-20T19:46:34.209Z\",\"gender\":\"male\",\"skin_color\":\"brown\",\"hair_color\":\"brown\",\"height\":\"234\",\"eye_color\":\"blue\",\"mass\":\"136\",\"homeworld\":\"http://swapi.co/api/planets/14/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/6/\"],\"species\":[\"http://swapi.co/api/species/3/\"],\"planets\":[\"http://swapi.co/api/planets/14/\"],\"url\":\"http://swapi.co/api/people/80/\"},{\"edited\":\"2014-12-20T21:17:50.493Z\",\"name\":\"Raymus Antilles\",\"created\":\"2014-12-20T19:49:35.583Z\",\"gender\":\"male\",\"skin_color\":\"light\",\"hair_color\":\"brown\",\"height\":\"188\",\"eye_color\":\"brown\",\"mass\":\"79\",\"homeworld\":\"http://swapi.co/api/planets/2/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/6/\"],\"planets\":[\"http://swapi.co/api/planets/2/\"],\"url\":\"http://swapi.co/api/people/81/\"}]}",
   "http://swapi.co/api/people/?page=9": "{\"count\":82,\"previous\":\"http://swapi.co/api/people/?page=8\",\"next\":null,\"results\":[{\"edited\":\"2014-12-20T21:17:50.496Z\",\"name\":\"Sly Moore\",\"created\":\"2014-12-20T20:18:37.619Z\",\"gender\":\"female\",\"skin_color\":\"pale\",\"hair_color\":\"none\",\"height\":\"178\",\"eye_color\":\"white\",\"mass\":\"48\",\"homeworld\":\"http://swapi.co/api/planets/60/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"planets\":[\"http://swapi.co/api/planets/60/\"],\"url\":\"http://swapi.co/api/people/82/\"},{\"edited\":\"2014-12-20T21:17:50.498Z\",\"name\":\"Tion Medon\",\"created\":\"2014-12-20T20:35:04.260Z\",\"gender\":\"male\",\"skin_color\":\"grey\",\"hair_color\":\"none\",\"height\":\"206\",\"eye_color\":\"black\",\"mass\":\"80\",\"homeworld\":\"http://swapi.co/api/planets/12/\",\"birth_year\":\"unknown\",\"films\":[\"http://swapi.co/api/films/6/\"],\"species\":[\"http://swapi.co/api/species/37/\"],\"planets\":[\"http://swapi.co/api/planets/12/\"],\"url\":\"http://swapi.co/api/people/83/\"}]}",
   "http://swapi.co/api/films/1/": "{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\"],\"edited\":\"2014-12-20T19:49:45.256Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"A New Hope\",\"created\":\"2014-12-10T14:23:31.880Z\",\"episode_id\":4,\"director\":\"George Lucas\",\"release_date\":\"1977-05-25\",\"opening_crawl\":\"It is a period of civil war.\\r\\nRebel spaceships, striking\\r\\nfrom a hidden base, have won\\r\\ntheir first victory against\\r\\nthe evil Galactic Empire.\\r\\n\\r\\nDuring the battle, Rebel\\r\\nspies managed to steal secret\\r\\nplans to the Empire's\\r\\nultimate weapon, the DEATH\\r\\nSTAR, an armored space\\r\\nstation with enough power\\r\\nto destroy an entire planet.\\r\\n\\r\\nPursued by the Empire's\\r\\nsinister agents, Princess\\r\\nLeia races home aboard her\\r\\nstarship, custodian of the\\r\\nstolen plans that can save her\\r\\npeople and restore\\r\\nfreedom to the galaxy....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/15/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\",\"http://swapi.co/api/people/81/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\"],\"url\":\"http://swapi.co/api/films/1/\"}",
-  "http://swapi.co/api/films/2/": "{\"starships\":[\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\"],\"edited\":\"2014-12-15T13:07:53.386Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\"],\"planets\":[\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\",\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\"],\"producer\":\"Gary Kutz, Rick McCallum\",\"title\":\"The Empire Strikes Back\",\"created\":\"2014-12-12T11:26:24.656Z\",\"episode_id\":5,\"director\":\"Irvin Kershner\",\"release_date\":\"1980-05-17\",\"opening_crawl\":\"It is a dark time for the\\r\\nRebellion. Although the Death\\r\\nStar has been destroyed,\\r\\nImperial troops have driven the\\r\\nRebel forces from their hidden\\r\\nbase and pursued them across\\r\\nthe galaxy.\\r\\n\\r\\nEvading the dreaded Imperial\\r\\nStarfleet, a group of freedom\\r\\nfighters led by Luke Skywalker\\r\\nhas established a new secret\\r\\nbase on the remote ice world\\r\\nof Hoth.\\r\\n\\r\\nThe evil lord Darth Vader,\\r\\nobsessed with finding young\\r\\nSkywalker, has dispatched\\r\\nthousands of remote probes into\\r\\nthe far reaches of space....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/23/\",\"http://swapi.co/api/people/24/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/26/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\"],\"url\":\"http://swapi.co/api/films/2/\"}",
+  "http://swapi.co/api/films/2/": "{\"starships\":[\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\"],\"edited\":\"2014-12-15T13:07:53.386Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\"],\"planets\":[\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\",\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"The Empire Strikes Back\",\"created\":\"2014-12-12T11:26:24.656Z\",\"episode_id\":5,\"director\":\"Irvin Kershner\",\"release_date\":\"1980-05-17\",\"opening_crawl\":\"It is a dark time for the\\r\\nRebellion. Although the Death\\r\\nStar has been destroyed,\\r\\nImperial troops have driven the\\r\\nRebel forces from their hidden\\r\\nbase and pursued them across\\r\\nthe galaxy.\\r\\n\\r\\nEvading the dreaded Imperial\\r\\nStarfleet, a group of freedom\\r\\nfighters led by Luke Skywalker\\r\\nhas established a new secret\\r\\nbase on the remote ice world\\r\\nof Hoth.\\r\\n\\r\\nThe evil lord Darth Vader,\\r\\nobsessed with finding young\\r\\nSkywalker, has dispatched\\r\\nthousands of remote probes into\\r\\nthe far reaches of space....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/23/\",\"http://swapi.co/api/people/24/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/26/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\"],\"url\":\"http://swapi.co/api/films/2/\"}",
   "http://swapi.co/api/films/3/": "{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\"],\"edited\":\"2014-12-20T09:48:37.462Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Howard G. Kazanjian, George Lucas, Rick McCallum\",\"title\":\"Return of the Jedi\",\"created\":\"2014-12-18T10:39:33.255Z\",\"episode_id\":6,\"director\":\"Richard Marquand\",\"release_date\":\"1983-05-25\",\"opening_crawl\":\"Luke Skywalker has returned to\\r\\nhis home planet of Tatooine in\\r\\nan attempt to rescue his\\r\\nfriend Han Solo from the\\r\\nclutches of the vile gangster\\r\\nJabba the Hutt.\\r\\n\\r\\nLittle does Luke know that the\\r\\nGALACTIC EMPIRE has secretly\\r\\nbegun construction on a new\\r\\narmored space station even\\r\\nmore powerful than the first\\r\\ndreaded Death Star.\\r\\n\\r\\nWhen completed, this ultimate\\r\\nweapon will spell certain doom\\r\\nfor the small band of rebels\\r\\nstruggling to restore freedom\\r\\nto the galaxy...\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/27/\",\"http://swapi.co/api/people/28/\",\"http://swapi.co/api/people/29/\",\"http://swapi.co/api/people/30/\",\"http://swapi.co/api/people/31/\",\"http://swapi.co/api/people/45/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\"],\"url\":\"http://swapi.co/api/films/3/\"}",
   "http://swapi.co/api/films/4/": "{\"starships\":[\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\",\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\"],\"edited\":\"2014-12-20T10:54:07.216Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Rick McCallum\",\"title\":\"The Phantom Menace\",\"created\":\"2014-12-19T16:52:55.740Z\",\"episode_id\":1,\"director\":\"George Lucas\",\"release_date\":\"1999-05-19\",\"opening_crawl\":\"Turmoil has engulfed the\\r\\nGalactic Republic. The taxation\\r\\nof trade routes to outlying star\\r\\nsystems is in dispute.\\r\\n\\r\\nHoping to resolve the matter\\r\\nwith a blockade of deadly\\r\\nbattleships, the greedy Trade\\r\\nFederation has stopped all\\r\\nshipping to the small planet\\r\\nof Naboo.\\r\\n\\r\\nWhile the Congress of the\\r\\nRepublic endlessly debates\\r\\nthis alarming chain of events,\\r\\nthe Supreme Chancellor has\\r\\nsecretly dispatched two Jedi\\r\\nKnights, the guardians of\\r\\npeace and justice in the\\r\\ngalaxy, to settle the conflict....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/32/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/34/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/37/\",\"http://swapi.co/api/people/38/\",\"http://swapi.co/api/people/39/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/41/\",\"http://swapi.co/api/people/42/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/44/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/47/\",\"http://swapi.co/api/people/48/\",\"http://swapi.co/api/people/49/\",\"http://swapi.co/api/people/50/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/57/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\"],\"url\":\"http://swapi.co/api/films/4/\"}",
   "http://swapi.co/api/films/5/": "{\"starships\":[\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\"],\"edited\":\"2014-12-20T20:18:48.516Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\"],\"producer\":\"Rick McCallum\",\"title\":\"Attack of the Clones\",\"created\":\"2014-12-20T10:57:57.886Z\",\"episode_id\":2,\"director\":\"George Lucas\",\"release_date\":\"2002-05-16\",\"opening_crawl\":\"There is unrest in the Galactic\\r\\nSenate. Several thousand solar\\r\\nsystems have declared their\\r\\nintentions to leave the Republic.\\r\\n\\r\\nThis separatist movement,\\r\\nunder the leadership of the\\r\\nmysterious Count Dooku, has\\r\\nmade it difficult for the limited\\r\\nnumber of Jedi Knights to maintain \\r\\npeace and order in the galaxy.\\r\\n\\r\\nSenator Amidala, the former\\r\\nQueen of Naboo, is returning\\r\\nto the Galactic Senate to vote\\r\\non the critical issue of creating\\r\\nan ARMY OF THE REPUBLIC\\r\\nto assist the overwhelmed\\r\\nJedi....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\",\"http://swapi.co/api/people/60/\",\"http://swapi.co/api/people/61/\",\"http://swapi.co/api/people/62/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\",\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/69/\",\"http://swapi.co/api/people/70/\",\"http://swapi.co/api/people/71/\",\"http://swapi.co/api/people/72/\",\"http://swapi.co/api/people/73/\",\"http://swapi.co/api/people/74/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/76/\",\"http://swapi.co/api/people/77/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/82/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\"],\"url\":\"http://swapi.co/api/films/5/\"}",
   "http://swapi.co/api/films/6/": "{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\"],\"edited\":\"2014-12-20T20:47:52.073Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\"],\"producer\":\"Rick McCallum\",\"title\":\"Revenge of the Sith\",\"created\":\"2014-12-20T18:49:38.403Z\",\"episode_id\":3,\"director\":\"George Lucas\",\"release_date\":\"2005-05-19\",\"opening_crawl\":\"War! The Republic is crumbling\\r\\nunder attacks by the ruthless\\r\\nSith Lord, Count Dooku.\\r\\nThere are heroes on both sides.\\r\\nEvil is everywhere.\\r\\n\\r\\nIn a stunning move, the\\r\\nfiendish droid leader, General\\r\\nGrievous, has swept into the\\r\\nRepublic capital and kidnapped\\r\\nChancellor Palpatine, leader of\\r\\nthe Galactic Senate.\\r\\n\\r\\nAs the Separatist Droid Army\\r\\nattempts to flee the besieged\\r\\ncapital with their valuable\\r\\nhostage, two Jedi Knights lead a\\r\\ndesperate mission to rescue the\\r\\ncaptive Chancellor....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/79/\",\"http://swapi.co/api/people/80/\",\"http://swapi.co/api/people/81/\",\"http://swapi.co/api/people/82/\",\"http://swapi.co/api/people/83/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\"],\"url\":\"http://swapi.co/api/films/6/\"}",
-  "http://swapi.co/api/films/?page=1": "{\"count\":6,\"previous\":null,\"next\":null,\"results\":[{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\"],\"edited\":\"2014-12-20T19:49:45.256Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"A New Hope\",\"created\":\"2014-12-10T14:23:31.880Z\",\"episode_id\":4,\"director\":\"George Lucas\",\"release_date\":\"1977-05-25\",\"opening_crawl\":\"It is a period of civil war.\\r\\nRebel spaceships, striking\\r\\nfrom a hidden base, have won\\r\\ntheir first victory against\\r\\nthe evil Galactic Empire.\\r\\n\\r\\nDuring the battle, Rebel\\r\\nspies managed to steal secret\\r\\nplans to the Empire's\\r\\nultimate weapon, the DEATH\\r\\nSTAR, an armored space\\r\\nstation with enough power\\r\\nto destroy an entire planet.\\r\\n\\r\\nPursued by the Empire's\\r\\nsinister agents, Princess\\r\\nLeia races home aboard her\\r\\nstarship, custodian of the\\r\\nstolen plans that can save her\\r\\npeople and restore\\r\\nfreedom to the galaxy....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/15/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\",\"http://swapi.co/api/people/81/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\"],\"url\":\"http://swapi.co/api/films/1/\"},{\"starships\":[\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\"],\"edited\":\"2014-12-15T13:07:53.386Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\"],\"planets\":[\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\",\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\"],\"producer\":\"Gary Kutz, Rick McCallum\",\"title\":\"The Empire Strikes Back\",\"created\":\"2014-12-12T11:26:24.656Z\",\"episode_id\":5,\"director\":\"Irvin Kershner\",\"release_date\":\"1980-05-17\",\"opening_crawl\":\"It is a dark time for the\\r\\nRebellion. Although the Death\\r\\nStar has been destroyed,\\r\\nImperial troops have driven the\\r\\nRebel forces from their hidden\\r\\nbase and pursued them across\\r\\nthe galaxy.\\r\\n\\r\\nEvading the dreaded Imperial\\r\\nStarfleet, a group of freedom\\r\\nfighters led by Luke Skywalker\\r\\nhas established a new secret\\r\\nbase on the remote ice world\\r\\nof Hoth.\\r\\n\\r\\nThe evil lord Darth Vader,\\r\\nobsessed with finding young\\r\\nSkywalker, has dispatched\\r\\nthousands of remote probes into\\r\\nthe far reaches of space....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/23/\",\"http://swapi.co/api/people/24/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/26/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\"],\"url\":\"http://swapi.co/api/films/2/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\"],\"edited\":\"2014-12-20T09:48:37.462Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Howard G. Kazanjian, George Lucas, Rick McCallum\",\"title\":\"Return of the Jedi\",\"created\":\"2014-12-18T10:39:33.255Z\",\"episode_id\":6,\"director\":\"Richard Marquand\",\"release_date\":\"1983-05-25\",\"opening_crawl\":\"Luke Skywalker has returned to\\r\\nhis home planet of Tatooine in\\r\\nan attempt to rescue his\\r\\nfriend Han Solo from the\\r\\nclutches of the vile gangster\\r\\nJabba the Hutt.\\r\\n\\r\\nLittle does Luke know that the\\r\\nGALACTIC EMPIRE has secretly\\r\\nbegun construction on a new\\r\\narmored space station even\\r\\nmore powerful than the first\\r\\ndreaded Death Star.\\r\\n\\r\\nWhen completed, this ultimate\\r\\nweapon will spell certain doom\\r\\nfor the small band of rebels\\r\\nstruggling to restore freedom\\r\\nto the galaxy...\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/27/\",\"http://swapi.co/api/people/28/\",\"http://swapi.co/api/people/29/\",\"http://swapi.co/api/people/30/\",\"http://swapi.co/api/people/31/\",\"http://swapi.co/api/people/45/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\"],\"url\":\"http://swapi.co/api/films/3/\"},{\"starships\":[\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\",\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\"],\"edited\":\"2014-12-20T10:54:07.216Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Rick McCallum\",\"title\":\"The Phantom Menace\",\"created\":\"2014-12-19T16:52:55.740Z\",\"episode_id\":1,\"director\":\"George Lucas\",\"release_date\":\"1999-05-19\",\"opening_crawl\":\"Turmoil has engulfed the\\r\\nGalactic Republic. The taxation\\r\\nof trade routes to outlying star\\r\\nsystems is in dispute.\\r\\n\\r\\nHoping to resolve the matter\\r\\nwith a blockade of deadly\\r\\nbattleships, the greedy Trade\\r\\nFederation has stopped all\\r\\nshipping to the small planet\\r\\nof Naboo.\\r\\n\\r\\nWhile the Congress of the\\r\\nRepublic endlessly debates\\r\\nthis alarming chain of events,\\r\\nthe Supreme Chancellor has\\r\\nsecretly dispatched two Jedi\\r\\nKnights, the guardians of\\r\\npeace and justice in the\\r\\ngalaxy, to settle the conflict....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/32/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/34/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/37/\",\"http://swapi.co/api/people/38/\",\"http://swapi.co/api/people/39/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/41/\",\"http://swapi.co/api/people/42/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/44/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/47/\",\"http://swapi.co/api/people/48/\",\"http://swapi.co/api/people/49/\",\"http://swapi.co/api/people/50/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/57/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\"],\"url\":\"http://swapi.co/api/films/4/\"},{\"starships\":[\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\"],\"edited\":\"2014-12-20T20:18:48.516Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\"],\"producer\":\"Rick McCallum\",\"title\":\"Attack of the Clones\",\"created\":\"2014-12-20T10:57:57.886Z\",\"episode_id\":2,\"director\":\"George Lucas\",\"release_date\":\"2002-05-16\",\"opening_crawl\":\"There is unrest in the Galactic\\r\\nSenate. Several thousand solar\\r\\nsystems have declared their\\r\\nintentions to leave the Republic.\\r\\n\\r\\nThis separatist movement,\\r\\nunder the leadership of the\\r\\nmysterious Count Dooku, has\\r\\nmade it difficult for the limited\\r\\nnumber of Jedi Knights to maintain \\r\\npeace and order in the galaxy.\\r\\n\\r\\nSenator Amidala, the former\\r\\nQueen of Naboo, is returning\\r\\nto the Galactic Senate to vote\\r\\non the critical issue of creating\\r\\nan ARMY OF THE REPUBLIC\\r\\nto assist the overwhelmed\\r\\nJedi....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\",\"http://swapi.co/api/people/60/\",\"http://swapi.co/api/people/61/\",\"http://swapi.co/api/people/62/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\",\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/69/\",\"http://swapi.co/api/people/70/\",\"http://swapi.co/api/people/71/\",\"http://swapi.co/api/people/72/\",\"http://swapi.co/api/people/73/\",\"http://swapi.co/api/people/74/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/76/\",\"http://swapi.co/api/people/77/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/82/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\"],\"url\":\"http://swapi.co/api/films/5/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\"],\"edited\":\"2014-12-20T20:47:52.073Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\"],\"producer\":\"Rick McCallum\",\"title\":\"Revenge of the Sith\",\"created\":\"2014-12-20T18:49:38.403Z\",\"episode_id\":3,\"director\":\"George Lucas\",\"release_date\":\"2005-05-19\",\"opening_crawl\":\"War! The Republic is crumbling\\r\\nunder attacks by the ruthless\\r\\nSith Lord, Count Dooku.\\r\\nThere are heroes on both sides.\\r\\nEvil is everywhere.\\r\\n\\r\\nIn a stunning move, the\\r\\nfiendish droid leader, General\\r\\nGrievous, has swept into the\\r\\nRepublic capital and kidnapped\\r\\nChancellor Palpatine, leader of\\r\\nthe Galactic Senate.\\r\\n\\r\\nAs the Separatist Droid Army\\r\\nattempts to flee the besieged\\r\\ncapital with their valuable\\r\\nhostage, two Jedi Knights lead a\\r\\ndesperate mission to rescue the\\r\\ncaptive Chancellor....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/79/\",\"http://swapi.co/api/people/80/\",\"http://swapi.co/api/people/81/\",\"http://swapi.co/api/people/82/\",\"http://swapi.co/api/people/83/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\"],\"url\":\"http://swapi.co/api/films/6/\"}]}",
-  "http://swapi.co/api/films/": "{\"count\":6,\"previous\":null,\"next\":null,\"results\":[{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\"],\"edited\":\"2014-12-20T19:49:45.256Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"A New Hope\",\"created\":\"2014-12-10T14:23:31.880Z\",\"episode_id\":4,\"director\":\"George Lucas\",\"release_date\":\"1977-05-25\",\"opening_crawl\":\"It is a period of civil war.\\r\\nRebel spaceships, striking\\r\\nfrom a hidden base, have won\\r\\ntheir first victory against\\r\\nthe evil Galactic Empire.\\r\\n\\r\\nDuring the battle, Rebel\\r\\nspies managed to steal secret\\r\\nplans to the Empire's\\r\\nultimate weapon, the DEATH\\r\\nSTAR, an armored space\\r\\nstation with enough power\\r\\nto destroy an entire planet.\\r\\n\\r\\nPursued by the Empire's\\r\\nsinister agents, Princess\\r\\nLeia races home aboard her\\r\\nstarship, custodian of the\\r\\nstolen plans that can save her\\r\\npeople and restore\\r\\nfreedom to the galaxy....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/15/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\",\"http://swapi.co/api/people/81/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\"],\"url\":\"http://swapi.co/api/films/1/\"},{\"starships\":[\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\"],\"edited\":\"2014-12-15T13:07:53.386Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\"],\"planets\":[\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\",\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\"],\"producer\":\"Gary Kutz, Rick McCallum\",\"title\":\"The Empire Strikes Back\",\"created\":\"2014-12-12T11:26:24.656Z\",\"episode_id\":5,\"director\":\"Irvin Kershner\",\"release_date\":\"1980-05-17\",\"opening_crawl\":\"It is a dark time for the\\r\\nRebellion. Although the Death\\r\\nStar has been destroyed,\\r\\nImperial troops have driven the\\r\\nRebel forces from their hidden\\r\\nbase and pursued them across\\r\\nthe galaxy.\\r\\n\\r\\nEvading the dreaded Imperial\\r\\nStarfleet, a group of freedom\\r\\nfighters led by Luke Skywalker\\r\\nhas established a new secret\\r\\nbase on the remote ice world\\r\\nof Hoth.\\r\\n\\r\\nThe evil lord Darth Vader,\\r\\nobsessed with finding young\\r\\nSkywalker, has dispatched\\r\\nthousands of remote probes into\\r\\nthe far reaches of space....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/23/\",\"http://swapi.co/api/people/24/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/26/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\"],\"url\":\"http://swapi.co/api/films/2/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\"],\"edited\":\"2014-12-20T09:48:37.462Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Howard G. Kazanjian, George Lucas, Rick McCallum\",\"title\":\"Return of the Jedi\",\"created\":\"2014-12-18T10:39:33.255Z\",\"episode_id\":6,\"director\":\"Richard Marquand\",\"release_date\":\"1983-05-25\",\"opening_crawl\":\"Luke Skywalker has returned to\\r\\nhis home planet of Tatooine in\\r\\nan attempt to rescue his\\r\\nfriend Han Solo from the\\r\\nclutches of the vile gangster\\r\\nJabba the Hutt.\\r\\n\\r\\nLittle does Luke know that the\\r\\nGALACTIC EMPIRE has secretly\\r\\nbegun construction on a new\\r\\narmored space station even\\r\\nmore powerful than the first\\r\\ndreaded Death Star.\\r\\n\\r\\nWhen completed, this ultimate\\r\\nweapon will spell certain doom\\r\\nfor the small band of rebels\\r\\nstruggling to restore freedom\\r\\nto the galaxy...\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/27/\",\"http://swapi.co/api/people/28/\",\"http://swapi.co/api/people/29/\",\"http://swapi.co/api/people/30/\",\"http://swapi.co/api/people/31/\",\"http://swapi.co/api/people/45/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\"],\"url\":\"http://swapi.co/api/films/3/\"},{\"starships\":[\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\",\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\"],\"edited\":\"2014-12-20T10:54:07.216Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Rick McCallum\",\"title\":\"The Phantom Menace\",\"created\":\"2014-12-19T16:52:55.740Z\",\"episode_id\":1,\"director\":\"George Lucas\",\"release_date\":\"1999-05-19\",\"opening_crawl\":\"Turmoil has engulfed the\\r\\nGalactic Republic. The taxation\\r\\nof trade routes to outlying star\\r\\nsystems is in dispute.\\r\\n\\r\\nHoping to resolve the matter\\r\\nwith a blockade of deadly\\r\\nbattleships, the greedy Trade\\r\\nFederation has stopped all\\r\\nshipping to the small planet\\r\\nof Naboo.\\r\\n\\r\\nWhile the Congress of the\\r\\nRepublic endlessly debates\\r\\nthis alarming chain of events,\\r\\nthe Supreme Chancellor has\\r\\nsecretly dispatched two Jedi\\r\\nKnights, the guardians of\\r\\npeace and justice in the\\r\\ngalaxy, to settle the conflict....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/32/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/34/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/37/\",\"http://swapi.co/api/people/38/\",\"http://swapi.co/api/people/39/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/41/\",\"http://swapi.co/api/people/42/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/44/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/47/\",\"http://swapi.co/api/people/48/\",\"http://swapi.co/api/people/49/\",\"http://swapi.co/api/people/50/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/57/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\"],\"url\":\"http://swapi.co/api/films/4/\"},{\"starships\":[\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\"],\"edited\":\"2014-12-20T20:18:48.516Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\"],\"producer\":\"Rick McCallum\",\"title\":\"Attack of the Clones\",\"created\":\"2014-12-20T10:57:57.886Z\",\"episode_id\":2,\"director\":\"George Lucas\",\"release_date\":\"2002-05-16\",\"opening_crawl\":\"There is unrest in the Galactic\\r\\nSenate. Several thousand solar\\r\\nsystems have declared their\\r\\nintentions to leave the Republic.\\r\\n\\r\\nThis separatist movement,\\r\\nunder the leadership of the\\r\\nmysterious Count Dooku, has\\r\\nmade it difficult for the limited\\r\\nnumber of Jedi Knights to maintain \\r\\npeace and order in the galaxy.\\r\\n\\r\\nSenator Amidala, the former\\r\\nQueen of Naboo, is returning\\r\\nto the Galactic Senate to vote\\r\\non the critical issue of creating\\r\\nan ARMY OF THE REPUBLIC\\r\\nto assist the overwhelmed\\r\\nJedi....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\",\"http://swapi.co/api/people/60/\",\"http://swapi.co/api/people/61/\",\"http://swapi.co/api/people/62/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\",\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/69/\",\"http://swapi.co/api/people/70/\",\"http://swapi.co/api/people/71/\",\"http://swapi.co/api/people/72/\",\"http://swapi.co/api/people/73/\",\"http://swapi.co/api/people/74/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/76/\",\"http://swapi.co/api/people/77/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/82/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\"],\"url\":\"http://swapi.co/api/films/5/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\"],\"edited\":\"2014-12-20T20:47:52.073Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\"],\"producer\":\"Rick McCallum\",\"title\":\"Revenge of the Sith\",\"created\":\"2014-12-20T18:49:38.403Z\",\"episode_id\":3,\"director\":\"George Lucas\",\"release_date\":\"2005-05-19\",\"opening_crawl\":\"War! The Republic is crumbling\\r\\nunder attacks by the ruthless\\r\\nSith Lord, Count Dooku.\\r\\nThere are heroes on both sides.\\r\\nEvil is everywhere.\\r\\n\\r\\nIn a stunning move, the\\r\\nfiendish droid leader, General\\r\\nGrievous, has swept into the\\r\\nRepublic capital and kidnapped\\r\\nChancellor Palpatine, leader of\\r\\nthe Galactic Senate.\\r\\n\\r\\nAs the Separatist Droid Army\\r\\nattempts to flee the besieged\\r\\ncapital with their valuable\\r\\nhostage, two Jedi Knights lead a\\r\\ndesperate mission to rescue the\\r\\ncaptive Chancellor....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/79/\",\"http://swapi.co/api/people/80/\",\"http://swapi.co/api/people/81/\",\"http://swapi.co/api/people/82/\",\"http://swapi.co/api/people/83/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\"],\"url\":\"http://swapi.co/api/films/6/\"}]}",
+  "http://swapi.co/api/films/?page=1": "{\"count\":6,\"previous\":null,\"next\":null,\"results\":[{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\"],\"edited\":\"2014-12-20T19:49:45.256Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"A New Hope\",\"created\":\"2014-12-10T14:23:31.880Z\",\"episode_id\":4,\"director\":\"George Lucas\",\"release_date\":\"1977-05-25\",\"opening_crawl\":\"It is a period of civil war.\\r\\nRebel spaceships, striking\\r\\nfrom a hidden base, have won\\r\\ntheir first victory against\\r\\nthe evil Galactic Empire.\\r\\n\\r\\nDuring the battle, Rebel\\r\\nspies managed to steal secret\\r\\nplans to the Empire's\\r\\nultimate weapon, the DEATH\\r\\nSTAR, an armored space\\r\\nstation with enough power\\r\\nto destroy an entire planet.\\r\\n\\r\\nPursued by the Empire's\\r\\nsinister agents, Princess\\r\\nLeia races home aboard her\\r\\nstarship, custodian of the\\r\\nstolen plans that can save her\\r\\npeople and restore\\r\\nfreedom to the galaxy....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/15/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\",\"http://swapi.co/api/people/81/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\"],\"url\":\"http://swapi.co/api/films/1/\"},{\"starships\":[\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\"],\"edited\":\"2014-12-15T13:07:53.386Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\"],\"planets\":[\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\",\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"The Empire Strikes Back\",\"created\":\"2014-12-12T11:26:24.656Z\",\"episode_id\":5,\"director\":\"Irvin Kershner\",\"release_date\":\"1980-05-17\",\"opening_crawl\":\"It is a dark time for the\\r\\nRebellion. Although the Death\\r\\nStar has been destroyed,\\r\\nImperial troops have driven the\\r\\nRebel forces from their hidden\\r\\nbase and pursued them across\\r\\nthe galaxy.\\r\\n\\r\\nEvading the dreaded Imperial\\r\\nStarfleet, a group of freedom\\r\\nfighters led by Luke Skywalker\\r\\nhas established a new secret\\r\\nbase on the remote ice world\\r\\nof Hoth.\\r\\n\\r\\nThe evil lord Darth Vader,\\r\\nobsessed with finding young\\r\\nSkywalker, has dispatched\\r\\nthousands of remote probes into\\r\\nthe far reaches of space....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/23/\",\"http://swapi.co/api/people/24/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/26/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\"],\"url\":\"http://swapi.co/api/films/2/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\"],\"edited\":\"2014-12-20T09:48:37.462Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Howard G. Kazanjian, George Lucas, Rick McCallum\",\"title\":\"Return of the Jedi\",\"created\":\"2014-12-18T10:39:33.255Z\",\"episode_id\":6,\"director\":\"Richard Marquand\",\"release_date\":\"1983-05-25\",\"opening_crawl\":\"Luke Skywalker has returned to\\r\\nhis home planet of Tatooine in\\r\\nan attempt to rescue his\\r\\nfriend Han Solo from the\\r\\nclutches of the vile gangster\\r\\nJabba the Hutt.\\r\\n\\r\\nLittle does Luke know that the\\r\\nGALACTIC EMPIRE has secretly\\r\\nbegun construction on a new\\r\\narmored space station even\\r\\nmore powerful than the first\\r\\ndreaded Death Star.\\r\\n\\r\\nWhen completed, this ultimate\\r\\nweapon will spell certain doom\\r\\nfor the small band of rebels\\r\\nstruggling to restore freedom\\r\\nto the galaxy...\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/27/\",\"http://swapi.co/api/people/28/\",\"http://swapi.co/api/people/29/\",\"http://swapi.co/api/people/30/\",\"http://swapi.co/api/people/31/\",\"http://swapi.co/api/people/45/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\"],\"url\":\"http://swapi.co/api/films/3/\"},{\"starships\":[\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\",\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\"],\"edited\":\"2014-12-20T10:54:07.216Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Rick McCallum\",\"title\":\"The Phantom Menace\",\"created\":\"2014-12-19T16:52:55.740Z\",\"episode_id\":1,\"director\":\"George Lucas\",\"release_date\":\"1999-05-19\",\"opening_crawl\":\"Turmoil has engulfed the\\r\\nGalactic Republic. The taxation\\r\\nof trade routes to outlying star\\r\\nsystems is in dispute.\\r\\n\\r\\nHoping to resolve the matter\\r\\nwith a blockade of deadly\\r\\nbattleships, the greedy Trade\\r\\nFederation has stopped all\\r\\nshipping to the small planet\\r\\nof Naboo.\\r\\n\\r\\nWhile the Congress of the\\r\\nRepublic endlessly debates\\r\\nthis alarming chain of events,\\r\\nthe Supreme Chancellor has\\r\\nsecretly dispatched two Jedi\\r\\nKnights, the guardians of\\r\\npeace and justice in the\\r\\ngalaxy, to settle the conflict....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/32/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/34/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/37/\",\"http://swapi.co/api/people/38/\",\"http://swapi.co/api/people/39/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/41/\",\"http://swapi.co/api/people/42/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/44/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/47/\",\"http://swapi.co/api/people/48/\",\"http://swapi.co/api/people/49/\",\"http://swapi.co/api/people/50/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/57/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\"],\"url\":\"http://swapi.co/api/films/4/\"},{\"starships\":[\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\"],\"edited\":\"2014-12-20T20:18:48.516Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\"],\"producer\":\"Rick McCallum\",\"title\":\"Attack of the Clones\",\"created\":\"2014-12-20T10:57:57.886Z\",\"episode_id\":2,\"director\":\"George Lucas\",\"release_date\":\"2002-05-16\",\"opening_crawl\":\"There is unrest in the Galactic\\r\\nSenate. Several thousand solar\\r\\nsystems have declared their\\r\\nintentions to leave the Republic.\\r\\n\\r\\nThis separatist movement,\\r\\nunder the leadership of the\\r\\nmysterious Count Dooku, has\\r\\nmade it difficult for the limited\\r\\nnumber of Jedi Knights to maintain \\r\\npeace and order in the galaxy.\\r\\n\\r\\nSenator Amidala, the former\\r\\nQueen of Naboo, is returning\\r\\nto the Galactic Senate to vote\\r\\non the critical issue of creating\\r\\nan ARMY OF THE REPUBLIC\\r\\nto assist the overwhelmed\\r\\nJedi....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\",\"http://swapi.co/api/people/60/\",\"http://swapi.co/api/people/61/\",\"http://swapi.co/api/people/62/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\",\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/69/\",\"http://swapi.co/api/people/70/\",\"http://swapi.co/api/people/71/\",\"http://swapi.co/api/people/72/\",\"http://swapi.co/api/people/73/\",\"http://swapi.co/api/people/74/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/76/\",\"http://swapi.co/api/people/77/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/82/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\"],\"url\":\"http://swapi.co/api/films/5/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\"],\"edited\":\"2014-12-20T20:47:52.073Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\"],\"producer\":\"Rick McCallum\",\"title\":\"Revenge of the Sith\",\"created\":\"2014-12-20T18:49:38.403Z\",\"episode_id\":3,\"director\":\"George Lucas\",\"release_date\":\"2005-05-19\",\"opening_crawl\":\"War! The Republic is crumbling\\r\\nunder attacks by the ruthless\\r\\nSith Lord, Count Dooku.\\r\\nThere are heroes on both sides.\\r\\nEvil is everywhere.\\r\\n\\r\\nIn a stunning move, the\\r\\nfiendish droid leader, General\\r\\nGrievous, has swept into the\\r\\nRepublic capital and kidnapped\\r\\nChancellor Palpatine, leader of\\r\\nthe Galactic Senate.\\r\\n\\r\\nAs the Separatist Droid Army\\r\\nattempts to flee the besieged\\r\\ncapital with their valuable\\r\\nhostage, two Jedi Knights lead a\\r\\ndesperate mission to rescue the\\r\\ncaptive Chancellor....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/79/\",\"http://swapi.co/api/people/80/\",\"http://swapi.co/api/people/81/\",\"http://swapi.co/api/people/82/\",\"http://swapi.co/api/people/83/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\"],\"url\":\"http://swapi.co/api/films/6/\"}]}",
+  "http://swapi.co/api/films/": "{\"count\":6,\"previous\":null,\"next\":null,\"results\":[{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/5/\",\"http://swapi.co/api/starships/9/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/13/\"],\"edited\":\"2014-12-20T19:49:45.256Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/6/\",\"http://swapi.co/api/vehicles/7/\",\"http://swapi.co/api/vehicles/8/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/3/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"A New Hope\",\"created\":\"2014-12-10T14:23:31.880Z\",\"episode_id\":4,\"director\":\"George Lucas\",\"release_date\":\"1977-05-25\",\"opening_crawl\":\"It is a period of civil war.\\r\\nRebel spaceships, striking\\r\\nfrom a hidden base, have won\\r\\ntheir first victory against\\r\\nthe evil Galactic Empire.\\r\\n\\r\\nDuring the battle, Rebel\\r\\nspies managed to steal secret\\r\\nplans to the Empire's\\r\\nultimate weapon, the DEATH\\r\\nSTAR, an armored space\\r\\nstation with enough power\\r\\nto destroy an entire planet.\\r\\n\\r\\nPursued by the Empire's\\r\\nsinister agents, Princess\\r\\nLeia races home aboard her\\r\\nstarship, custodian of the\\r\\nstolen plans that can save her\\r\\npeople and restore\\r\\nfreedom to the galaxy....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/15/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\",\"http://swapi.co/api/people/81/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/4/\",\"http://swapi.co/api/species/5/\"],\"url\":\"http://swapi.co/api/films/1/\"},{\"starships\":[\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\"],\"edited\":\"2014-12-15T13:07:53.386Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/14/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/20/\"],\"planets\":[\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\",\"http://swapi.co/api/planets/4/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/6/\",\"http://swapi.co/api/planets/27/\"],\"producer\":\"Gary Kurtz, Rick McCallum\",\"title\":\"The Empire Strikes Back\",\"created\":\"2014-12-12T11:26:24.656Z\",\"episode_id\":5,\"director\":\"Irvin Kershner\",\"release_date\":\"1980-05-17\",\"opening_crawl\":\"It is a dark time for the\\r\\nRebellion. Although the Death\\r\\nStar has been destroyed,\\r\\nImperial troops have driven the\\r\\nRebel forces from their hidden\\r\\nbase and pursued them across\\r\\nthe galaxy.\\r\\n\\r\\nEvading the dreaded Imperial\\r\\nStarfleet, a group of freedom\\r\\nfighters led by Luke Skywalker\\r\\nhas established a new secret\\r\\nbase on the remote ice world\\r\\nof Hoth.\\r\\n\\r\\nThe evil lord Darth Vader,\\r\\nobsessed with finding young\\r\\nSkywalker, has dispatched\\r\\nthousands of remote probes into\\r\\nthe far reaches of space....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/23/\",\"http://swapi.co/api/people/24/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/26/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/7/\"],\"url\":\"http://swapi.co/api/films/2/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/3/\",\"http://swapi.co/api/starships/10/\",\"http://swapi.co/api/starships/11/\",\"http://swapi.co/api/starships/12/\",\"http://swapi.co/api/starships/15/\",\"http://swapi.co/api/starships/17/\",\"http://swapi.co/api/starships/22/\",\"http://swapi.co/api/starships/23/\",\"http://swapi.co/api/starships/27/\",\"http://swapi.co/api/starships/28/\",\"http://swapi.co/api/starships/29/\"],\"edited\":\"2014-12-20T09:48:37.462Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\",\"http://swapi.co/api/vehicles/8/\",\"http://swapi.co/api/vehicles/16/\",\"http://swapi.co/api/vehicles/18/\",\"http://swapi.co/api/vehicles/19/\",\"http://swapi.co/api/vehicles/24/\",\"http://swapi.co/api/vehicles/25/\",\"http://swapi.co/api/vehicles/26/\",\"http://swapi.co/api/vehicles/30/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/7/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Howard G. Kazanjian, George Lucas, Rick McCallum\",\"title\":\"Return of the Jedi\",\"created\":\"2014-12-18T10:39:33.255Z\",\"episode_id\":6,\"director\":\"Richard Marquand\",\"release_date\":\"1983-05-25\",\"opening_crawl\":\"Luke Skywalker has returned to\\r\\nhis home planet of Tatooine in\\r\\nan attempt to rescue his\\r\\nfriend Han Solo from the\\r\\nclutches of the vile gangster\\r\\nJabba the Hutt.\\r\\n\\r\\nLittle does Luke know that the\\r\\nGALACTIC EMPIRE has secretly\\r\\nbegun construction on a new\\r\\narmored space station even\\r\\nmore powerful than the first\\r\\ndreaded Death Star.\\r\\n\\r\\nWhen completed, this ultimate\\r\\nweapon will spell certain doom\\r\\nfor the small band of rebels\\r\\nstruggling to restore freedom\\r\\nto the galaxy...\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/27/\",\"http://swapi.co/api/people/28/\",\"http://swapi.co/api/people/29/\",\"http://swapi.co/api/people/30/\",\"http://swapi.co/api/people/31/\",\"http://swapi.co/api/people/45/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/5/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/8/\",\"http://swapi.co/api/species/9/\",\"http://swapi.co/api/species/10/\",\"http://swapi.co/api/species/15/\"],\"url\":\"http://swapi.co/api/films/3/\"},{\"starships\":[\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\",\"http://swapi.co/api/starships/31/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/40/\",\"http://swapi.co/api/starships/41/\"],\"edited\":\"2014-12-20T10:54:07.216Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/34/\",\"http://swapi.co/api/vehicles/35/\",\"http://swapi.co/api/vehicles/36/\",\"http://swapi.co/api/vehicles/37/\",\"http://swapi.co/api/vehicles/38/\",\"http://swapi.co/api/vehicles/42/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\"],\"producer\":\"Rick McCallum\",\"title\":\"The Phantom Menace\",\"created\":\"2014-12-19T16:52:55.740Z\",\"episode_id\":1,\"director\":\"George Lucas\",\"release_date\":\"1999-05-19\",\"opening_crawl\":\"Turmoil has engulfed the\\r\\nGalactic Republic. The taxation\\r\\nof trade routes to outlying star\\r\\nsystems is in dispute.\\r\\n\\r\\nHoping to resolve the matter\\r\\nwith a blockade of deadly\\r\\nbattleships, the greedy Trade\\r\\nFederation has stopped all\\r\\nshipping to the small planet\\r\\nof Naboo.\\r\\n\\r\\nWhile the Congress of the\\r\\nRepublic endlessly debates\\r\\nthis alarming chain of events,\\r\\nthe Supreme Chancellor has\\r\\nsecretly dispatched two Jedi\\r\\nKnights, the guardians of\\r\\npeace and justice in the\\r\\ngalaxy, to settle the conflict....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/16/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/32/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/34/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/37/\",\"http://swapi.co/api/people/38/\",\"http://swapi.co/api/people/39/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/41/\",\"http://swapi.co/api/people/42/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/44/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/47/\",\"http://swapi.co/api/people/48/\",\"http://swapi.co/api/people/49/\",\"http://swapi.co/api/people/50/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/57/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/11/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/14/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/16/\",\"http://swapi.co/api/species/17/\",\"http://swapi.co/api/species/18/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/21/\",\"http://swapi.co/api/species/22/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\"],\"url\":\"http://swapi.co/api/films/4/\"},{\"starships\":[\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\",\"http://swapi.co/api/starships/21/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/39/\",\"http://swapi.co/api/starships/43/\",\"http://swapi.co/api/starships/47/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/49/\",\"http://swapi.co/api/starships/52/\",\"http://swapi.co/api/starships/58/\"],\"edited\":\"2014-12-20T20:18:48.516Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\",\"http://swapi.co/api/vehicles/4/\",\"http://swapi.co/api/vehicles/44/\",\"http://swapi.co/api/vehicles/45/\",\"http://swapi.co/api/vehicles/46/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/51/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/54/\",\"http://swapi.co/api/vehicles/55/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/57/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/10/\",\"http://swapi.co/api/planets/11/\"],\"producer\":\"Rick McCallum\",\"title\":\"Attack of the Clones\",\"created\":\"2014-12-20T10:57:57.886Z\",\"episode_id\":2,\"director\":\"George Lucas\",\"release_date\":\"2002-05-16\",\"opening_crawl\":\"There is unrest in the Galactic\\r\\nSenate. Several thousand solar\\r\\nsystems have declared their\\r\\nintentions to leave the Republic.\\r\\n\\r\\nThis separatist movement,\\r\\nunder the leadership of the\\r\\nmysterious Count Dooku, has\\r\\nmade it difficult for the limited\\r\\nnumber of Jedi Knights to maintain \\r\\npeace and order in the galaxy.\\r\\n\\r\\nSenator Amidala, the former\\r\\nQueen of Naboo, is returning\\r\\nto the Galactic Senate to vote\\r\\non the critical issue of creating\\r\\nan ARMY OF THE REPUBLIC\\r\\nto assist the overwhelmed\\r\\nJedi....\",\"characters\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/22/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/40/\",\"http://swapi.co/api/people/43/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/59/\",\"http://swapi.co/api/people/60/\",\"http://swapi.co/api/people/61/\",\"http://swapi.co/api/people/62/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\",\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/69/\",\"http://swapi.co/api/people/70/\",\"http://swapi.co/api/people/71/\",\"http://swapi.co/api/people/72/\",\"http://swapi.co/api/people/73/\",\"http://swapi.co/api/people/74/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/76/\",\"http://swapi.co/api/people/77/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/82/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/12/\",\"http://swapi.co/api/species/13/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/31/\",\"http://swapi.co/api/species/32/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\"],\"url\":\"http://swapi.co/api/films/5/\"},{\"starships\":[\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\",\"http://swapi.co/api/starships/2/\",\"http://swapi.co/api/starships/32/\",\"http://swapi.co/api/starships/48/\",\"http://swapi.co/api/starships/59/\",\"http://swapi.co/api/starships/61/\",\"http://swapi.co/api/starships/63/\",\"http://swapi.co/api/starships/64/\",\"http://swapi.co/api/starships/65/\",\"http://swapi.co/api/starships/66/\",\"http://swapi.co/api/starships/68/\",\"http://swapi.co/api/starships/74/\",\"http://swapi.co/api/starships/75/\"],\"edited\":\"2014-12-20T20:47:52.073Z\",\"vehicles\":[\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\",\"http://swapi.co/api/vehicles/33/\",\"http://swapi.co/api/vehicles/50/\",\"http://swapi.co/api/vehicles/53/\",\"http://swapi.co/api/vehicles/56/\",\"http://swapi.co/api/vehicles/60/\",\"http://swapi.co/api/vehicles/62/\",\"http://swapi.co/api/vehicles/67/\",\"http://swapi.co/api/vehicles/69/\",\"http://swapi.co/api/vehicles/70/\",\"http://swapi.co/api/vehicles/71/\",\"http://swapi.co/api/vehicles/72/\",\"http://swapi.co/api/vehicles/73/\",\"http://swapi.co/api/vehicles/76/\"],\"planets\":[\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\",\"http://swapi.co/api/planets/1/\",\"http://swapi.co/api/planets/2/\",\"http://swapi.co/api/planets/5/\",\"http://swapi.co/api/planets/8/\",\"http://swapi.co/api/planets/9/\",\"http://swapi.co/api/planets/12/\",\"http://swapi.co/api/planets/13/\",\"http://swapi.co/api/planets/14/\",\"http://swapi.co/api/planets/15/\",\"http://swapi.co/api/planets/16/\",\"http://swapi.co/api/planets/17/\",\"http://swapi.co/api/planets/18/\",\"http://swapi.co/api/planets/19/\"],\"producer\":\"Rick McCallum\",\"title\":\"Revenge of the Sith\",\"created\":\"2014-12-20T18:49:38.403Z\",\"episode_id\":3,\"director\":\"George Lucas\",\"release_date\":\"2005-05-19\",\"opening_crawl\":\"War! The Republic is crumbling\\r\\nunder attacks by the ruthless\\r\\nSith Lord, Count Dooku.\\r\\nThere are heroes on both sides.\\r\\nEvil is everywhere.\\r\\n\\r\\nIn a stunning move, the\\r\\nfiendish droid leader, General\\r\\nGrievous, has swept into the\\r\\nRepublic capital and kidnapped\\r\\nChancellor Palpatine, leader of\\r\\nthe Galactic Senate.\\r\\n\\r\\nAs the Separatist Droid Army\\r\\nattempts to flee the besieged\\r\\ncapital with their valuable\\r\\nhostage, two Jedi Knights lead a\\r\\ndesperate mission to rescue the\\r\\ncaptive Chancellor....\",\"characters\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/4/\",\"http://swapi.co/api/people/5/\",\"http://swapi.co/api/people/6/\",\"http://swapi.co/api/people/7/\",\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/12/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/20/\",\"http://swapi.co/api/people/21/\",\"http://swapi.co/api/people/33/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/46/\",\"http://swapi.co/api/people/51/\",\"http://swapi.co/api/people/52/\",\"http://swapi.co/api/people/53/\",\"http://swapi.co/api/people/54/\",\"http://swapi.co/api/people/55/\",\"http://swapi.co/api/people/56/\",\"http://swapi.co/api/people/58/\",\"http://swapi.co/api/people/63/\",\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/75/\",\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/79/\",\"http://swapi.co/api/people/80/\",\"http://swapi.co/api/people/81/\",\"http://swapi.co/api/people/82/\",\"http://swapi.co/api/people/83/\"],\"species\":[\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\",\"http://swapi.co/api/species/1/\",\"http://swapi.co/api/species/2/\",\"http://swapi.co/api/species/3/\",\"http://swapi.co/api/species/6/\",\"http://swapi.co/api/species/15/\",\"http://swapi.co/api/species/19/\",\"http://swapi.co/api/species/20/\",\"http://swapi.co/api/species/23/\",\"http://swapi.co/api/species/24/\",\"http://swapi.co/api/species/25/\",\"http://swapi.co/api/species/26/\",\"http://swapi.co/api/species/27/\",\"http://swapi.co/api/species/28/\",\"http://swapi.co/api/species/29/\",\"http://swapi.co/api/species/30/\",\"http://swapi.co/api/species/33/\",\"http://swapi.co/api/species/34/\",\"http://swapi.co/api/species/35/\",\"http://swapi.co/api/species/36/\",\"http://swapi.co/api/species/37/\"],\"url\":\"http://swapi.co/api/films/6/\"}]}",
   "http://swapi.co/api/starships/2/": "{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"corvette\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.867Z\",\"consumables\":\"1 year\",\"name\":\"CR90 corvette\",\"created\":\"2014-12-10T14:20:33.369Z\",\"cargo_capacity\":\"3000000\",\"passengers\":\"600\",\"max_atmosphering_speed\":\"950\",\"crew\":\"30-165\",\"length\":\"150\",\"model\":\"CR90 corvette\",\"cost_in_credits\":\"3500000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/2/\"}",
   "http://swapi.co/api/starships/3/": "{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"Star Destroyer\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.870Z\",\"consumables\":\"2 years\",\"name\":\"Star Destroyer\",\"created\":\"2014-12-10T15:08:19.848Z\",\"cargo_capacity\":\"36000000\",\"passengers\":\"n/a\",\"max_atmosphering_speed\":\"975\",\"crew\":\"47,060\",\"length\":\"1,600\",\"model\":\"Imperial I-class Star Destroyer\",\"cost_in_credits\":\"150000000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/3/\"}",
   "http://swapi.co/api/starships/5/": "{\"pilots\":[],\"MGLT\":\"70\",\"starship_class\":\"landing craft\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.873Z\",\"consumables\":\"1 month\",\"name\":\"Sentinel-class landing craft\",\"created\":\"2014-12-10T15:48:00.586Z\",\"cargo_capacity\":\"180000\",\"passengers\":\"75\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"5\",\"length\":\"38\",\"model\":\"Sentinel-class landing craft\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems, Cyngus Spaceworks\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/5/\"}",
@@ -17728,7 +19060,7 @@ var data = {
   "http://swapi.co/api/starships/11/": "{\"pilots\":[],\"MGLT\":\"80\",\"starship_class\":\"assault starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.883Z\",\"consumables\":\"1 week\",\"name\":\"Y-wing\",\"created\":\"2014-12-12T11:00:39.817Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1000km\",\"crew\":\"2\",\"length\":\"14\",\"model\":\"BTL Y-wing\",\"cost_in_credits\":\"134999\",\"manufacturer\":\"Koensayr Manufacturing\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/11/\"}",
   "http://swapi.co/api/starships/12/": "{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\"],\"MGLT\":\"100\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.886Z\",\"consumables\":\"1 week\",\"name\":\"X-wing\",\"created\":\"2014-12-12T11:19:05.340Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"12.5\",\"model\":\"T-65 X-wing\",\"cost_in_credits\":\"149999\",\"manufacturer\":\"Incom Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/12/\"}",
   "http://swapi.co/api/starships/13/": "{\"pilots\":[\"http://swapi.co/api/people/4/\"],\"MGLT\":\"105\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.889Z\",\"consumables\":\"5 days\",\"name\":\"TIE Advanced x1\",\"created\":\"2014-12-12T11:21:32.991Z\",\"cargo_capacity\":\"150\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1200\",\"crew\":\"1\",\"length\":\"9.2\",\"model\":\"Twin Ion Engine Advanced x1\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/13/\"}",
-  "http://swapi.co/api/starships/15/": "{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Star dreadnought\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.893Z\",\"consumables\":\"6 years\",\"name\":\"Executor\",\"created\":\"2014-12-15T12:31:42.547Z\",\"cargo_capacity\":\"250000000\",\"passengers\":\"38,000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"279,144\",\"length\":\"19,000\",\"model\":\"Executor-class star dreadnought\",\"cost_in_credits\":\"1143350000\",\"manufacturer\":\"Kuat Drive Yards, Fondor Shipyards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/15/\"}",
+  "http://swapi.co/api/starships/15/": "{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Star dreadnought\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.893Z\",\"consumables\":\"6 years\",\"name\":\"Executor\",\"created\":\"2014-12-15T12:31:42.547Z\",\"cargo_capacity\":\"250000000\",\"passengers\":\"38000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"279,144\",\"length\":\"19000\",\"model\":\"Executor-class star dreadnought\",\"cost_in_credits\":\"1143350000\",\"manufacturer\":\"Kuat Drive Yards, Fondor Shipyards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/15/\"}",
   "http://swapi.co/api/starships/17/": "{\"pilots\":[],\"MGLT\":\"20\",\"starship_class\":\"Medium transport\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:23:49.895Z\",\"consumables\":\"6 months\",\"name\":\"Rebel transport\",\"created\":\"2014-12-15T12:34:52.264Z\",\"cargo_capacity\":\"19000000\",\"passengers\":\"90\",\"max_atmosphering_speed\":\"650\",\"crew\":\"6\",\"length\":\"90\",\"model\":\"GR-75 medium transport\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Gallofree Yards, Inc.\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/17/\"}",
   "http://swapi.co/api/starships/21/": "{\"pilots\":[\"http://swapi.co/api/people/22/\"],\"MGLT\":\"70\",\"starship_class\":\"Patrol craft\",\"hyperdrive_rating\":\"3.0\",\"edited\":\"2014-12-20T21:23:49.897Z\",\"consumables\":\"1 month\",\"name\":\"Slave 1\",\"created\":\"2014-12-15T13:00:56.332Z\",\"cargo_capacity\":\"70000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"1\",\"length\":\"21.5\",\"model\":\"Firespray-31-class patrol and attack\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Kuat Systems Engineering\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/21/\"}",
   "http://swapi.co/api/starships/22/": "{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\"],\"MGLT\":\"50\",\"starship_class\":\"Armed government transport\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.900Z\",\"consumables\":\"2 months\",\"name\":\"Imperial shuttle\",\"created\":\"2014-12-15T13:04:47.235Z\",\"cargo_capacity\":\"80000\",\"passengers\":\"20\",\"max_atmosphering_speed\":\"850\",\"crew\":\"6\",\"length\":\"20\",\"model\":\"Lambda-class T-4a shuttle\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/22/\"}",
@@ -17756,8 +19088,8 @@ var data = {
   "http://swapi.co/api/starships/68/": "{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"cruiser\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.956Z\",\"consumables\":\"2 years\",\"name\":\"Banking clan frigte\",\"created\":\"2014-12-20T20:07:11.538Z\",\"cargo_capacity\":\"40000000\",\"passengers\":\"unknown\",\"max_atmosphering_speed\":\"unknown\",\"crew\":\"200\",\"length\":\"825\",\"model\":\"Munificent-class star frigate\",\"cost_in_credits\":\"57000000\",\"manufacturer\":\"Hoersch-Kessel Drive, Inc, Gwori Revolutionary Industries\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/68/\"}",
   "http://swapi.co/api/starships/74/": "{\"pilots\":[\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/79/\"],\"MGLT\":\"unknown\",\"starship_class\":\"starfighter\",\"hyperdrive_rating\":\"6\",\"edited\":\"2014-12-20T21:23:49.959Z\",\"consumables\":\"7 days\",\"name\":\"Belbullab-22 starfighter\",\"created\":\"2014-12-20T20:38:05.031Z\",\"cargo_capacity\":\"140\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1100\",\"crew\":\"1\",\"length\":\"6.71\",\"model\":\"Belbullab-22 starfighter\",\"cost_in_credits\":\"168000\",\"manufacturer\":\"Feethan Ottraw Scalable Assemblies\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/74/\"}",
   "http://swapi.co/api/starships/75/": "{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.961Z\",\"consumables\":\"15 hours\",\"name\":\"V-wing\",\"created\":\"2014-12-20T20:43:04.349Z\",\"cargo_capacity\":\"60\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"7.9\",\"model\":\"Alpha-3 Nimbus-class V-wing starfighter\",\"cost_in_credits\":\"102500\",\"manufacturer\":\"Kuat Systems Engineering\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/75/\"}",
-  "http://swapi.co/api/starships/?page=1": "{\"count\":36,\"previous\":null,\"next\":\"http://swapi.co/api/starships/?page=2\",\"results\":[{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"corvette\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.867Z\",\"consumables\":\"1 year\",\"name\":\"CR90 corvette\",\"created\":\"2014-12-10T14:20:33.369Z\",\"cargo_capacity\":\"3000000\",\"passengers\":\"600\",\"max_atmosphering_speed\":\"950\",\"crew\":\"30-165\",\"length\":\"150\",\"model\":\"CR90 corvette\",\"cost_in_credits\":\"3500000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/2/\"},{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"Star Destroyer\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.870Z\",\"consumables\":\"2 years\",\"name\":\"Star Destroyer\",\"created\":\"2014-12-10T15:08:19.848Z\",\"cargo_capacity\":\"36000000\",\"passengers\":\"n/a\",\"max_atmosphering_speed\":\"975\",\"crew\":\"47,060\",\"length\":\"1,600\",\"model\":\"Imperial I-class Star Destroyer\",\"cost_in_credits\":\"150000000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/3/\"},{\"pilots\":[],\"MGLT\":\"70\",\"starship_class\":\"landing craft\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.873Z\",\"consumables\":\"1 month\",\"name\":\"Sentinel-class landing craft\",\"created\":\"2014-12-10T15:48:00.586Z\",\"cargo_capacity\":\"180000\",\"passengers\":\"75\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"5\",\"length\":\"38\",\"model\":\"Sentinel-class landing craft\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems, Cyngus Spaceworks\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/5/\"},{\"pilots\":[],\"MGLT\":\"10\",\"starship_class\":\"Deep Space Mobile Battlestation\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:26:24.783Z\",\"consumables\":\"3 years\",\"name\":\"Death Star\",\"created\":\"2014-12-10T16:36:50.509Z\",\"cargo_capacity\":\"1000000000000\",\"passengers\":\"843,342\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"342,953\",\"length\":\"120000\",\"model\":\"DS-1 Orbital Battle Station\",\"cost_in_credits\":\"1000000000000\",\"manufacturer\":\"Imperial Department of Military Research, Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/9/\"},{\"pilots\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/31/\"],\"MGLT\":\"75\",\"starship_class\":\"Light freighter\",\"hyperdrive_rating\":\"0.5\",\"edited\":\"2014-12-20T21:23:49.880Z\",\"consumables\":\"2 months\",\"name\":\"Millennium Falcon\",\"created\":\"2014-12-10T16:59:45.094Z\",\"cargo_capacity\":\"100000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"4\",\"length\":\"34.37\",\"model\":\"YT-1300 light freighter\",\"cost_in_credits\":\"100000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/10/\"},{\"pilots\":[],\"MGLT\":\"80\",\"starship_class\":\"assault starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.883Z\",\"consumables\":\"1 week\",\"name\":\"Y-wing\",\"created\":\"2014-12-12T11:00:39.817Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1000km\",\"crew\":\"2\",\"length\":\"14\",\"model\":\"BTL Y-wing\",\"cost_in_credits\":\"134999\",\"manufacturer\":\"Koensayr Manufacturing\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/11/\"},{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\"],\"MGLT\":\"100\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.886Z\",\"consumables\":\"1 week\",\"name\":\"X-wing\",\"created\":\"2014-12-12T11:19:05.340Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"12.5\",\"model\":\"T-65 X-wing\",\"cost_in_credits\":\"149999\",\"manufacturer\":\"Incom Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/12/\"},{\"pilots\":[\"http://swapi.co/api/people/4/\"],\"MGLT\":\"105\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.889Z\",\"consumables\":\"5 days\",\"name\":\"TIE Advanced x1\",\"created\":\"2014-12-12T11:21:32.991Z\",\"cargo_capacity\":\"150\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1200\",\"crew\":\"1\",\"length\":\"9.2\",\"model\":\"Twin Ion Engine Advanced x1\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/13/\"},{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Star dreadnought\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.893Z\",\"consumables\":\"6 years\",\"name\":\"Executor\",\"created\":\"2014-12-15T12:31:42.547Z\",\"cargo_capacity\":\"250000000\",\"passengers\":\"38,000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"279,144\",\"length\":\"19,000\",\"model\":\"Executor-class star dreadnought\",\"cost_in_credits\":\"1143350000\",\"manufacturer\":\"Kuat Drive Yards, Fondor Shipyards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/15/\"},{\"pilots\":[],\"MGLT\":\"20\",\"starship_class\":\"Medium transport\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:23:49.895Z\",\"consumables\":\"6 months\",\"name\":\"Rebel transport\",\"created\":\"2014-12-15T12:34:52.264Z\",\"cargo_capacity\":\"19000000\",\"passengers\":\"90\",\"max_atmosphering_speed\":\"650\",\"crew\":\"6\",\"length\":\"90\",\"model\":\"GR-75 medium transport\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Gallofree Yards, Inc.\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/17/\"}]}",
-  "http://swapi.co/api/starships/": "{\"count\":36,\"previous\":null,\"next\":\"http://swapi.co/api/starships/?page=2\",\"results\":[{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"corvette\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.867Z\",\"consumables\":\"1 year\",\"name\":\"CR90 corvette\",\"created\":\"2014-12-10T14:20:33.369Z\",\"cargo_capacity\":\"3000000\",\"passengers\":\"600\",\"max_atmosphering_speed\":\"950\",\"crew\":\"30-165\",\"length\":\"150\",\"model\":\"CR90 corvette\",\"cost_in_credits\":\"3500000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/2/\"},{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"Star Destroyer\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.870Z\",\"consumables\":\"2 years\",\"name\":\"Star Destroyer\",\"created\":\"2014-12-10T15:08:19.848Z\",\"cargo_capacity\":\"36000000\",\"passengers\":\"n/a\",\"max_atmosphering_speed\":\"975\",\"crew\":\"47,060\",\"length\":\"1,600\",\"model\":\"Imperial I-class Star Destroyer\",\"cost_in_credits\":\"150000000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/3/\"},{\"pilots\":[],\"MGLT\":\"70\",\"starship_class\":\"landing craft\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.873Z\",\"consumables\":\"1 month\",\"name\":\"Sentinel-class landing craft\",\"created\":\"2014-12-10T15:48:00.586Z\",\"cargo_capacity\":\"180000\",\"passengers\":\"75\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"5\",\"length\":\"38\",\"model\":\"Sentinel-class landing craft\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems, Cyngus Spaceworks\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/5/\"},{\"pilots\":[],\"MGLT\":\"10\",\"starship_class\":\"Deep Space Mobile Battlestation\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:26:24.783Z\",\"consumables\":\"3 years\",\"name\":\"Death Star\",\"created\":\"2014-12-10T16:36:50.509Z\",\"cargo_capacity\":\"1000000000000\",\"passengers\":\"843,342\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"342,953\",\"length\":\"120000\",\"model\":\"DS-1 Orbital Battle Station\",\"cost_in_credits\":\"1000000000000\",\"manufacturer\":\"Imperial Department of Military Research, Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/9/\"},{\"pilots\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/31/\"],\"MGLT\":\"75\",\"starship_class\":\"Light freighter\",\"hyperdrive_rating\":\"0.5\",\"edited\":\"2014-12-20T21:23:49.880Z\",\"consumables\":\"2 months\",\"name\":\"Millennium Falcon\",\"created\":\"2014-12-10T16:59:45.094Z\",\"cargo_capacity\":\"100000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"4\",\"length\":\"34.37\",\"model\":\"YT-1300 light freighter\",\"cost_in_credits\":\"100000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/10/\"},{\"pilots\":[],\"MGLT\":\"80\",\"starship_class\":\"assault starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.883Z\",\"consumables\":\"1 week\",\"name\":\"Y-wing\",\"created\":\"2014-12-12T11:00:39.817Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1000km\",\"crew\":\"2\",\"length\":\"14\",\"model\":\"BTL Y-wing\",\"cost_in_credits\":\"134999\",\"manufacturer\":\"Koensayr Manufacturing\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/11/\"},{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\"],\"MGLT\":\"100\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.886Z\",\"consumables\":\"1 week\",\"name\":\"X-wing\",\"created\":\"2014-12-12T11:19:05.340Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"12.5\",\"model\":\"T-65 X-wing\",\"cost_in_credits\":\"149999\",\"manufacturer\":\"Incom Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/12/\"},{\"pilots\":[\"http://swapi.co/api/people/4/\"],\"MGLT\":\"105\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.889Z\",\"consumables\":\"5 days\",\"name\":\"TIE Advanced x1\",\"created\":\"2014-12-12T11:21:32.991Z\",\"cargo_capacity\":\"150\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1200\",\"crew\":\"1\",\"length\":\"9.2\",\"model\":\"Twin Ion Engine Advanced x1\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/13/\"},{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Star dreadnought\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.893Z\",\"consumables\":\"6 years\",\"name\":\"Executor\",\"created\":\"2014-12-15T12:31:42.547Z\",\"cargo_capacity\":\"250000000\",\"passengers\":\"38,000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"279,144\",\"length\":\"19,000\",\"model\":\"Executor-class star dreadnought\",\"cost_in_credits\":\"1143350000\",\"manufacturer\":\"Kuat Drive Yards, Fondor Shipyards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/15/\"},{\"pilots\":[],\"MGLT\":\"20\",\"starship_class\":\"Medium transport\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:23:49.895Z\",\"consumables\":\"6 months\",\"name\":\"Rebel transport\",\"created\":\"2014-12-15T12:34:52.264Z\",\"cargo_capacity\":\"19000000\",\"passengers\":\"90\",\"max_atmosphering_speed\":\"650\",\"crew\":\"6\",\"length\":\"90\",\"model\":\"GR-75 medium transport\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Gallofree Yards, Inc.\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/17/\"}]}",
+  "http://swapi.co/api/starships/?page=1": "{\"count\":36,\"previous\":null,\"next\":\"http://swapi.co/api/starships/?page=2\",\"results\":[{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"corvette\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.867Z\",\"consumables\":\"1 year\",\"name\":\"CR90 corvette\",\"created\":\"2014-12-10T14:20:33.369Z\",\"cargo_capacity\":\"3000000\",\"passengers\":\"600\",\"max_atmosphering_speed\":\"950\",\"crew\":\"30-165\",\"length\":\"150\",\"model\":\"CR90 corvette\",\"cost_in_credits\":\"3500000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/2/\"},{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"Star Destroyer\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.870Z\",\"consumables\":\"2 years\",\"name\":\"Star Destroyer\",\"created\":\"2014-12-10T15:08:19.848Z\",\"cargo_capacity\":\"36000000\",\"passengers\":\"n/a\",\"max_atmosphering_speed\":\"975\",\"crew\":\"47,060\",\"length\":\"1,600\",\"model\":\"Imperial I-class Star Destroyer\",\"cost_in_credits\":\"150000000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/3/\"},{\"pilots\":[],\"MGLT\":\"70\",\"starship_class\":\"landing craft\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.873Z\",\"consumables\":\"1 month\",\"name\":\"Sentinel-class landing craft\",\"created\":\"2014-12-10T15:48:00.586Z\",\"cargo_capacity\":\"180000\",\"passengers\":\"75\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"5\",\"length\":\"38\",\"model\":\"Sentinel-class landing craft\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems, Cyngus Spaceworks\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/5/\"},{\"pilots\":[],\"MGLT\":\"10\",\"starship_class\":\"Deep Space Mobile Battlestation\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:26:24.783Z\",\"consumables\":\"3 years\",\"name\":\"Death Star\",\"created\":\"2014-12-10T16:36:50.509Z\",\"cargo_capacity\":\"1000000000000\",\"passengers\":\"843,342\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"342,953\",\"length\":\"120000\",\"model\":\"DS-1 Orbital Battle Station\",\"cost_in_credits\":\"1000000000000\",\"manufacturer\":\"Imperial Department of Military Research, Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/9/\"},{\"pilots\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/31/\"],\"MGLT\":\"75\",\"starship_class\":\"Light freighter\",\"hyperdrive_rating\":\"0.5\",\"edited\":\"2014-12-20T21:23:49.880Z\",\"consumables\":\"2 months\",\"name\":\"Millennium Falcon\",\"created\":\"2014-12-10T16:59:45.094Z\",\"cargo_capacity\":\"100000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"4\",\"length\":\"34.37\",\"model\":\"YT-1300 light freighter\",\"cost_in_credits\":\"100000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/10/\"},{\"pilots\":[],\"MGLT\":\"80\",\"starship_class\":\"assault starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.883Z\",\"consumables\":\"1 week\",\"name\":\"Y-wing\",\"created\":\"2014-12-12T11:00:39.817Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1000km\",\"crew\":\"2\",\"length\":\"14\",\"model\":\"BTL Y-wing\",\"cost_in_credits\":\"134999\",\"manufacturer\":\"Koensayr Manufacturing\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/11/\"},{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\"],\"MGLT\":\"100\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.886Z\",\"consumables\":\"1 week\",\"name\":\"X-wing\",\"created\":\"2014-12-12T11:19:05.340Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"12.5\",\"model\":\"T-65 X-wing\",\"cost_in_credits\":\"149999\",\"manufacturer\":\"Incom Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/12/\"},{\"pilots\":[\"http://swapi.co/api/people/4/\"],\"MGLT\":\"105\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.889Z\",\"consumables\":\"5 days\",\"name\":\"TIE Advanced x1\",\"created\":\"2014-12-12T11:21:32.991Z\",\"cargo_capacity\":\"150\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1200\",\"crew\":\"1\",\"length\":\"9.2\",\"model\":\"Twin Ion Engine Advanced x1\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/13/\"},{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Star dreadnought\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.893Z\",\"consumables\":\"6 years\",\"name\":\"Executor\",\"created\":\"2014-12-15T12:31:42.547Z\",\"cargo_capacity\":\"250000000\",\"passengers\":\"38000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"279,144\",\"length\":\"19000\",\"model\":\"Executor-class star dreadnought\",\"cost_in_credits\":\"1143350000\",\"manufacturer\":\"Kuat Drive Yards, Fondor Shipyards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/15/\"},{\"pilots\":[],\"MGLT\":\"20\",\"starship_class\":\"Medium transport\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:23:49.895Z\",\"consumables\":\"6 months\",\"name\":\"Rebel transport\",\"created\":\"2014-12-15T12:34:52.264Z\",\"cargo_capacity\":\"19000000\",\"passengers\":\"90\",\"max_atmosphering_speed\":\"650\",\"crew\":\"6\",\"length\":\"90\",\"model\":\"GR-75 medium transport\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Gallofree Yards, Inc.\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/17/\"}]}",
+  "http://swapi.co/api/starships/": "{\"count\":36,\"previous\":null,\"next\":\"http://swapi.co/api/starships/?page=2\",\"results\":[{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"corvette\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.867Z\",\"consumables\":\"1 year\",\"name\":\"CR90 corvette\",\"created\":\"2014-12-10T14:20:33.369Z\",\"cargo_capacity\":\"3000000\",\"passengers\":\"600\",\"max_atmosphering_speed\":\"950\",\"crew\":\"30-165\",\"length\":\"150\",\"model\":\"CR90 corvette\",\"cost_in_credits\":\"3500000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/2/\"},{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"Star Destroyer\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.870Z\",\"consumables\":\"2 years\",\"name\":\"Star Destroyer\",\"created\":\"2014-12-10T15:08:19.848Z\",\"cargo_capacity\":\"36000000\",\"passengers\":\"n/a\",\"max_atmosphering_speed\":\"975\",\"crew\":\"47,060\",\"length\":\"1,600\",\"model\":\"Imperial I-class Star Destroyer\",\"cost_in_credits\":\"150000000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/3/\"},{\"pilots\":[],\"MGLT\":\"70\",\"starship_class\":\"landing craft\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.873Z\",\"consumables\":\"1 month\",\"name\":\"Sentinel-class landing craft\",\"created\":\"2014-12-10T15:48:00.586Z\",\"cargo_capacity\":\"180000\",\"passengers\":\"75\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"5\",\"length\":\"38\",\"model\":\"Sentinel-class landing craft\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems, Cyngus Spaceworks\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/5/\"},{\"pilots\":[],\"MGLT\":\"10\",\"starship_class\":\"Deep Space Mobile Battlestation\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:26:24.783Z\",\"consumables\":\"3 years\",\"name\":\"Death Star\",\"created\":\"2014-12-10T16:36:50.509Z\",\"cargo_capacity\":\"1000000000000\",\"passengers\":\"843,342\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"342,953\",\"length\":\"120000\",\"model\":\"DS-1 Orbital Battle Station\",\"cost_in_credits\":\"1000000000000\",\"manufacturer\":\"Imperial Department of Military Research, Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/9/\"},{\"pilots\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\",\"http://swapi.co/api/people/25/\",\"http://swapi.co/api/people/31/\"],\"MGLT\":\"75\",\"starship_class\":\"Light freighter\",\"hyperdrive_rating\":\"0.5\",\"edited\":\"2014-12-20T21:23:49.880Z\",\"consumables\":\"2 months\",\"name\":\"Millennium Falcon\",\"created\":\"2014-12-10T16:59:45.094Z\",\"cargo_capacity\":\"100000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"4\",\"length\":\"34.37\",\"model\":\"YT-1300 light freighter\",\"cost_in_credits\":\"100000\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/10/\"},{\"pilots\":[],\"MGLT\":\"80\",\"starship_class\":\"assault starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.883Z\",\"consumables\":\"1 week\",\"name\":\"Y-wing\",\"created\":\"2014-12-12T11:00:39.817Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1000km\",\"crew\":\"2\",\"length\":\"14\",\"model\":\"BTL Y-wing\",\"cost_in_credits\":\"134999\",\"manufacturer\":\"Koensayr Manufacturing\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/11/\"},{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/9/\",\"http://swapi.co/api/people/18/\",\"http://swapi.co/api/people/19/\"],\"MGLT\":\"100\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.886Z\",\"consumables\":\"1 week\",\"name\":\"X-wing\",\"created\":\"2014-12-12T11:19:05.340Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"12.5\",\"model\":\"T-65 X-wing\",\"cost_in_credits\":\"149999\",\"manufacturer\":\"Incom Corporation\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/12/\"},{\"pilots\":[\"http://swapi.co/api/people/4/\"],\"MGLT\":\"105\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.889Z\",\"consumables\":\"5 days\",\"name\":\"TIE Advanced x1\",\"created\":\"2014-12-12T11:21:32.991Z\",\"cargo_capacity\":\"150\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1200\",\"crew\":\"1\",\"length\":\"9.2\",\"model\":\"Twin Ion Engine Advanced x1\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/starships/13/\"},{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Star dreadnought\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.893Z\",\"consumables\":\"6 years\",\"name\":\"Executor\",\"created\":\"2014-12-15T12:31:42.547Z\",\"cargo_capacity\":\"250000000\",\"passengers\":\"38000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"279,144\",\"length\":\"19000\",\"model\":\"Executor-class star dreadnought\",\"cost_in_credits\":\"1143350000\",\"manufacturer\":\"Kuat Drive Yards, Fondor Shipyards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/15/\"},{\"pilots\":[],\"MGLT\":\"20\",\"starship_class\":\"Medium transport\",\"hyperdrive_rating\":\"4.0\",\"edited\":\"2014-12-20T21:23:49.895Z\",\"consumables\":\"6 months\",\"name\":\"Rebel transport\",\"created\":\"2014-12-15T12:34:52.264Z\",\"cargo_capacity\":\"19000000\",\"passengers\":\"90\",\"max_atmosphering_speed\":\"650\",\"crew\":\"6\",\"length\":\"90\",\"model\":\"GR-75 medium transport\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Gallofree Yards, Inc.\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/17/\"}]}",
   "http://swapi.co/api/starships/?page=2": "{\"count\":36,\"previous\":\"http://swapi.co/api/starships/?page=1\",\"next\":\"http://swapi.co/api/starships/?page=3\",\"results\":[{\"pilots\":[\"http://swapi.co/api/people/22/\"],\"MGLT\":\"70\",\"starship_class\":\"Patrol craft\",\"hyperdrive_rating\":\"3.0\",\"edited\":\"2014-12-20T21:23:49.897Z\",\"consumables\":\"1 month\",\"name\":\"Slave 1\",\"created\":\"2014-12-15T13:00:56.332Z\",\"cargo_capacity\":\"70000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"1\",\"length\":\"21.5\",\"model\":\"Firespray-31-class patrol and attack\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Kuat Systems Engineering\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/21/\"},{\"pilots\":[\"http://swapi.co/api/people/1/\",\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/14/\"],\"MGLT\":\"50\",\"starship_class\":\"Armed government transport\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.900Z\",\"consumables\":\"2 months\",\"name\":\"Imperial shuttle\",\"created\":\"2014-12-15T13:04:47.235Z\",\"cargo_capacity\":\"80000\",\"passengers\":\"20\",\"max_atmosphering_speed\":\"850\",\"crew\":\"6\",\"length\":\"20\",\"model\":\"Lambda-class T-4a shuttle\",\"cost_in_credits\":\"240000\",\"manufacturer\":\"Sienar Fleet Systems\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/22/\"},{\"pilots\":[],\"MGLT\":\"40\",\"starship_class\":\"Escort ship\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.902Z\",\"consumables\":\"2 years\",\"name\":\"EF76 Nebulon-B escort frigate\",\"created\":\"2014-12-15T13:06:30.813Z\",\"cargo_capacity\":\"6000000\",\"passengers\":\"75\",\"max_atmosphering_speed\":\"800\",\"crew\":\"854\",\"length\":\"300\",\"model\":\"EF76 Nebulon-B escort frigate\",\"cost_in_credits\":\"8500000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/23/\"},{\"pilots\":[],\"MGLT\":\"60\",\"starship_class\":\"Star Cruiser\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.904Z\",\"consumables\":\"2 years\",\"name\":\"Calamari Cruiser\",\"created\":\"2014-12-18T10:54:57.804Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"1200\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"5400\",\"length\":\"1200\",\"model\":\"MC80 Liberty type Star Cruiser\",\"cost_in_credits\":\"104000000\",\"manufacturer\":\"Mon Calamari shipyards\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/27/\"},{\"pilots\":[\"http://swapi.co/api/people/29/\"],\"MGLT\":\"120\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.907Z\",\"consumables\":\"1 week\",\"name\":\"A-wing\",\"created\":\"2014-12-18T11:16:34.542Z\",\"cargo_capacity\":\"40\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1300\",\"crew\":\"1\",\"length\":\"9.6\",\"model\":\"RZ-1 A-wing Interceptor\",\"cost_in_credits\":\"175000\",\"manufacturer\":\"Alliance Underground Engineering, Incom Corporation\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/28/\"},{\"pilots\":[],\"MGLT\":\"91\",\"starship_class\":\"Assault Starfighter\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.909Z\",\"consumables\":\"1 week\",\"name\":\"B-wing\",\"created\":\"2014-12-18T11:18:04.763Z\",\"cargo_capacity\":\"45\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"950\",\"crew\":\"1\",\"length\":\"16.9\",\"model\":\"A/SF-01 B-wing starfighter\",\"cost_in_credits\":\"220000\",\"manufacturer\":\"Slayn & Korpil\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/starships/29/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"Space cruiser\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.912Z\",\"consumables\":\"unknown\",\"name\":\"Republic Cruiser\",\"created\":\"2014-12-19T17:01:31.488Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"16\",\"max_atmosphering_speed\":\"900\",\"crew\":\"9\",\"length\":\"115\",\"model\":\"Consular-class cruiser\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Corellian Engineering Corporation\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/starships/31/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"Droid control ship\",\"hyperdrive_rating\":\"2.0\",\"edited\":\"2014-12-20T21:23:49.915Z\",\"consumables\":\"500 days\",\"name\":\"Droid control ship\",\"created\":\"2014-12-19T17:04:06.323Z\",\"cargo_capacity\":\"4000000000\",\"passengers\":\"139000\",\"max_atmosphering_speed\":\"n/a\",\"crew\":\"175\",\"length\":\"3170\",\"model\":\"Lucrehulk-class Droid Control Ship\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Hoersch-Kessel Drive, Inc.\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/32/\"},{\"pilots\":[\"http://swapi.co/api/people/11/\",\"http://swapi.co/api/people/35/\",\"http://swapi.co/api/people/60/\"],\"MGLT\":\"unknown\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.917Z\",\"consumables\":\"7 days\",\"name\":\"Naboo fighter\",\"created\":\"2014-12-19T17:39:17.582Z\",\"cargo_capacity\":\"65\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1100\",\"crew\":\"1\",\"length\":\"11\",\"model\":\"N-1 starfighter\",\"cost_in_credits\":\"200000\",\"manufacturer\":\"Theed Palace Space Vessel Engineering Corps\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/39/\"},{\"pilots\":[\"http://swapi.co/api/people/39/\"],\"MGLT\":\"unknown\",\"starship_class\":\"yacht\",\"hyperdrive_rating\":\"1.8\",\"edited\":\"2014-12-20T21:23:49.919Z\",\"consumables\":\"unknown\",\"name\":\"Naboo Royal Starship\",\"created\":\"2014-12-19T17:45:03.506Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"unknown\",\"max_atmosphering_speed\":\"920\",\"crew\":\"8\",\"length\":\"76\",\"model\":\"J-type 327 Nubian royal starship\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Theed Palace Space Vessel Engineering Corps, Nubia Star Drives\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/starships/40/\"}]}",
   "http://swapi.co/api/starships/?page=3": "{\"count\":36,\"previous\":\"http://swapi.co/api/starships/?page=2\",\"next\":\"http://swapi.co/api/starships/?page=4\",\"results\":[{\"pilots\":[\"http://swapi.co/api/people/44/\"],\"MGLT\":\"unknown\",\"starship_class\":\"Space Transport\",\"hyperdrive_rating\":\"1.5\",\"edited\":\"2014-12-20T21:23:49.922Z\",\"consumables\":\"30 days\",\"name\":\"Scimitar\",\"created\":\"2014-12-20T09:39:56.116Z\",\"cargo_capacity\":\"2500000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"1180\",\"crew\":\"1\",\"length\":\"26.5\",\"model\":\"Star Courier\",\"cost_in_credits\":\"55000000\",\"manufacturer\":\"Republic Sienar Systems\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/starships/41/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"Diplomatic barge\",\"hyperdrive_rating\":\"0.7\",\"edited\":\"2014-12-20T21:23:49.925Z\",\"consumables\":\"1 year\",\"name\":\"J-type diplomatic barge\",\"created\":\"2014-12-20T11:05:51.237Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"10\",\"max_atmosphering_speed\":\"2000\",\"crew\":\"5\",\"length\":\"39\",\"model\":\"J-type diplomatic barge\",\"cost_in_credits\":\"2000000\",\"manufacturer\":\"Theed Palace Space Vessel Engineering Corps, Nubia Star Drives\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/43/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"freighter\",\"hyperdrive_rating\":\"unknown\",\"edited\":\"2014-12-20T21:23:49.928Z\",\"consumables\":\"unknown\",\"name\":\"AA-9 Coruscant freighter\",\"created\":\"2014-12-20T17:24:23.509Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"30000\",\"max_atmosphering_speed\":\"unknown\",\"crew\":\"unknown\",\"length\":\"390\",\"model\":\"Botajef AA-9 Freighter-Liner\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Botajef Shipyards\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/47/\"},{\"pilots\":[\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/58/\"],\"MGLT\":\"unknown\",\"starship_class\":\"Starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.930Z\",\"consumables\":\"7 days\",\"name\":\"Jedi starfighter\",\"created\":\"2014-12-20T17:35:23.906Z\",\"cargo_capacity\":\"60\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1150\",\"crew\":\"1\",\"length\":\"8\",\"model\":\"Delta-7 Aethersprite-class interceptor\",\"cost_in_credits\":\"180000\",\"manufacturer\":\"Kuat Systems Engineering\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/48/\"},{\"pilots\":[\"http://swapi.co/api/people/35/\"],\"MGLT\":\"unknown\",\"starship_class\":\"yacht\",\"hyperdrive_rating\":\"0.9\",\"edited\":\"2014-12-20T21:23:49.932Z\",\"consumables\":\"unknown\",\"name\":\"H-type Nubian yacht\",\"created\":\"2014-12-20T17:46:46.847Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"unknown\",\"max_atmosphering_speed\":\"8000\",\"crew\":\"4\",\"length\":\"47.9\",\"model\":\"H-type Nubian yacht\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Theed Palace Space Vessel Engineering Corps\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/49/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"assault ship\",\"hyperdrive_rating\":\"0.6\",\"edited\":\"2014-12-20T21:23:49.935Z\",\"consumables\":\"2 years\",\"name\":\"Republic Assault ship\",\"created\":\"2014-12-20T18:08:42.926Z\",\"cargo_capacity\":\"11250000\",\"passengers\":\"16000\",\"max_atmosphering_speed\":\"unknown\",\"crew\":\"700\",\"length\":\"752\",\"model\":\"Acclamator I-class assault ship\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Rothana Heavy Engineering\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/52/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"yacht\",\"hyperdrive_rating\":\"1.5\",\"edited\":\"2014-12-20T21:23:49.937Z\",\"consumables\":\"7 days\",\"name\":\"Solar Sailer\",\"created\":\"2014-12-20T18:37:56.969Z\",\"cargo_capacity\":\"240\",\"passengers\":\"11\",\"max_atmosphering_speed\":\"1600\",\"crew\":\"3\",\"length\":\"15.2\",\"model\":\"Punworcca 116-class interstellar sloop\",\"cost_in_credits\":\"35700\",\"manufacturer\":\"Huppla Pasa Tisc Shipwrights Collective\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/starships/58/\"},{\"pilots\":[\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\"],\"MGLT\":\"unknown\",\"starship_class\":\"capital ship\",\"hyperdrive_rating\":\"1.5\",\"edited\":\"2014-12-20T21:23:49.941Z\",\"consumables\":\"4 years\",\"name\":\"Trade Federation cruiser\",\"created\":\"2014-12-20T19:40:21.902Z\",\"cargo_capacity\":\"50000000\",\"passengers\":\"48247\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"600\",\"length\":\"1088\",\"model\":\"Providence-class carrier/destroyer\",\"cost_in_credits\":\"125000000\",\"manufacturer\":\"Rendili StarDrive, Free Dac Volunteers Engineering corps.\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/59/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"transport\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.944Z\",\"consumables\":\"56 days\",\"name\":\"Theta-class T-2c shuttle\",\"created\":\"2014-12-20T19:48:40.409Z\",\"cargo_capacity\":\"50000\",\"passengers\":\"16\",\"max_atmosphering_speed\":\"2000\",\"crew\":\"5\",\"length\":\"18.5\",\"model\":\"Theta-class T-2c shuttle\",\"cost_in_credits\":\"1000000\",\"manufacturer\":\"Cygnus Spaceworks\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/61/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"star destroyer\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.946Z\",\"consumables\":\"2 years\",\"name\":\"Republic attack cruiser\",\"created\":\"2014-12-20T19:52:56.232Z\",\"cargo_capacity\":\"20000000\",\"passengers\":\"2000\",\"max_atmosphering_speed\":\"975\",\"crew\":\"7400\",\"length\":\"1137\",\"model\":\"Senator-class Star Destroyer\",\"cost_in_credits\":\"59000000\",\"manufacturer\":\"Kuat Drive Yards, Allanteen Six shipyards\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/63/\"}]}",
   "http://swapi.co/api/starships/?page=4": "{\"count\":36,\"previous\":\"http://swapi.co/api/starships/?page=3\",\"next\":null,\"results\":[{\"pilots\":[\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/35/\"],\"MGLT\":\"unknown\",\"starship_class\":\"yacht\",\"hyperdrive_rating\":\"0.5\",\"edited\":\"2014-12-20T21:23:49.948Z\",\"consumables\":\"unknown\",\"name\":\"Naboo star skiff\",\"created\":\"2014-12-20T19:55:15.396Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"3\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"3\",\"length\":\"29.2\",\"model\":\"J-type star skiff\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Theed Palace Space Vessel Engineering Corps/Nubia Star Drives, Incorporated\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/64/\"},{\"pilots\":[\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/11/\"],\"MGLT\":\"unknown\",\"starship_class\":\"starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.951Z\",\"consumables\":\"2 days\",\"name\":\"Jedi Interceptor\",\"created\":\"2014-12-20T19:56:57.468Z\",\"cargo_capacity\":\"60\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1500\",\"crew\":\"1\",\"length\":\"5.47\",\"model\":\"Eta-2 Actis-class light interceptor\",\"cost_in_credits\":\"320000\",\"manufacturer\":\"Kuat Systems Engineering\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/65/\"},{\"pilots\":[],\"MGLT\":\"100\",\"starship_class\":\"starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.953Z\",\"consumables\":\"5 days\",\"name\":\"arc-170\",\"created\":\"2014-12-20T20:03:48.603Z\",\"cargo_capacity\":\"110\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1000\",\"crew\":\"3\",\"length\":\"14.5\",\"model\":\"Aggressive Reconnaissance-170 starfighte\",\"cost_in_credits\":\"155000\",\"manufacturer\":\"Incom Corporation, Subpro Corporation\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/66/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"cruiser\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.956Z\",\"consumables\":\"2 years\",\"name\":\"Banking clan frigte\",\"created\":\"2014-12-20T20:07:11.538Z\",\"cargo_capacity\":\"40000000\",\"passengers\":\"unknown\",\"max_atmosphering_speed\":\"unknown\",\"crew\":\"200\",\"length\":\"825\",\"model\":\"Munificent-class star frigate\",\"cost_in_credits\":\"57000000\",\"manufacturer\":\"Hoersch-Kessel Drive, Inc, Gwori Revolutionary Industries\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/68/\"},{\"pilots\":[\"http://swapi.co/api/people/10/\",\"http://swapi.co/api/people/79/\"],\"MGLT\":\"unknown\",\"starship_class\":\"starfighter\",\"hyperdrive_rating\":\"6\",\"edited\":\"2014-12-20T21:23:49.959Z\",\"consumables\":\"7 days\",\"name\":\"Belbullab-22 starfighter\",\"created\":\"2014-12-20T20:38:05.031Z\",\"cargo_capacity\":\"140\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1100\",\"crew\":\"1\",\"length\":\"6.71\",\"model\":\"Belbullab-22 starfighter\",\"cost_in_credits\":\"168000\",\"manufacturer\":\"Feethan Ottraw Scalable Assemblies\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/74/\"},{\"pilots\":[],\"MGLT\":\"unknown\",\"starship_class\":\"starfighter\",\"hyperdrive_rating\":\"1.0\",\"edited\":\"2014-12-20T21:23:49.961Z\",\"consumables\":\"15 hours\",\"name\":\"V-wing\",\"created\":\"2014-12-20T20:43:04.349Z\",\"cargo_capacity\":\"60\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1050\",\"crew\":\"1\",\"length\":\"7.9\",\"model\":\"Alpha-3 Nimbus-class V-wing starfighter\",\"cost_in_credits\":\"102500\",\"manufacturer\":\"Kuat Systems Engineering\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/starships/75/\"}]}",
@@ -17806,7 +19138,7 @@ var data = {
   "http://swapi.co/api/vehicles/?page=3": "{\"count\":39,\"previous\":\"http://swapi.co/api/vehicles/?page=2\",\"next\":\"http://swapi.co/api/vehicles/?page=4\",\"results\":[{\"vehicle_class\":\"repulsorcraft\",\"pilots\":[\"http://swapi.co/api/people/11/\"],\"edited\":\"2014-12-20T21:30:21.714Z\",\"consumables\":\"none\",\"name\":\"Zephyr-G swoop bike\",\"created\":\"2014-12-20T16:24:16.026Z\",\"cargo_capacity\":\"200\",\"passengers\":\"1\",\"max_atmosphering_speed\":\"350\",\"crew\":\"1\",\"length\":\"3.68\",\"model\":\"Zephyr-G swoop bike\",\"cost_in_credits\":\"5750\",\"manufacturer\":\"Mobquet Swoops and Speeders\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/44/\"},{\"vehicle_class\":\"airspeeder\",\"pilots\":[\"http://swapi.co/api/people/70/\"],\"edited\":\"2014-12-20T21:30:21.716Z\",\"consumables\":\"unknown\",\"name\":\"Koro-2 Exodrive airspeeder\",\"created\":\"2014-12-20T17:17:33.526Z\",\"cargo_capacity\":\"80\",\"passengers\":\"1\",\"max_atmosphering_speed\":\"800\",\"crew\":\"1\",\"length\":\"6.6\",\"model\":\"Koro-2 Exodrive airspeeder\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Desler Gizh Outworld Mobility Corporation\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/45/\"},{\"vehicle_class\":\"airspeeder\",\"pilots\":[\"http://swapi.co/api/people/11/\"],\"edited\":\"2014-12-20T21:30:21.719Z\",\"consumables\":\"unknown\",\"name\":\"XJ-6 airspeeder\",\"created\":\"2014-12-20T17:19:19.991Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"1\",\"max_atmosphering_speed\":\"720\",\"crew\":\"1\",\"length\":\"6.23\",\"model\":\"XJ-6 airspeeder\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Narglatch AirTech prefabricated kit\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/46/\"},{\"vehicle_class\":\"gunship\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.723Z\",\"consumables\":\"unknown\",\"name\":\"LAAT/i\",\"created\":\"2014-12-20T18:01:21.014Z\",\"cargo_capacity\":\"170\",\"passengers\":\"30\",\"max_atmosphering_speed\":\"620\",\"crew\":\"6\",\"length\":\"17.4\",\"model\":\"Low Altitude Assault Transport/infrantry\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Rothana Heavy Engineering\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/50/\"},{\"vehicle_class\":\"gunship\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.725Z\",\"consumables\":\"unknown\",\"name\":\"LAAT/c\",\"created\":\"2014-12-20T18:02:46.802Z\",\"cargo_capacity\":\"40000\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"620\",\"crew\":\"1\",\"length\":\"28.82\",\"model\":\"Low Altitude Assault Transport/carrier\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Rothana Heavy Engineering\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/51/\"},{\"vehicle_class\":\"walker\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.728Z\",\"consumables\":\"21 days\",\"name\":\"AT-TE\",\"created\":\"2014-12-20T18:10:07.560Z\",\"cargo_capacity\":\"10000\",\"passengers\":\"36\",\"max_atmosphering_speed\":\"60\",\"crew\":\"6\",\"length\":\"13.2\",\"model\":\"All Terrain Tactical Enforcer\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Rothana Heavy Engineering, Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/53/\"},{\"vehicle_class\":\"walker\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.731Z\",\"consumables\":\"7 days\",\"name\":\"SPHA\",\"created\":\"2014-12-20T18:12:32.315Z\",\"cargo_capacity\":\"500\",\"passengers\":\"30\",\"max_atmosphering_speed\":\"35\",\"crew\":\"25\",\"length\":\"140\",\"model\":\"Self-Propelled Heavy Artillery\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Rothana Heavy Engineering\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/54/\"},{\"vehicle_class\":\"speeder\",\"pilots\":[\"http://swapi.co/api/people/67/\"],\"edited\":\"2014-12-20T21:30:21.735Z\",\"consumables\":\"unknown\",\"name\":\"Flitknot speeder\",\"created\":\"2014-12-20T18:15:20.312Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"634\",\"crew\":\"1\",\"length\":\"2\",\"model\":\"Flitknot speeder\",\"cost_in_credits\":\"8000\",\"manufacturer\":\"Huppla Pasa Tisc Shipwrights Collective\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/55/\"},{\"vehicle_class\":\"transport\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.739Z\",\"consumables\":\"7 days\",\"name\":\"Neimoidian shuttle\",\"created\":\"2014-12-20T18:25:44.912Z\",\"cargo_capacity\":\"1000\",\"passengers\":\"6\",\"max_atmosphering_speed\":\"880\",\"crew\":\"2\",\"length\":\"20\",\"model\":\"Sheathipede-class transport shuttle\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Haor Chall Engineering\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/56/\"},{\"vehicle_class\":\"starfighter\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.742Z\",\"consumables\":\"unknown\",\"name\":\"Geonosian starfighter\",\"created\":\"2014-12-20T18:34:12.541Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"20000\",\"crew\":\"1\",\"length\":\"9.8\",\"model\":\"Nantex-class territorial defense\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"Huppla Pasa Tisc Shipwrights Collective\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/vehicles/57/\"}]}",
   "http://swapi.co/api/vehicles/?page=4": "{\"count\":39,\"previous\":\"http://swapi.co/api/vehicles/?page=3\",\"next\":null,\"results\":[{\"vehicle_class\":\"wheeled walker\",\"pilots\":[\"http://swapi.co/api/people/79/\"],\"edited\":\"2014-12-20T21:30:21.745Z\",\"consumables\":\"none\",\"name\":\"Tsmeu-6 personal wheel bike\",\"created\":\"2014-12-20T19:43:54.870Z\",\"cargo_capacity\":\"10\",\"passengers\":\"1\",\"max_atmosphering_speed\":\"330\",\"crew\":\"1\",\"length\":\"3.5\",\"model\":\"Tsmeu-6 personal wheel bike\",\"cost_in_credits\":\"15000\",\"manufacturer\":\"Z-Gomot Ternbuell Guppat Corporation\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/60/\"},{\"vehicle_class\":\"fire suppression ship\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.749Z\",\"consumables\":\"unknown\",\"name\":\"Emergency Firespeeder\",\"created\":\"2014-12-20T19:50:58.559Z\",\"cargo_capacity\":\"unknown\",\"passengers\":\"unknown\",\"max_atmosphering_speed\":\"unknown\",\"crew\":\"2\",\"length\":\"unknown\",\"model\":\"Fire suppression speeder\",\"cost_in_credits\":\"unknown\",\"manufacturer\":\"unknown\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/62/\"},{\"vehicle_class\":\"droid starfighter\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.752Z\",\"consumables\":\"none\",\"name\":\"Droid tri-fighter\",\"created\":\"2014-12-20T20:05:19.992Z\",\"cargo_capacity\":\"0\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"1180\",\"crew\":\"1\",\"length\":\"5.4\",\"model\":\"tri-fighter\",\"cost_in_credits\":\"20000\",\"manufacturer\":\"Colla Designs, Phlac-Arphocc Automata Industries\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/67/\"},{\"vehicle_class\":\"airspeeder\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.756Z\",\"consumables\":\"3 days\",\"name\":\"Oevvaor jet catamaran\",\"created\":\"2014-12-20T20:20:53.931Z\",\"cargo_capacity\":\"50\",\"passengers\":\"2\",\"max_atmosphering_speed\":\"420\",\"crew\":\"2\",\"length\":\"15.1\",\"model\":\"Oevvaor jet catamaran\",\"cost_in_credits\":\"12125\",\"manufacturer\":\"Appazanna Engineering Works\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/69/\"},{\"vehicle_class\":\"air speeder\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.759Z\",\"consumables\":\"none\",\"name\":\"Raddaugh Gnasp fluttercraft\",\"created\":\"2014-12-20T20:21:55.648Z\",\"cargo_capacity\":\"20\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"310\",\"crew\":\"2\",\"length\":\"7\",\"model\":\"Raddaugh Gnasp fluttercraft\",\"cost_in_credits\":\"14750\",\"manufacturer\":\"Appazanna Engineering Works\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/70/\"},{\"vehicle_class\":\"wheeled walker\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.762Z\",\"consumables\":\"20 days\",\"name\":\"Clone turbo tank\",\"created\":\"2014-12-20T20:24:45.587Z\",\"cargo_capacity\":\"30000\",\"passengers\":\"300\",\"max_atmosphering_speed\":\"160\",\"crew\":\"20\",\"length\":\"49.4\",\"model\":\"HAVw A6 Juggernaut\",\"cost_in_credits\":\"350000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/71/\"},{\"vehicle_class\":\"droid tank\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.765Z\",\"consumables\":\"none\",\"name\":\"Corporate Alliance tank droid\",\"created\":\"2014-12-20T20:26:55.522Z\",\"cargo_capacity\":\"none\",\"passengers\":\"4\",\"max_atmosphering_speed\":\"100\",\"crew\":\"0\",\"length\":\"10.96\",\"model\":\"NR-N99 Persuader-class droid enforcer\",\"cost_in_credits\":\"49000\",\"manufacturer\":\"Techno Union\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/72/\"},{\"vehicle_class\":\"airspeeder\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.768Z\",\"consumables\":\"none\",\"name\":\"Droid gunship\",\"created\":\"2014-12-20T20:32:05.687Z\",\"cargo_capacity\":\"0\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"820\",\"crew\":\"0\",\"length\":\"12.3\",\"model\":\"HMP droid gunship\",\"cost_in_credits\":\"60000\",\"manufacturer\":\"Baktoid Fleet Ordnance, Haor Chall Engineering\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/73/\"},{\"vehicle_class\":\"walker\",\"pilots\":[],\"edited\":\"2014-12-20T21:30:21.772Z\",\"consumables\":\"1 day\",\"name\":\"AT-RT\",\"created\":\"2014-12-20T20:47:49.189Z\",\"cargo_capacity\":\"20\",\"passengers\":\"0\",\"max_atmosphering_speed\":\"90\",\"crew\":\"1\",\"length\":\"3.2\",\"model\":\"All Terrain Recon Transport\",\"cost_in_credits\":\"40000\",\"manufacturer\":\"Kuat Drive Yards\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/vehicles/76/\"}]}",
   "http://swapi.co/api/species/1/": "{\"edited\":\"2014-12-20T21:36:42.136Z\",\"classification\":\"mammal\",\"name\":\"Human\",\"designation\":\"sentient\",\"created\":\"2014-12-10T13:52:11.567Z\",\"eye_colors\":\"brown, blue, green, hazel, grey, amber\",\"people\":[\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/74/\"],\"skin_colors\":\"caucasian, black, asian, hispanic\",\"language\":\"Galactic Basic\",\"hair_colors\":\"blonde, brown, black, red\",\"homeworld\":\"http://swapi.co/api/planets/9/\",\"average_lifespan\":\"120\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/1/\"}",
-  "http://swapi.co/api/species/2/": "{\"edited\":\"2014-12-20T21:36:42.139Z\",\"classification\":\"artificial\",\"name\":\"Droid\",\"designation\":\"sentient\",\"created\":\"2014-12-10T15:16:16.259Z\",\"eye_colors\":\"n/a\",\"people\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/23/\"],\"skin_colors\":\"n/a\",\"language\":\"n/a\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/null/\",\"average_lifespan\":\"indefinite\",\"average_height\":\"n/a\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/2/\"}",
+  "http://swapi.co/api/species/2/": "{\"edited\":\"2014-12-20T21:36:42.139Z\",\"classification\":\"artificial\",\"name\":\"Droid\",\"designation\":\"sentient\",\"created\":\"2014-12-10T15:16:16.259Z\",\"eye_colors\":\"n/a\",\"people\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/23/\"],\"skin_colors\":\"n/a\",\"language\":\"n/a\",\"hair_colors\":\"n/a\",\"homeworld\":null,\"average_lifespan\":\"indefinite\",\"average_height\":\"n/a\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/2/\"}",
   "http://swapi.co/api/species/3/": "{\"edited\":\"2014-12-20T21:36:42.142Z\",\"classification\":\"mammal\",\"name\":\"Wookie\",\"designation\":\"sentient\",\"created\":\"2014-12-10T16:44:31.486Z\",\"eye_colors\":\"blue, green, yellow, brown, golden, red\",\"people\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/80/\"],\"skin_colors\":\"gray\",\"language\":\"Shyriiwook\",\"hair_colors\":\"black, brown\",\"homeworld\":\"http://swapi.co/api/planets/14/\",\"average_lifespan\":\"400\",\"average_height\":\"210\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/3/\"}",
   "http://swapi.co/api/species/4/": "{\"edited\":\"2014-12-20T21:36:42.144Z\",\"classification\":\"sentient\",\"name\":\"Rodian\",\"designation\":\"reptilian\",\"created\":\"2014-12-10T17:05:26.471Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/15/\"],\"skin_colors\":\"green, blue\",\"language\":\"Galatic Basic\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/23/\",\"average_lifespan\":\"unknown\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/species/4/\"}",
   "http://swapi.co/api/species/5/": "{\"edited\":\"2014-12-20T21:36:42.146Z\",\"classification\":\"gastropod\",\"name\":\"Hutt\",\"designation\":\"sentient\",\"created\":\"2014-12-10T17:12:50.410Z\",\"eye_colors\":\"yellow, red\",\"people\":[\"http://swapi.co/api/people/16/\"],\"skin_colors\":\"green, brown, tan\",\"language\":\"Huttese\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/24/\",\"average_lifespan\":\"1000\",\"average_height\":\"300\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/5/\"}",
@@ -17842,8 +19174,8 @@ var data = {
   "http://swapi.co/api/species/35/": "{\"edited\":\"2014-12-20T21:36:42.209Z\",\"classification\":\"mammal\",\"name\":\"Togruta\",\"designation\":\"sentient\",\"created\":\"2014-12-20T18:44:03.246Z\",\"eye_colors\":\"red, orange, yellow, green, blue, black\",\"people\":[\"http://swapi.co/api/people/78/\"],\"skin_colors\":\"red, white, orange, yellow, green, blue\",\"language\":\"Togruti\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/58/\",\"average_lifespan\":\"94\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/35/\"}",
   "http://swapi.co/api/species/36/": "{\"edited\":\"2014-12-20T21:36:42.210Z\",\"classification\":\"reptile\",\"name\":\"Kaleesh\",\"designation\":\"sentient\",\"created\":\"2014-12-20T19:45:42.537Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/79/\"],\"skin_colors\":\"brown, orange, tan\",\"language\":\"Kaleesh\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/59/\",\"average_lifespan\":\"80\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/36/\"}",
   "http://swapi.co/api/species/37/": "{\"edited\":\"2014-12-20T21:36:42.212Z\",\"classification\":\"mammal\",\"name\":\"Pau'an\",\"designation\":\"sentient\",\"created\":\"2014-12-20T20:35:06.777Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/83/\"],\"skin_colors\":\"grey\",\"language\":\"Utapese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/12/\",\"average_lifespan\":\"700\",\"average_height\":\"190\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/37/\"}",
-  "http://swapi.co/api/species/?page=1": "{\"count\":37,\"previous\":null,\"next\":\"http://swapi.co/api/species/?page=2\",\"results\":[{\"edited\":\"2014-12-20T21:36:42.136Z\",\"classification\":\"mammal\",\"name\":\"Human\",\"designation\":\"sentient\",\"created\":\"2014-12-10T13:52:11.567Z\",\"eye_colors\":\"brown, blue, green, hazel, grey, amber\",\"people\":[\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/74/\"],\"skin_colors\":\"caucasian, black, asian, hispanic\",\"language\":\"Galactic Basic\",\"hair_colors\":\"blonde, brown, black, red\",\"homeworld\":\"http://swapi.co/api/planets/9/\",\"average_lifespan\":\"120\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/1/\"},{\"edited\":\"2014-12-20T21:36:42.139Z\",\"classification\":\"artificial\",\"name\":\"Droid\",\"designation\":\"sentient\",\"created\":\"2014-12-10T15:16:16.259Z\",\"eye_colors\":\"n/a\",\"people\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/23/\"],\"skin_colors\":\"n/a\",\"language\":\"n/a\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/null/\",\"average_lifespan\":\"indefinite\",\"average_height\":\"n/a\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/2/\"},{\"edited\":\"2014-12-20T21:36:42.142Z\",\"classification\":\"mammal\",\"name\":\"Wookie\",\"designation\":\"sentient\",\"created\":\"2014-12-10T16:44:31.486Z\",\"eye_colors\":\"blue, green, yellow, brown, golden, red\",\"people\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/80/\"],\"skin_colors\":\"gray\",\"language\":\"Shyriiwook\",\"hair_colors\":\"black, brown\",\"homeworld\":\"http://swapi.co/api/planets/14/\",\"average_lifespan\":\"400\",\"average_height\":\"210\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/3/\"},{\"edited\":\"2014-12-20T21:36:42.144Z\",\"classification\":\"sentient\",\"name\":\"Rodian\",\"designation\":\"reptilian\",\"created\":\"2014-12-10T17:05:26.471Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/15/\"],\"skin_colors\":\"green, blue\",\"language\":\"Galatic Basic\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/23/\",\"average_lifespan\":\"unknown\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/species/4/\"},{\"edited\":\"2014-12-20T21:36:42.146Z\",\"classification\":\"gastropod\",\"name\":\"Hutt\",\"designation\":\"sentient\",\"created\":\"2014-12-10T17:12:50.410Z\",\"eye_colors\":\"yellow, red\",\"people\":[\"http://swapi.co/api/people/16/\"],\"skin_colors\":\"green, brown, tan\",\"language\":\"Huttese\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/24/\",\"average_lifespan\":\"1000\",\"average_height\":\"300\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/5/\"},{\"edited\":\"2014-12-20T21:36:42.148Z\",\"classification\":\"mammal\",\"name\":\"Yoda's species\",\"designation\":\"sentient\",\"created\":\"2014-12-15T12:27:22.877Z\",\"eye_colors\":\"brown, green, yellow\",\"people\":[\"http://swapi.co/api/people/20/\"],\"skin_colors\":\"green, yellow\",\"language\":\"Galactic basic\",\"hair_colors\":\"brown, white\",\"homeworld\":\"http://swapi.co/api/planets/28/\",\"average_lifespan\":\"900\",\"average_height\":\"66\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/6/\"},{\"edited\":\"2014-12-20T21:36:42.151Z\",\"classification\":\"reptile\",\"name\":\"Trandoshan\",\"designation\":\"sentient\",\"created\":\"2014-12-15T13:07:47.704Z\",\"eye_colors\":\"yellow, orange\",\"people\":[\"http://swapi.co/api/people/24/\"],\"skin_colors\":\"brown, green\",\"language\":\"Dosh\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/29/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/2/\"],\"url\":\"http://swapi.co/api/species/7/\"},{\"edited\":\"2014-12-20T21:36:42.153Z\",\"classification\":\"amphibian\",\"name\":\"Mon Calamari\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:09:52.263Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/27/\"],\"skin_colors\":\"red, blue, brown, magenta\",\"language\":\"Mon Calamarian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/31/\",\"average_lifespan\":\"unknown\",\"average_height\":\"160\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/8/\"},{\"edited\":\"2014-12-20T21:36:42.155Z\",\"classification\":\"mammal\",\"name\":\"Ewok\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:22:00.285Z\",\"eye_colors\":\"orange, brown\",\"people\":[\"http://swapi.co/api/people/30/\"],\"skin_colors\":\"brown\",\"language\":\"Ewokese\",\"hair_colors\":\"white, brown, black\",\"homeworld\":\"http://swapi.co/api/planets/7/\",\"average_lifespan\":\"unknown\",\"average_height\":\"100\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/9/\"},{\"edited\":\"2014-12-20T21:36:42.157Z\",\"classification\":\"mammal\",\"name\":\"Sullustan\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:26:20.103Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/31/\"],\"skin_colors\":\"pale\",\"language\":\"Sullutese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/33/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/10/\"}]}",
-  "http://swapi.co/api/species/": "{\"count\":37,\"previous\":null,\"next\":\"http://swapi.co/api/species/?page=2\",\"results\":[{\"edited\":\"2014-12-20T21:36:42.136Z\",\"classification\":\"mammal\",\"name\":\"Human\",\"designation\":\"sentient\",\"created\":\"2014-12-10T13:52:11.567Z\",\"eye_colors\":\"brown, blue, green, hazel, grey, amber\",\"people\":[\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/74/\"],\"skin_colors\":\"caucasian, black, asian, hispanic\",\"language\":\"Galactic Basic\",\"hair_colors\":\"blonde, brown, black, red\",\"homeworld\":\"http://swapi.co/api/planets/9/\",\"average_lifespan\":\"120\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/1/\"},{\"edited\":\"2014-12-20T21:36:42.139Z\",\"classification\":\"artificial\",\"name\":\"Droid\",\"designation\":\"sentient\",\"created\":\"2014-12-10T15:16:16.259Z\",\"eye_colors\":\"n/a\",\"people\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/23/\"],\"skin_colors\":\"n/a\",\"language\":\"n/a\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/null/\",\"average_lifespan\":\"indefinite\",\"average_height\":\"n/a\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/2/\"},{\"edited\":\"2014-12-20T21:36:42.142Z\",\"classification\":\"mammal\",\"name\":\"Wookie\",\"designation\":\"sentient\",\"created\":\"2014-12-10T16:44:31.486Z\",\"eye_colors\":\"blue, green, yellow, brown, golden, red\",\"people\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/80/\"],\"skin_colors\":\"gray\",\"language\":\"Shyriiwook\",\"hair_colors\":\"black, brown\",\"homeworld\":\"http://swapi.co/api/planets/14/\",\"average_lifespan\":\"400\",\"average_height\":\"210\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/3/\"},{\"edited\":\"2014-12-20T21:36:42.144Z\",\"classification\":\"sentient\",\"name\":\"Rodian\",\"designation\":\"reptilian\",\"created\":\"2014-12-10T17:05:26.471Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/15/\"],\"skin_colors\":\"green, blue\",\"language\":\"Galatic Basic\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/23/\",\"average_lifespan\":\"unknown\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/species/4/\"},{\"edited\":\"2014-12-20T21:36:42.146Z\",\"classification\":\"gastropod\",\"name\":\"Hutt\",\"designation\":\"sentient\",\"created\":\"2014-12-10T17:12:50.410Z\",\"eye_colors\":\"yellow, red\",\"people\":[\"http://swapi.co/api/people/16/\"],\"skin_colors\":\"green, brown, tan\",\"language\":\"Huttese\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/24/\",\"average_lifespan\":\"1000\",\"average_height\":\"300\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/5/\"},{\"edited\":\"2014-12-20T21:36:42.148Z\",\"classification\":\"mammal\",\"name\":\"Yoda's species\",\"designation\":\"sentient\",\"created\":\"2014-12-15T12:27:22.877Z\",\"eye_colors\":\"brown, green, yellow\",\"people\":[\"http://swapi.co/api/people/20/\"],\"skin_colors\":\"green, yellow\",\"language\":\"Galactic basic\",\"hair_colors\":\"brown, white\",\"homeworld\":\"http://swapi.co/api/planets/28/\",\"average_lifespan\":\"900\",\"average_height\":\"66\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/6/\"},{\"edited\":\"2014-12-20T21:36:42.151Z\",\"classification\":\"reptile\",\"name\":\"Trandoshan\",\"designation\":\"sentient\",\"created\":\"2014-12-15T13:07:47.704Z\",\"eye_colors\":\"yellow, orange\",\"people\":[\"http://swapi.co/api/people/24/\"],\"skin_colors\":\"brown, green\",\"language\":\"Dosh\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/29/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/2/\"],\"url\":\"http://swapi.co/api/species/7/\"},{\"edited\":\"2014-12-20T21:36:42.153Z\",\"classification\":\"amphibian\",\"name\":\"Mon Calamari\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:09:52.263Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/27/\"],\"skin_colors\":\"red, blue, brown, magenta\",\"language\":\"Mon Calamarian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/31/\",\"average_lifespan\":\"unknown\",\"average_height\":\"160\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/8/\"},{\"edited\":\"2014-12-20T21:36:42.155Z\",\"classification\":\"mammal\",\"name\":\"Ewok\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:22:00.285Z\",\"eye_colors\":\"orange, brown\",\"people\":[\"http://swapi.co/api/people/30/\"],\"skin_colors\":\"brown\",\"language\":\"Ewokese\",\"hair_colors\":\"white, brown, black\",\"homeworld\":\"http://swapi.co/api/planets/7/\",\"average_lifespan\":\"unknown\",\"average_height\":\"100\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/9/\"},{\"edited\":\"2014-12-20T21:36:42.157Z\",\"classification\":\"mammal\",\"name\":\"Sullustan\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:26:20.103Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/31/\"],\"skin_colors\":\"pale\",\"language\":\"Sullutese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/33/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/10/\"}]}",
+  "http://swapi.co/api/species/?page=1": "{\"count\":37,\"previous\":null,\"next\":\"http://swapi.co/api/species/?page=2\",\"results\":[{\"edited\":\"2014-12-20T21:36:42.136Z\",\"classification\":\"mammal\",\"name\":\"Human\",\"designation\":\"sentient\",\"created\":\"2014-12-10T13:52:11.567Z\",\"eye_colors\":\"brown, blue, green, hazel, grey, amber\",\"people\":[\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/74/\"],\"skin_colors\":\"caucasian, black, asian, hispanic\",\"language\":\"Galactic Basic\",\"hair_colors\":\"blonde, brown, black, red\",\"homeworld\":\"http://swapi.co/api/planets/9/\",\"average_lifespan\":\"120\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/1/\"},{\"edited\":\"2014-12-20T21:36:42.139Z\",\"classification\":\"artificial\",\"name\":\"Droid\",\"designation\":\"sentient\",\"created\":\"2014-12-10T15:16:16.259Z\",\"eye_colors\":\"n/a\",\"people\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/23/\"],\"skin_colors\":\"n/a\",\"language\":\"n/a\",\"hair_colors\":\"n/a\",\"homeworld\":null,\"average_lifespan\":\"indefinite\",\"average_height\":\"n/a\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/2/\"},{\"edited\":\"2014-12-20T21:36:42.142Z\",\"classification\":\"mammal\",\"name\":\"Wookie\",\"designation\":\"sentient\",\"created\":\"2014-12-10T16:44:31.486Z\",\"eye_colors\":\"blue, green, yellow, brown, golden, red\",\"people\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/80/\"],\"skin_colors\":\"gray\",\"language\":\"Shyriiwook\",\"hair_colors\":\"black, brown\",\"homeworld\":\"http://swapi.co/api/planets/14/\",\"average_lifespan\":\"400\",\"average_height\":\"210\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/3/\"},{\"edited\":\"2014-12-20T21:36:42.144Z\",\"classification\":\"sentient\",\"name\":\"Rodian\",\"designation\":\"reptilian\",\"created\":\"2014-12-10T17:05:26.471Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/15/\"],\"skin_colors\":\"green, blue\",\"language\":\"Galatic Basic\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/23/\",\"average_lifespan\":\"unknown\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/species/4/\"},{\"edited\":\"2014-12-20T21:36:42.146Z\",\"classification\":\"gastropod\",\"name\":\"Hutt\",\"designation\":\"sentient\",\"created\":\"2014-12-10T17:12:50.410Z\",\"eye_colors\":\"yellow, red\",\"people\":[\"http://swapi.co/api/people/16/\"],\"skin_colors\":\"green, brown, tan\",\"language\":\"Huttese\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/24/\",\"average_lifespan\":\"1000\",\"average_height\":\"300\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/5/\"},{\"edited\":\"2014-12-20T21:36:42.148Z\",\"classification\":\"mammal\",\"name\":\"Yoda's species\",\"designation\":\"sentient\",\"created\":\"2014-12-15T12:27:22.877Z\",\"eye_colors\":\"brown, green, yellow\",\"people\":[\"http://swapi.co/api/people/20/\"],\"skin_colors\":\"green, yellow\",\"language\":\"Galactic basic\",\"hair_colors\":\"brown, white\",\"homeworld\":\"http://swapi.co/api/planets/28/\",\"average_lifespan\":\"900\",\"average_height\":\"66\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/6/\"},{\"edited\":\"2014-12-20T21:36:42.151Z\",\"classification\":\"reptile\",\"name\":\"Trandoshan\",\"designation\":\"sentient\",\"created\":\"2014-12-15T13:07:47.704Z\",\"eye_colors\":\"yellow, orange\",\"people\":[\"http://swapi.co/api/people/24/\"],\"skin_colors\":\"brown, green\",\"language\":\"Dosh\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/29/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/2/\"],\"url\":\"http://swapi.co/api/species/7/\"},{\"edited\":\"2014-12-20T21:36:42.153Z\",\"classification\":\"amphibian\",\"name\":\"Mon Calamari\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:09:52.263Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/27/\"],\"skin_colors\":\"red, blue, brown, magenta\",\"language\":\"Mon Calamarian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/31/\",\"average_lifespan\":\"unknown\",\"average_height\":\"160\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/8/\"},{\"edited\":\"2014-12-20T21:36:42.155Z\",\"classification\":\"mammal\",\"name\":\"Ewok\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:22:00.285Z\",\"eye_colors\":\"orange, brown\",\"people\":[\"http://swapi.co/api/people/30/\"],\"skin_colors\":\"brown\",\"language\":\"Ewokese\",\"hair_colors\":\"white, brown, black\",\"homeworld\":\"http://swapi.co/api/planets/7/\",\"average_lifespan\":\"unknown\",\"average_height\":\"100\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/9/\"},{\"edited\":\"2014-12-20T21:36:42.157Z\",\"classification\":\"mammal\",\"name\":\"Sullustan\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:26:20.103Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/31/\"],\"skin_colors\":\"pale\",\"language\":\"Sullutese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/33/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/10/\"}]}",
+  "http://swapi.co/api/species/": "{\"count\":37,\"previous\":null,\"next\":\"http://swapi.co/api/species/?page=2\",\"results\":[{\"edited\":\"2014-12-20T21:36:42.136Z\",\"classification\":\"mammal\",\"name\":\"Human\",\"designation\":\"sentient\",\"created\":\"2014-12-10T13:52:11.567Z\",\"eye_colors\":\"brown, blue, green, hazel, grey, amber\",\"people\":[\"http://swapi.co/api/people/66/\",\"http://swapi.co/api/people/67/\",\"http://swapi.co/api/people/68/\",\"http://swapi.co/api/people/74/\"],\"skin_colors\":\"caucasian, black, asian, hispanic\",\"language\":\"Galactic Basic\",\"hair_colors\":\"blonde, brown, black, red\",\"homeworld\":\"http://swapi.co/api/planets/9/\",\"average_lifespan\":\"120\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/1/\"},{\"edited\":\"2014-12-20T21:36:42.139Z\",\"classification\":\"artificial\",\"name\":\"Droid\",\"designation\":\"sentient\",\"created\":\"2014-12-10T15:16:16.259Z\",\"eye_colors\":\"n/a\",\"people\":[\"http://swapi.co/api/people/2/\",\"http://swapi.co/api/people/3/\",\"http://swapi.co/api/people/8/\",\"http://swapi.co/api/people/23/\"],\"skin_colors\":\"n/a\",\"language\":\"n/a\",\"hair_colors\":\"n/a\",\"homeworld\":null,\"average_lifespan\":\"indefinite\",\"average_height\":\"n/a\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/2/\"},{\"edited\":\"2014-12-20T21:36:42.142Z\",\"classification\":\"mammal\",\"name\":\"Wookie\",\"designation\":\"sentient\",\"created\":\"2014-12-10T16:44:31.486Z\",\"eye_colors\":\"blue, green, yellow, brown, golden, red\",\"people\":[\"http://swapi.co/api/people/13/\",\"http://swapi.co/api/people/80/\"],\"skin_colors\":\"gray\",\"language\":\"Shyriiwook\",\"hair_colors\":\"black, brown\",\"homeworld\":\"http://swapi.co/api/planets/14/\",\"average_lifespan\":\"400\",\"average_height\":\"210\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/3/\"},{\"edited\":\"2014-12-20T21:36:42.144Z\",\"classification\":\"sentient\",\"name\":\"Rodian\",\"designation\":\"reptilian\",\"created\":\"2014-12-10T17:05:26.471Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/15/\"],\"skin_colors\":\"green, blue\",\"language\":\"Galatic Basic\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/23/\",\"average_lifespan\":\"unknown\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/1/\"],\"url\":\"http://swapi.co/api/species/4/\"},{\"edited\":\"2014-12-20T21:36:42.146Z\",\"classification\":\"gastropod\",\"name\":\"Hutt\",\"designation\":\"sentient\",\"created\":\"2014-12-10T17:12:50.410Z\",\"eye_colors\":\"yellow, red\",\"people\":[\"http://swapi.co/api/people/16/\"],\"skin_colors\":\"green, brown, tan\",\"language\":\"Huttese\",\"hair_colors\":\"n/a\",\"homeworld\":\"http://swapi.co/api/planets/24/\",\"average_lifespan\":\"1000\",\"average_height\":\"300\",\"films\":[\"http://swapi.co/api/films/1/\",\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/5/\"},{\"edited\":\"2014-12-20T21:36:42.148Z\",\"classification\":\"mammal\",\"name\":\"Yoda's species\",\"designation\":\"sentient\",\"created\":\"2014-12-15T12:27:22.877Z\",\"eye_colors\":\"brown, green, yellow\",\"people\":[\"http://swapi.co/api/people/20/\"],\"skin_colors\":\"green, yellow\",\"language\":\"Galactic basic\",\"hair_colors\":\"brown, white\",\"homeworld\":\"http://swapi.co/api/planets/28/\",\"average_lifespan\":\"900\",\"average_height\":\"66\",\"films\":[\"http://swapi.co/api/films/2/\",\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/6/\"},{\"edited\":\"2014-12-20T21:36:42.151Z\",\"classification\":\"reptile\",\"name\":\"Trandoshan\",\"designation\":\"sentient\",\"created\":\"2014-12-15T13:07:47.704Z\",\"eye_colors\":\"yellow, orange\",\"people\":[\"http://swapi.co/api/people/24/\"],\"skin_colors\":\"brown, green\",\"language\":\"Dosh\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/29/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/2/\"],\"url\":\"http://swapi.co/api/species/7/\"},{\"edited\":\"2014-12-20T21:36:42.153Z\",\"classification\":\"amphibian\",\"name\":\"Mon Calamari\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:09:52.263Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/27/\"],\"skin_colors\":\"red, blue, brown, magenta\",\"language\":\"Mon Calamarian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/31/\",\"average_lifespan\":\"unknown\",\"average_height\":\"160\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/8/\"},{\"edited\":\"2014-12-20T21:36:42.155Z\",\"classification\":\"mammal\",\"name\":\"Ewok\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:22:00.285Z\",\"eye_colors\":\"orange, brown\",\"people\":[\"http://swapi.co/api/people/30/\"],\"skin_colors\":\"brown\",\"language\":\"Ewokese\",\"hair_colors\":\"white, brown, black\",\"homeworld\":\"http://swapi.co/api/planets/7/\",\"average_lifespan\":\"unknown\",\"average_height\":\"100\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/9/\"},{\"edited\":\"2014-12-20T21:36:42.157Z\",\"classification\":\"mammal\",\"name\":\"Sullustan\",\"designation\":\"sentient\",\"created\":\"2014-12-18T11:26:20.103Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/31/\"],\"skin_colors\":\"pale\",\"language\":\"Sullutese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/33/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/3/\"],\"url\":\"http://swapi.co/api/species/10/\"}]}",
   "http://swapi.co/api/species/?page=2": "{\"count\":37,\"previous\":\"http://swapi.co/api/species/?page=1\",\"next\":\"http://swapi.co/api/species/?page=3\",\"results\":[{\"edited\":\"2014-12-20T21:36:42.160Z\",\"classification\":\"unknown\",\"name\":\"Neimodian\",\"designation\":\"sentient\",\"created\":\"2014-12-19T17:07:31.319Z\",\"eye_colors\":\"red, pink\",\"people\":[\"http://swapi.co/api/people/33/\"],\"skin_colors\":\"grey, green\",\"language\":\"Neimoidia\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/18/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/11/\"},{\"edited\":\"2014-12-20T21:36:42.163Z\",\"classification\":\"amphibian\",\"name\":\"Gungan\",\"designation\":\"sentient\",\"created\":\"2014-12-19T17:30:37.341Z\",\"eye_colors\":\"orange\",\"people\":[\"http://swapi.co/api/people/36/\",\"http://swapi.co/api/people/37/\",\"http://swapi.co/api/people/38/\"],\"skin_colors\":\"brown, green\",\"language\":\"Gungan basic\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/8/\",\"average_lifespan\":\"unknown\",\"average_height\":\"190\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/species/12/\"},{\"edited\":\"2014-12-20T21:36:42.165Z\",\"classification\":\"mammal\",\"name\":\"Toydarian\",\"designation\":\"sentient\",\"created\":\"2014-12-19T17:48:56.893Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/40/\"],\"skin_colors\":\"blue, green, grey\",\"language\":\"Toydarian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/34/\",\"average_lifespan\":\"91\",\"average_height\":\"120\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/species/13/\"},{\"edited\":\"2014-12-20T21:36:42.167Z\",\"classification\":\"mammal\",\"name\":\"Dug\",\"designation\":\"sentient\",\"created\":\"2014-12-19T17:53:11.214Z\",\"eye_colors\":\"yellow, blue\",\"people\":[\"http://swapi.co/api/people/41/\"],\"skin_colors\":\"brown, purple, grey, red\",\"language\":\"Dugese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/35/\",\"average_lifespan\":\"unknown\",\"average_height\":\"100\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/14/\"},{\"edited\":\"2014-12-20T21:36:42.169Z\",\"classification\":\"mammals\",\"name\":\"Twi'lek\",\"designation\":\"sentient\",\"created\":\"2014-12-20T09:48:02.406Z\",\"eye_colors\":\"blue, brown, orange, pink\",\"people\":[\"http://swapi.co/api/people/45/\",\"http://swapi.co/api/people/46/\"],\"skin_colors\":\"orange, yellow, blue, green, pink, purple, tan\",\"language\":\"Twi'leki\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/37/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/3/\",\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/15/\"},{\"edited\":\"2014-12-20T21:36:42.171Z\",\"classification\":\"reptile\",\"name\":\"Aleena\",\"designation\":\"sentient\",\"created\":\"2014-12-20T09:53:16.481Z\",\"eye_colors\":\"unknown\",\"people\":[\"http://swapi.co/api/people/47/\"],\"skin_colors\":\"blue, gray\",\"language\":\"Aleena\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/38/\",\"average_lifespan\":\"79\",\"average_height\":\"80\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/16/\"},{\"edited\":\"2014-12-20T21:36:42.173Z\",\"classification\":\"unknown\",\"name\":\"Vulptereen\",\"designation\":\"sentient\",\"created\":\"2014-12-20T09:57:33.128Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/48/\"],\"skin_colors\":\"grey\",\"language\":\"vulpterish\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/39/\",\"average_lifespan\":\"unknown\",\"average_height\":\"100\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/17/\"},{\"edited\":\"2014-12-20T21:36:42.175Z\",\"classification\":\"unknown\",\"name\":\"Xexto\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:02:13.915Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/49/\"],\"skin_colors\":\"grey, yellow, purple\",\"language\":\"Xextese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/40/\",\"average_lifespan\":\"unknown\",\"average_height\":\"125\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/18/\"},{\"edited\":\"2014-12-20T21:36:42.177Z\",\"classification\":\"unknown\",\"name\":\"Toong\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:08:36.795Z\",\"eye_colors\":\"orange\",\"people\":[\"http://swapi.co/api/people/50/\"],\"skin_colors\":\"grey, green, yellow\",\"language\":\"Tundan\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/41/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/19/\"},{\"edited\":\"2014-12-20T21:36:42.179Z\",\"classification\":\"mammal\",\"name\":\"Cerean\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:15:33.765Z\",\"eye_colors\":\"hazel\",\"people\":[\"http://swapi.co/api/people/52/\"],\"skin_colors\":\"pale pink\",\"language\":\"Cerean\",\"hair_colors\":\"red, blond, black, white\",\"homeworld\":\"http://swapi.co/api/planets/43/\",\"average_lifespan\":\"unknown\",\"average_height\":\"200\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/20/\"}]}",
   "http://swapi.co/api/species/?page=3": "{\"count\":37,\"previous\":\"http://swapi.co/api/species/?page=2\",\"next\":\"http://swapi.co/api/species/?page=4\",\"results\":[{\"edited\":\"2014-12-20T21:36:42.181Z\",\"classification\":\"amphibian\",\"name\":\"Nautolan\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:18:58.610Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/53/\"],\"skin_colors\":\"green, blue, brown, red\",\"language\":\"Nautila\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/44/\",\"average_lifespan\":\"70\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/21/\"},{\"edited\":\"2014-12-20T21:36:42.183Z\",\"classification\":\"mammal\",\"name\":\"Zabrak\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:26:59.894Z\",\"eye_colors\":\"brown, orange\",\"people\":[\"http://swapi.co/api/people/44/\",\"http://swapi.co/api/people/54/\"],\"skin_colors\":\"pale, brown, red, orange, yellow\",\"language\":\"Zabraki\",\"hair_colors\":\"black\",\"homeworld\":\"http://swapi.co/api/planets/45/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/4/\"],\"url\":\"http://swapi.co/api/species/22/\"},{\"edited\":\"2014-12-20T21:36:42.186Z\",\"classification\":\"mammal\",\"name\":\"Tholothian\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:29:13.798Z\",\"eye_colors\":\"blue, indigo\",\"people\":[\"http://swapi.co/api/people/55/\"],\"skin_colors\":\"dark\",\"language\":\"unknown\",\"hair_colors\":\"unknown\",\"homeworld\":\"http://swapi.co/api/planets/46/\",\"average_lifespan\":\"unknown\",\"average_height\":\"unknown\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/23/\"},{\"edited\":\"2014-12-20T21:36:42.188Z\",\"classification\":\"unknown\",\"name\":\"Iktotchi\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:32:13.046Z\",\"eye_colors\":\"orange\",\"people\":[\"http://swapi.co/api/people/56/\"],\"skin_colors\":\"pink\",\"language\":\"Iktotchese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/47/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/24/\"},{\"edited\":\"2014-12-20T21:36:42.189Z\",\"classification\":\"mammal\",\"name\":\"Quermian\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:34:50.827Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/57/\"],\"skin_colors\":\"white\",\"language\":\"Quermian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/48/\",\"average_lifespan\":\"86\",\"average_height\":\"240\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/25/\"},{\"edited\":\"2014-12-20T21:36:42.191Z\",\"classification\":\"unknown\",\"name\":\"Kel Dor\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:49:21.692Z\",\"eye_colors\":\"black, silver\",\"people\":[\"http://swapi.co/api/people/58/\"],\"skin_colors\":\"peach, orange, red\",\"language\":\"Kel Dor\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/49/\",\"average_lifespan\":\"70\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/26/\"},{\"edited\":\"2014-12-20T21:36:42.193Z\",\"classification\":\"amphibian\",\"name\":\"Chagrian\",\"designation\":\"sentient\",\"created\":\"2014-12-20T10:53:28.795Z\",\"eye_colors\":\"blue\",\"people\":[\"http://swapi.co/api/people/59/\"],\"skin_colors\":\"blue\",\"language\":\"Chagria\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/50/\",\"average_lifespan\":\"unknown\",\"average_height\":\"190\",\"films\":[\"http://swapi.co/api/films/4/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/27/\"},{\"edited\":\"2014-12-20T21:36:42.195Z\",\"classification\":\"insectoid\",\"name\":\"Geonosian\",\"designation\":\"sentient\",\"created\":\"2014-12-20T16:40:45.618Z\",\"eye_colors\":\"green, hazel\",\"people\":[\"http://swapi.co/api/people/63/\"],\"skin_colors\":\"green, brown\",\"language\":\"Geonosian\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/11/\",\"average_lifespan\":\"unknown\",\"average_height\":\"178\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/28/\"},{\"edited\":\"2014-12-20T21:36:42.197Z\",\"classification\":\"mammal\",\"name\":\"Mirialan\",\"designation\":\"sentient\",\"created\":\"2014-12-20T16:46:48.290Z\",\"eye_colors\":\"blue, green, red, yellow, brown, orange\",\"people\":[\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\"],\"skin_colors\":\"yellow, green\",\"language\":\"Mirialan\",\"hair_colors\":\"black, brown\",\"homeworld\":\"http://swapi.co/api/planets/51/\",\"average_lifespan\":\"unknown\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/29/\"},{\"edited\":\"2014-12-20T21:36:42.199Z\",\"classification\":\"reptilian\",\"name\":\"Clawdite\",\"designation\":\"sentient\",\"created\":\"2014-12-20T16:57:46.171Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/70/\"],\"skin_colors\":\"green, yellow\",\"language\":\"Clawdite\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/54/\",\"average_lifespan\":\"70\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/30/\"}]}",
   "http://swapi.co/api/species/?page=4": "{\"count\":37,\"previous\":\"http://swapi.co/api/species/?page=3\",\"next\":null,\"results\":[{\"edited\":\"2014-12-20T21:36:42.200Z\",\"classification\":\"amphibian\",\"name\":\"Besalisk\",\"designation\":\"sentient\",\"created\":\"2014-12-20T17:28:28.821Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/71/\"],\"skin_colors\":\"brown\",\"language\":\"besalisk\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/55/\",\"average_lifespan\":\"75\",\"average_height\":\"178\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/species/31/\"},{\"edited\":\"2014-12-20T21:36:42.202Z\",\"classification\":\"amphibian\",\"name\":\"Kaminoan\",\"designation\":\"sentient\",\"created\":\"2014-12-20T17:31:24.838Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/72/\",\"http://swapi.co/api/people/73/\"],\"skin_colors\":\"grey, blue\",\"language\":\"Kaminoan\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/10/\",\"average_lifespan\":\"80\",\"average_height\":\"220\",\"films\":[\"http://swapi.co/api/films/5/\"],\"url\":\"http://swapi.co/api/species/32/\"},{\"edited\":\"2014-12-20T21:36:42.204Z\",\"classification\":\"mammal\",\"name\":\"Skakoan\",\"designation\":\"sentient\",\"created\":\"2014-12-20T17:53:54.515Z\",\"eye_colors\":\"unknown\",\"people\":[\"http://swapi.co/api/people/76/\"],\"skin_colors\":\"grey, green\",\"language\":\"Skakoan\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/56/\",\"average_lifespan\":\"unknown\",\"average_height\":\"unknown\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/33/\"},{\"edited\":\"2014-12-20T21:36:42.207Z\",\"classification\":\"mammal\",\"name\":\"Muun\",\"designation\":\"sentient\",\"created\":\"2014-12-20T17:58:19.088Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/77/\"],\"skin_colors\":\"grey, white\",\"language\":\"Muun\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/57/\",\"average_lifespan\":\"100\",\"average_height\":\"190\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/34/\"},{\"edited\":\"2014-12-20T21:36:42.209Z\",\"classification\":\"mammal\",\"name\":\"Togruta\",\"designation\":\"sentient\",\"created\":\"2014-12-20T18:44:03.246Z\",\"eye_colors\":\"red, orange, yellow, green, blue, black\",\"people\":[\"http://swapi.co/api/people/78/\"],\"skin_colors\":\"red, white, orange, yellow, green, blue\",\"language\":\"Togruti\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/58/\",\"average_lifespan\":\"94\",\"average_height\":\"180\",\"films\":[\"http://swapi.co/api/films/5/\",\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/35/\"},{\"edited\":\"2014-12-20T21:36:42.210Z\",\"classification\":\"reptile\",\"name\":\"Kaleesh\",\"designation\":\"sentient\",\"created\":\"2014-12-20T19:45:42.537Z\",\"eye_colors\":\"yellow\",\"people\":[\"http://swapi.co/api/people/79/\"],\"skin_colors\":\"brown, orange, tan\",\"language\":\"Kaleesh\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/59/\",\"average_lifespan\":\"80\",\"average_height\":\"170\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/36/\"},{\"edited\":\"2014-12-20T21:36:42.212Z\",\"classification\":\"mammal\",\"name\":\"Pau'an\",\"designation\":\"sentient\",\"created\":\"2014-12-20T20:35:06.777Z\",\"eye_colors\":\"black\",\"people\":[\"http://swapi.co/api/people/83/\"],\"skin_colors\":\"grey\",\"language\":\"Utapese\",\"hair_colors\":\"none\",\"homeworld\":\"http://swapi.co/api/planets/12/\",\"average_lifespan\":\"700\",\"average_height\":\"190\",\"films\":[\"http://swapi.co/api/films/6/\"],\"url\":\"http://swapi.co/api/species/37/\"}]}",
@@ -17916,9 +19248,8 @@ var data = {
   "http://swapi.co/api/planets/?page=6": "{\"count\":60,\"previous\":\"http://swapi.co/api/planets/?page=5\",\"next\":null,\"results\":[{\"edited\":\"2014-12-20T20:58:18.508Z\",\"climate\":\"unknown\",\"surface_water\":\"unknown\",\"name\":\"Mirial\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T16:44:46.318Z\",\"terrain\":\"deserts\",\"gravity\":\"unknown\",\"orbital_period\":\"unknown\",\"population\":\"unknown\",\"residents\":[\"http://swapi.co/api/people/64/\",\"http://swapi.co/api/people/65/\",\"http://swapi.co/api/people/29/\"],\"url\":\"http://swapi.co/api/planets/51/\"},{\"edited\":\"2014-12-20T20:58:18.510Z\",\"climate\":\"unknown\",\"surface_water\":\"unknown\",\"name\":\"Serenno\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T16:52:13.357Z\",\"terrain\":\"rainforests, rivers, mountains\",\"gravity\":\"unknown\",\"orbital_period\":\"unknown\",\"population\":\"unknown\",\"residents\":[\"http://swapi.co/api/people/67/\"],\"url\":\"http://swapi.co/api/planets/52/\"},{\"edited\":\"2014-12-20T20:58:18.512Z\",\"climate\":\"unknown\",\"surface_water\":\"unknown\",\"name\":\"Concord Dawn\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T16:54:39.909Z\",\"terrain\":\"jungles, forests, deserts\",\"gravity\":\"unknown\",\"orbital_period\":\"unknown\",\"population\":\"unknown\",\"residents\":[\"http://swapi.co/api/people/69/\"],\"url\":\"http://swapi.co/api/planets/53/\"},{\"edited\":\"2014-12-20T20:58:18.514Z\",\"climate\":\"unknown\",\"surface_water\":\"unknown\",\"name\":\"Zolan\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T16:56:37.250Z\",\"terrain\":\"unknown\",\"gravity\":\"unknown\",\"orbital_period\":\"unknown\",\"population\":\"unknown\",\"residents\":[\"http://swapi.co/api/people/70/\",\"http://swapi.co/api/people/30/\"],\"url\":\"http://swapi.co/api/planets/54/\"},{\"edited\":\"2014-12-20T20:58:18.516Z\",\"climate\":\"frigid\",\"surface_water\":\"100\",\"name\":\"Ojom\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T17:27:41.286Z\",\"terrain\":\"oceans, glaciers\",\"gravity\":\"unknown\",\"orbital_period\":\"unknown\",\"population\":\"500000000\",\"residents\":[\"http://swapi.co/api/people/71/\",\"http://swapi.co/api/people/31/\"],\"url\":\"http://swapi.co/api/planets/55/\"},{\"edited\":\"2014-12-20T20:58:18.517Z\",\"climate\":\"temperate\",\"surface_water\":\"unknown\",\"name\":\"Skako\",\"diameter\":\"unknown\",\"rotation_period\":\"27\",\"created\":\"2014-12-20T17:50:47.864Z\",\"terrain\":\"urban, vines\",\"gravity\":\"1\",\"orbital_period\":\"384\",\"population\":\"500000000000\",\"residents\":[\"http://swapi.co/api/people/76/\",\"http://swapi.co/api/people/33/\"],\"url\":\"http://swapi.co/api/planets/56/\"},{\"edited\":\"2014-12-20T20:58:18.519Z\",\"climate\":\"temperate\",\"surface_water\":\"25\",\"name\":\"Muunilinst\",\"diameter\":\"13800\",\"rotation_period\":\"28\",\"created\":\"2014-12-20T17:57:47.420Z\",\"terrain\":\"plains, forests, hills, mountains\",\"gravity\":\"1\",\"orbital_period\":\"412\",\"population\":\"5000000000\",\"residents\":[\"http://swapi.co/api/people/77/\",\"http://swapi.co/api/people/34/\"],\"url\":\"http://swapi.co/api/planets/57/\"},{\"edited\":\"2014-12-20T20:58:18.521Z\",\"climate\":\"temperate\",\"surface_water\":\"unknown\",\"name\":\"Shili\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T18:43:14.049Z\",\"terrain\":\"cities, savannahs, seas, plains\",\"gravity\":\"1\",\"orbital_period\":\"unknown\",\"population\":\"unknown\",\"residents\":[\"http://swapi.co/api/people/78/\",\"http://swapi.co/api/people/35/\"],\"url\":\"http://swapi.co/api/planets/58/\"},{\"edited\":\"2014-12-20T20:58:18.523Z\",\"climate\":\"arid, temperate, tropical\",\"surface_water\":\"unknown\",\"name\":\"Kalee\",\"diameter\":\"13850\",\"rotation_period\":\"23\",\"created\":\"2014-12-20T19:43:51.278Z\",\"terrain\":\"rainforests, cliffs, canyons, seas\",\"gravity\":\"1\",\"orbital_period\":\"378\",\"population\":\"4000000000\",\"residents\":[\"http://swapi.co/api/people/79/\",\"http://swapi.co/api/people/36/\"],\"url\":\"http://swapi.co/api/planets/59/\"},{\"edited\":\"2014-12-20T20:58:18.525Z\",\"climate\":\"unknown\",\"surface_water\":\"unknown\",\"name\":\"Umbara\",\"diameter\":\"unknown\",\"rotation_period\":\"unknown\",\"created\":\"2014-12-20T20:18:36.256Z\",\"terrain\":\"unknown\",\"gravity\":\"unknown\",\"orbital_period\":\"unknown\",\"population\":\"unknown\",\"residents\":[\"http://swapi.co/api/people/82/\"],\"url\":\"http://swapi.co/api/planets/60/\"}]}"
 };
 exports.default = data;
-module.exports = exports["default"];
 
-},{}],172:[function(require,module,exports){
+},{}],174:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -17934,7 +19265,7 @@ Object.defineProperty(exports, 'getFromLocalUrl', {
   }
 });
 
-},{"./local":173}],173:[function(require,module,exports){
+},{"./local":175}],175:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -17973,7 +19304,9 @@ var getFromLocalUrl = exports.getFromLocalUrl = function () {
 
           case 3:
             if (process.env.NODE_ENV !== 'test') {
+              /* eslint-disable no-console */
               console.log('Hit the local cache for ' + url + '.');
+              /* eslint-enable no-console */
             }
             return _context.abrupt('return', text);
 
@@ -18006,12 +19339,13 @@ function _interopRequireDefault(obj) {
 }
 
 }).call(this,require('_process'))
-},{"./cachedData/cache":171,"_process":168,"babel-runtime/helpers/asyncToGenerator":4,"babel-runtime/regenerator":7}],174:[function(require,module,exports){
+},{"./cachedData/cache":173,"_process":170,"babel-runtime/helpers/asyncToGenerator":4,"babel-runtime/regenerator":7}],176:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.schema = exports.execute = undefined;
 
 var _graphql = require('graphql');
 
@@ -18031,16 +19365,14 @@ function _interopRequireDefault(obj) {
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-exports.default = {
-  execute: function execute(query, variables, operationName) {
-    return (0, _graphql.graphql)(_schema2.default, query, null, null, variables, operationName);
-  },
+function execute(query, variables, operationName) {
+  return (0, _graphql.graphql)(_schema2.default, query, null, null, variables, operationName);
+}
 
-  schema: _schema2.default
-};
-module.exports = exports['default'];
+exports.execute = execute;
+exports.schema = _schema2.default;
 
-},{"../schema":178,"graphql":98}],175:[function(require,module,exports){
+},{"../schema":180,"graphql":98}],177:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18151,7 +19483,7 @@ var getObjectsByType = exports.getObjectsByType = function () {
           case 6:
             pageData = _context3.sent;
 
-            /* eslint-enable babel/no-await-in-loop */
+            /* eslint-enable no-await-in-loop */
             parsedPageData = JSON.parse(pageData);
 
             totalCount = parsedPageData.count;
@@ -18175,6 +19507,12 @@ var getObjectsByType = exports.getObjectsByType = function () {
     return _ref3.apply(this, arguments);
   };
 }();
+
+/**
+ * Given a string, convert it to a number
+ */
+
+exports.convertToNumber = convertToNumber;
 
 var _dataloader = require('dataloader');
 
@@ -18211,7 +19549,16 @@ function objectWithId(obj) {
   return objects.length >= args.first;
 }
 
-},{"../api":172,"babel-runtime/core-js/promise":3,"babel-runtime/helpers/asyncToGenerator":4,"babel-runtime/regenerator":7,"dataloader":81}],176:[function(require,module,exports){
+function convertToNumber(value) {
+  if (['unknown', 'n/a'].indexOf(value) !== -1) {
+    return null;
+  }
+  // remove digit grouping
+  var numberString = value.replace(/,/, '');
+  return Number(numberString);
+}
+
+},{"../api":174,"babel-runtime/core-js/promise":3,"babel-runtime/helpers/asyncToGenerator":4,"babel-runtime/regenerator":7,"dataloader":81}],178:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18244,7 +19591,7 @@ function editedField() {
   };
 }
 
-},{"graphql":98}],177:[function(require,module,exports){
+},{"graphql":98}],179:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18324,7 +19671,7 @@ function connectionFromUrls(name, prop, type) {
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-},{"./apiHelper":175,"babel-runtime/helpers/defineProperty":5,"babel-runtime/helpers/extends":6,"graphql":98,"graphql-relay":84}],178:[function(require,module,exports){
+},{"./apiHelper":177,"babel-runtime/helpers/defineProperty":5,"babel-runtime/helpers/extends":6,"graphql":98,"graphql-relay":84}],180:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18464,9 +19811,11 @@ function rootConnection(name, swapiType) {
         }, _callee, _this);
       }));
 
-      return function resolve(_x, _x2) {
+      function resolve(_x, _x2) {
         return _ref2.apply(this, arguments);
-      };
+      }
+
+      return resolve;
     }()
   };
 }
@@ -18496,9 +19845,8 @@ var rootType = new _graphql.GraphQLObjectType({
 });
 
 exports.default = new _graphql.GraphQLSchema({ query: rootType });
-module.exports = exports['default'];
 
-},{"./apiHelper":175,"./relayNode":179,"babel-runtime/helpers/asyncToGenerator":4,"babel-runtime/helpers/defineProperty":5,"babel-runtime/helpers/extends":6,"babel-runtime/regenerator":7,"graphql":98,"graphql-relay":84}],179:[function(require,module,exports){
+},{"./apiHelper":177,"./relayNode":181,"babel-runtime/helpers/asyncToGenerator":4,"babel-runtime/helpers/defineProperty":5,"babel-runtime/helpers/extends":6,"babel-runtime/regenerator":7,"graphql":98,"graphql-relay":84}],181:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18524,12 +19872,12 @@ var _graphqlRelay = require('graphql-relay');
  */
 
 function swapiTypeToGraphQLType(swapiType) {
-  var FilmType = require('./types/film');
-  var PersonType = require('./types/person');
-  var PlanetType = require('./types/planet');
-  var SpeciesType = require('./types/species');
-  var StarshipType = require('./types/starship');
-  var VehicleType = require('./types/vehicle');
+  var FilmType = require('./types/film').default;
+  var PersonType = require('./types/person').default;
+  var PlanetType = require('./types/planet').default;
+  var SpeciesType = require('./types/species').default;
+  var StarshipType = require('./types/starship').default;
+  var VehicleType = require('./types/vehicle').default;
 
   switch (swapiType) {
     case 'films':
@@ -18544,6 +19892,8 @@ function swapiTypeToGraphQLType(swapiType) {
       return VehicleType;
     case 'species':
       return SpeciesType;
+    default:
+      throw new Error('Unrecognized type `' + swapiType + '`.');
   }
 }
 
@@ -18563,7 +19913,7 @@ var _nodeDefinitions = (0, _graphqlRelay.nodeDefinitions)(function (globalId) {
 exports.nodeInterface = nodeInterface;
 exports.nodeField = nodeField;
 
-},{"./apiHelper":175,"./types/film":180,"./types/person":181,"./types/planet":182,"./types/species":183,"./types/starship":184,"./types/vehicle":185,"graphql-relay":84}],180:[function(require,module,exports){
+},{"./apiHelper":177,"./types/film":182,"./types/person":183,"./types/planet":184,"./types/species":185,"./types/starship":186,"./types/vehicle":187,"graphql-relay":84}],182:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18675,9 +20025,8 @@ var FilmType = new _graphql.GraphQLObjectType({
 });
 
 exports.default = FilmType;
-module.exports = exports['default'];
 
-},{"../commonFields":176,"../connections":177,"../relayNode":179,"./person":181,"./planet":182,"./species":183,"./starship":184,"./vehicle":185,"graphql":98,"graphql-relay":84}],181:[function(require,module,exports){
+},{"../commonFields":178,"../connections":179,"../relayNode":181,"./person":183,"./planet":184,"./species":185,"./starship":186,"./vehicle":187,"graphql":98,"graphql-relay":84}],183:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18759,10 +20108,16 @@ var PersonType = new _graphql.GraphQLObjectType({
       },
       height: {
         type: _graphql.GraphQLInt,
+        resolve: function resolve(person) {
+          return (0, _apiHelper.convertToNumber)(person.height);
+        },
         description: 'The height of the person in centimeters.'
       },
       mass: {
-        type: _graphql.GraphQLInt,
+        type: _graphql.GraphQLFloat,
+        resolve: function resolve(person) {
+          return (0, _apiHelper.convertToNumber)(person.mass);
+        },
         description: 'The mass of the person in kilograms.'
       },
       skinColor: {
@@ -18775,7 +20130,7 @@ var PersonType = new _graphql.GraphQLObjectType({
       homeworld: {
         type: _planet2.default,
         resolve: function resolve(person) {
-          return (0, _apiHelper.getObjectFromUrl)(person.homeworld);
+          return person.homeworld ? (0, _apiHelper.getObjectFromUrl)(person.homeworld) : null;
         },
         description: 'A planet that this person was born on or inhabits.'
       },
@@ -18810,9 +20165,8 @@ var PersonType = new _graphql.GraphQLObjectType({
  */
 
 exports.default = PersonType;
-module.exports = exports['default'];
 
-},{"../apiHelper":175,"../commonFields":176,"../connections":177,"../relayNode":179,"./film":180,"./planet":182,"./species":183,"./starship":184,"./vehicle":185,"graphql":98,"graphql-relay":84}],182:[function(require,module,exports){
+},{"../apiHelper":177,"../commonFields":178,"../connections":179,"../relayNode":181,"./film":182,"./planet":184,"./species":185,"./starship":186,"./vehicle":187,"graphql":98,"graphql-relay":84}],184:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18829,6 +20183,8 @@ var _commonFields = require('../commonFields');
 
 var _connections = require('../connections');
 
+var _apiHelper = require('../apiHelper');
+
 var _film = require('./film');
 
 var _film2 = _interopRequireDefault(_film);
@@ -18844,6 +20200,15 @@ function _interopRequireDefault(obj) {
 /**
  * The GraphQL type equivalent of the Planet resource
  */
+
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ * This source code is licensed under the license found in the
+ * LICENSE-examples file in the root directory of this source tree.
+ */
+
 var PlanetType = new _graphql.GraphQLObjectType({
   name: 'Planet',
   description: 'A large mass, planet or planetoid in the Star Wars Universe, at the time of\n0 ABY.',
@@ -18855,19 +20220,22 @@ var PlanetType = new _graphql.GraphQLObjectType({
       },
       diameter: {
         type: _graphql.GraphQLInt,
+        resolve: function resolve(planet) {
+          return (0, _apiHelper.convertToNumber)(planet.diameter);
+        },
         description: 'The diameter of this planet in kilometers.'
       },
       rotationPeriod: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(planet) {
-          return planet.rotation_period;
+          return (0, _apiHelper.convertToNumber)(planet.rotation_period);
         },
         description: 'The number of standard hours it takes for this planet to complete a single\nrotation on its axis.'
       },
       orbitalPeriod: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(planet) {
-          return planet.orbital_period;
+          return (0, _apiHelper.convertToNumber)(planet.orbital_period);
         },
         description: 'The number of standard days it takes for this planet to complete a single orbit\nof its local star.'
       },
@@ -18876,7 +20244,10 @@ var PlanetType = new _graphql.GraphQLObjectType({
         description: 'A number denoting the gravity of this planet, where "1" is normal or 1 standard\nG. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.'
       },
       population: {
-        type: _graphql.GraphQLInt,
+        type: _graphql.GraphQLFloat,
+        resolve: function resolve(planet) {
+          return (0, _apiHelper.convertToNumber)(planet.population);
+        },
         description: 'The average population of sentient beings inhabiting this planet.'
       },
       climates: {
@@ -18900,7 +20271,7 @@ var PlanetType = new _graphql.GraphQLObjectType({
       surfaceWater: {
         type: _graphql.GraphQLFloat,
         resolve: function resolve(planet) {
-          return planet.surface_water;
+          return (0, _apiHelper.convertToNumber)(planet.surface_water);
         },
         description: 'The percentage of the planet surface that is naturally occuring water or bodies\nof water.'
       },
@@ -18915,18 +20286,9 @@ var PlanetType = new _graphql.GraphQLObjectType({
     return [_relayNode.nodeInterface];
   }
 });
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- * This source code is licensed under the license found in the
- * LICENSE-examples file in the root directory of this source tree.
- */
-
 exports.default = PlanetType;
-module.exports = exports['default'];
 
-},{"../commonFields":176,"../connections":177,"../relayNode":179,"./film":180,"./person":181,"graphql":98,"graphql-relay":84}],183:[function(require,module,exports){
+},{"../apiHelper":177,"../commonFields":178,"../connections":179,"../relayNode":181,"./film":182,"./person":183,"graphql":98,"graphql-relay":84}],185:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -18984,14 +20346,14 @@ var SpeciesType = new _graphql.GraphQLObjectType({
       averageHeight: {
         type: _graphql.GraphQLFloat,
         resolve: function resolve(species) {
-          return species.average_height;
+          return (0, _apiHelper.convertToNumber)(species.average_height);
         },
         description: 'The average height of this species in centimeters.'
       },
       averageLifespan: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(species) {
-          return species.average_lifespan === 'unknown' ? null : species.average_lifespan;
+          return (0, _apiHelper.convertToNumber)(species.average_lifespan);
         },
         description: 'The average lifespan of this species in years, null if unknown.'
       },
@@ -19032,7 +20394,7 @@ var SpeciesType = new _graphql.GraphQLObjectType({
       homeworld: {
         type: _planet2.default,
         resolve: function resolve(species) {
-          return (0, _apiHelper.getObjectFromUrl)(species.homeworld);
+          return species.homeworld ? (0, _apiHelper.getObjectFromUrl)(species.homeworld) : null;
         },
         description: 'A planet that this species originates from.'
       },
@@ -19056,9 +20418,8 @@ var SpeciesType = new _graphql.GraphQLObjectType({
  */
 
 exports.default = SpeciesType;
-module.exports = exports['default'];
 
-},{"../apiHelper":175,"../commonFields":176,"../connections":177,"../relayNode":179,"./film":180,"./person":181,"./planet":182,"graphql":98,"graphql-relay":84}],184:[function(require,module,exports){
+},{"../apiHelper":177,"../commonFields":178,"../connections":179,"../relayNode":181,"./film":182,"./person":183,"./planet":184,"graphql":98,"graphql-relay":84}],186:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -19075,6 +20436,8 @@ var _commonFields = require('../commonFields');
 
 var _connections = require('../connections');
 
+var _apiHelper = require('../apiHelper');
+
 var _film = require('./film');
 
 var _film2 = _interopRequireDefault(_film);
@@ -19090,6 +20453,15 @@ function _interopRequireDefault(obj) {
 /**
  * The GraphQL type equivalent of the Starship resource
  */
+
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ * This source code is licensed under the license found in the
+ * LICENSE-examples file in the root directory of this source tree.
+ */
+
 var StarshipType = new _graphql.GraphQLObjectType({
   name: 'Starship',
   description: 'A single transport craft that has hyperdrive capability.',
@@ -19122,12 +20494,15 @@ var StarshipType = new _graphql.GraphQLObjectType({
       costInCredits: {
         type: _graphql.GraphQLFloat,
         resolve: function resolve(ship) {
-          return ship.cost_in_credits;
+          return (0, _apiHelper.convertToNumber)(ship.cost_in_credits);
         },
         description: 'The cost of this starship new, in galactic credits.'
       },
       length: {
         type: _graphql.GraphQLFloat,
+        resolve: function resolve(ship) {
+          return (0, _apiHelper.convertToNumber)(ship.length);
+        },
         description: 'The length of this starship in meters.'
       },
       crew: {
@@ -19141,28 +20516,28 @@ var StarshipType = new _graphql.GraphQLObjectType({
       maxAtmospheringSpeed: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(ship) {
-          if (ship.max_atmosphering_speed === 'n/a') {
-            return null;
-          }
-          return ship.max_atmosphering_speed;
+          return (0, _apiHelper.convertToNumber)(ship.max_atmosphering_speed);
         },
         description: 'The maximum speed of this starship in atmosphere. null if this starship is\nincapable of atmosphering flight.'
       },
       hyperdriveRating: {
         type: _graphql.GraphQLFloat,
         resolve: function resolve(ship) {
-          return ship.hyperdrive_rating;
+          return (0, _apiHelper.convertToNumber)(ship.hyperdrive_rating);
         },
         description: 'The class of this starships hyperdrive.'
       },
       MGLT: {
         type: _graphql.GraphQLInt,
+        resolve: function resolve(ship) {
+          return (0, _apiHelper.convertToNumber)(ship.MGLT);
+        },
         description: 'The Maximum number of Megalights this starship can travel in a standard hour.\nA "Megalight" is a standard unit of distance and has never been defined before\nwithin the Star Wars universe. This figure is only really useful for measuring\nthe difference in speed of starships. We can assume it is similar to AU, the\ndistance between our Sun (Sol) and Earth.'
       },
       cargoCapacity: {
         type: _graphql.GraphQLFloat,
         resolve: function resolve(ship) {
-          return ship.cargo_capacity;
+          return (0, _apiHelper.convertToNumber)(ship.cargo_capacity);
         },
         description: 'The maximum number of kilograms that this starship can transport.'
       },
@@ -19181,18 +20556,10 @@ var StarshipType = new _graphql.GraphQLObjectType({
     return [_relayNode.nodeInterface];
   }
 });
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- * This source code is licensed under the license found in the
- * LICENSE-examples file in the root directory of this source tree.
- */
 
 exports.default = StarshipType;
-module.exports = exports['default'];
 
-},{"../commonFields":176,"../connections":177,"../relayNode":179,"./film":180,"./person":181,"graphql":98,"graphql-relay":84}],185:[function(require,module,exports){
+},{"../apiHelper":177,"../commonFields":178,"../connections":179,"../relayNode":181,"./film":182,"./person":183,"graphql":98,"graphql-relay":84}],187:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -19209,6 +20576,8 @@ var _commonFields = require('../commonFields');
 
 var _connections = require('../connections');
 
+var _apiHelper = require('../apiHelper');
+
 var _film = require('./film');
 
 var _film2 = _interopRequireDefault(_film);
@@ -19224,6 +20593,15 @@ function _interopRequireDefault(obj) {
 /**
  * The GraphQL type equivalent of the Vehicle resource
  */
+
+/**
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ * This source code is licensed under the license found in the
+ * LICENSE-examples file in the root directory of this source tree.
+ */
+
 var VehicleType = new _graphql.GraphQLObjectType({
   name: 'Vehicle',
   description: 'A single transport craft that does not have hyperdrive capability',
@@ -19256,12 +20634,15 @@ var VehicleType = new _graphql.GraphQLObjectType({
       costInCredits: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(vehicle) {
-          return vehicle.cost_in_credits;
+          return (0, _apiHelper.convertToNumber)(vehicle.cost_in_credits);
         },
         description: 'The cost of this vehicle new, in Galactic Credits.'
       },
       length: {
         type: _graphql.GraphQLFloat,
+        resolve: function resolve(vehicle) {
+          return (0, _apiHelper.convertToNumber)(vehicle.length);
+        },
         description: 'The length of this vehicle in meters.'
       },
       crew: {
@@ -19275,14 +20656,14 @@ var VehicleType = new _graphql.GraphQLObjectType({
       maxAtmospheringSpeed: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(vehicle) {
-          return vehicle.max_atmosphering_speed;
+          return (0, _apiHelper.convertToNumber)(vehicle.max_atmosphering_speed);
         },
         description: 'The maximum speed of this vehicle in atmosphere.'
       },
       cargoCapacity: {
         type: _graphql.GraphQLInt,
         resolve: function resolve(ship) {
-          return ship.cargo_capacity;
+          return (0, _apiHelper.convertToNumber)(ship.cargo_capacity);
         },
         description: 'The maximum number of kilograms that this vehicle can transport.'
       },
@@ -19301,16 +20682,8 @@ var VehicleType = new _graphql.GraphQLObjectType({
     return [_relayNode.nodeInterface];
   }
 });
-/**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
- *
- * This source code is licensed under the license found in the
- * LICENSE-examples file in the root directory of this source tree.
- */
 
 exports.default = VehicleType;
-module.exports = exports['default'];
 
-},{"../commonFields":176,"../connections":177,"../relayNode":179,"./film":180,"./person":181,"graphql":98,"graphql-relay":84}]},{},[174])(174)
+},{"../apiHelper":177,"../commonFields":178,"../connections":179,"../relayNode":181,"./film":182,"./person":183,"graphql":98,"graphql-relay":84}]},{},[176])(176)
 });
