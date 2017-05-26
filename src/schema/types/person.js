@@ -14,9 +14,7 @@ import {
   GraphQLString,
 } from 'graphql';
 
-import {
-  globalIdField
-} from 'graphql-relay';
+import { globalIdField } from 'graphql-relay';
 
 import { nodeInterface } from '../relayNode';
 import { createdField, editedField } from '../commonFields';
@@ -34,73 +32,58 @@ import VehicleType from './vehicle';
  */
 const PersonType = new GraphQLObjectType({
   name: 'Person',
-  description:
-'An individual person or character within the Star Wars universe.',
+  description: 'An individual person or character within the Star Wars universe.',
   fields: () => ({
     name: {
       type: GraphQLString,
-      description:
-'The name of this person.'
+      description: 'The name of this person.',
     },
     birthYear: {
       type: GraphQLString,
       resolve: person => person.birth_year,
-      description:
-`The birth year of the person, using the in-universe standard of BBY or ABY -
+      description: `The birth year of the person, using the in-universe standard of BBY or ABY -
 Before the Battle of Yavin or After the Battle of Yavin. The Battle of Yavin is
-a battle that occurs at the end of Star Wars episode IV: A New Hope.`
+a battle that occurs at the end of Star Wars episode IV: A New Hope.`,
     },
     eyeColor: {
       type: GraphQLString,
       resolve: person => person.eye_color,
-      description:
-`The eye color of this person. Will be "unknown" if not known or "n/a" if the
-person does not have an eye.`
+      description: `The eye color of this person. Will be "unknown" if not known or "n/a" if the
+person does not have an eye.`,
     },
     gender: {
       type: GraphQLString,
-      description:
-`The gender of this person. Either "Male", "Female" or "unknown",
-"n/a" if the person does not have a gender.`
+      description: `The gender of this person. Either "Male", "Female" or "unknown",
+"n/a" if the person does not have a gender.`,
     },
     hairColor: {
       type: GraphQLString,
       resolve: person => person.hair_color,
-      description:
-`The hair color of this person. Will be "unknown" if not known or "n/a" if the
-person does not have hair.`
+      description: `The hair color of this person. Will be "unknown" if not known or "n/a" if the
+person does not have hair.`,
     },
     height: {
       type: GraphQLInt,
       resolve: person => convertToNumber(person.height),
-      description:
-'The height of the person in centimeters.'
+      description: 'The height of the person in centimeters.',
     },
     mass: {
       type: GraphQLFloat,
       resolve: person => convertToNumber(person.mass),
-      description:
-'The mass of the person in kilograms.'
+      description: 'The mass of the person in kilograms.',
     },
     skinColor: {
       type: GraphQLString,
       resolve: person => person.skin_color,
-      description:
-'The skin color of this person.'
+      description: 'The skin color of this person.',
     },
     homeworld: {
       type: PlanetType,
-      resolve: person => person.homeworld ?
-        getObjectFromUrl(person.homeworld) :
-        null,
-      description:
-'A planet that this person was born on or inhabits.'
+      resolve: person =>
+        person.homeworld ? getObjectFromUrl(person.homeworld) : null,
+      description: 'A planet that this person was born on or inhabits.',
     },
-    filmConnection: connectionFromUrls(
-      'PersonFilms',
-      'films',
-      FilmType
-    ),
+    filmConnection: connectionFromUrls('PersonFilms', 'films', FilmType),
     species: {
       type: SpeciesType,
       resolve: person => {
@@ -109,24 +92,23 @@ person does not have hair.`
         }
         return getObjectFromUrl(person.species[0]);
       },
-      description:
-'The species that this person belongs to, or null if unknown.'
+      description: 'The species that this person belongs to, or null if unknown.',
     },
     starshipConnection: connectionFromUrls(
       'PersonStarships',
       'starships',
-      StarshipType
+      StarshipType,
     ),
     vehicleConnection: connectionFromUrls(
       'PersonVehicles',
       'vehicles',
-      VehicleType
+      VehicleType,
     ),
     created: createdField(),
     edited: editedField(),
-    id: globalIdField('people')
+    id: globalIdField('people'),
   }),
-  interfaces: () => [ nodeInterface ],
+  interfaces: () => [nodeInterface],
 });
 
 export default PersonType;
