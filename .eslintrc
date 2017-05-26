@@ -243,7 +243,6 @@
     "valid-jsdoc": 0,
     "valid-typeof": 2,
     "vars-on-top": 0,
-    "wrap-iife": 1,
     "wrap-regex": 0,
     "yoda": [2, "never", {"exceptRange": true}]
   }
