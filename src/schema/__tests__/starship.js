@@ -139,7 +139,8 @@ describe('Starship type', async () => {
 
   describe('Edge cases', () => {
     it('Returns real speed when set to not n/a', async () => {
-      const query = '{ starship(starshipID: 5) { name, maxAtmospheringSpeed } }';
+      const query =
+        '{ starship(starshipID: 5) { name, maxAtmospheringSpeed } }';
       const result = await swapi(query);
       expect(result.data.starship.name).to.equal(
         'Sentinel-class landing craft',

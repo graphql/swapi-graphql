@@ -12,7 +12,8 @@ import DataLoader from 'dataloader';
 import { getFromLocalUrl } from '../api';
 
 const localUrlLoader = new DataLoader(urls =>
-  Promise.all(urls.map(getFromLocalUrl)));
+  Promise.all(urls.map(getFromLocalUrl)),
+);
 
 /**
  * Objects returned from SWAPI don't have an ID field, so add one.

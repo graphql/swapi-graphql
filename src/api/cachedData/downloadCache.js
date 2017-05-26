@@ -240,10 +240,12 @@ function populateReverseMaps(objects) {
  * The URL on github for the JSON fixture of this type.
  */
 function githubUrlForType(type) {
-  return 'https://raw.githubusercontent.com/phalt/swapi/master/' +
+  return (
+    'https://raw.githubusercontent.com/phalt/swapi/master/' +
     'resources/fixtures/' +
     type +
-    '.json';
+    '.json'
+  );
 }
 
 /**

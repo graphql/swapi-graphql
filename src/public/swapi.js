@@ -41,7 +41,7 @@
     // IE-compatible asynchronous loading.
     const script = document.createElement('script');
     let loaded = false;
-    script.onload = (script.onreadystatechange = function() {
+    script.onload = script.onreadystatechange = function() {
       if (!loaded) {
         if (
           !this.readyState ||
@@ -52,7 +52,7 @@
           done(path, script);
         }
       }
-    });
+    };
 
     if (path.indexOf('/') === 0) {
       script.src = PROTOCOL + path;
@@ -96,7 +96,8 @@
       ...parameters,
       ...newParameters,
     };
-    const queryString = '?' +
+    const queryString =
+      '?' +
       Object.keys(parameters)
         .map(
           key =>

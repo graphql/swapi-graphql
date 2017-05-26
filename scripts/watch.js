@@ -102,7 +102,9 @@ function checkFiles(filepaths) {
       lintFiles(filepaths).then(lintSuccess =>
         typecheckStatus().then(
           typecheckSuccess => testSuccess && lintSuccess && typecheckSuccess,
-        )))
+        ),
+      ),
+    )
     .catch(() => false)
     .then(success => {
       process.stdout.write(
