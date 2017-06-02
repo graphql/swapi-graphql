@@ -30,7 +30,8 @@ import PersonType from './person';
  */
 const VehicleType = new GraphQLObjectType({
   name: 'Vehicle',
-  description: 'A single transport craft that does not have hyperdrive capability',
+  description:
+    'A single transport craft that does not have hyperdrive capability',
   fields: () => ({
     name: {
       type: GraphQLString,
@@ -45,7 +46,8 @@ Transport".`,
     vehicleClass: {
       type: GraphQLString,
       resolve: vehicle => vehicle.vehicle_class,
-      description: 'The class of this vehicle, such as "Wheeled" or "Repulsorcraft".',
+      description:
+        'The class of this vehicle, such as "Wheeled" or "Repulsorcraft".',
     },
     manufacturers: {
       type: new GraphQLList(GraphQLString),
@@ -66,11 +68,13 @@ Transport".`,
     },
     crew: {
       type: GraphQLString,
-      description: 'The number of personnel needed to run or pilot this vehicle.',
+      description:
+        'The number of personnel needed to run or pilot this vehicle.',
     },
     passengers: {
       type: GraphQLString,
-      description: 'The number of non-essential people this vehicle can transport.',
+      description:
+        'The number of non-essential people this vehicle can transport.',
     },
     maxAtmospheringSpeed: {
       type: GraphQLInt,
@@ -80,7 +84,8 @@ Transport".`,
     cargoCapacity: {
       type: GraphQLInt,
       resolve: ship => convertToNumber(ship.cargo_capacity),
-      description: 'The maximum number of kilograms that this vehicle can transport.',
+      description:
+        'The maximum number of kilograms that this vehicle can transport.',
     },
     consumables: {
       type: GraphQLString,

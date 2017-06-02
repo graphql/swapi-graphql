@@ -62,7 +62,8 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`,
     population: {
       type: GraphQLFloat,
       resolve: planet => convertToNumber(planet.population),
-      description: 'The average population of sentient beings inhabiting this planet.',
+      description:
+        'The average population of sentient beings inhabiting this planet.',
     },
     climates: {
       type: new GraphQLList(GraphQLString),

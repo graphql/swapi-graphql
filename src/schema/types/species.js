@@ -39,7 +39,8 @@ const SpeciesType = new GraphQLObjectType({
     },
     classification: {
       type: GraphQLString,
-      description: 'The classification of this species, such as "mammal" or "reptile".',
+      description:
+        'The classification of this species, such as "mammal" or "reptile".',
     },
     designation: {
       type: GraphQLString,
@@ -53,7 +54,8 @@ const SpeciesType = new GraphQLObjectType({
     averageLifespan: {
       type: GraphQLInt,
       resolve: species => convertToNumber(species.average_lifespan),
-      description: 'The average lifespan of this species in years, null if unknown.',
+      description:
+        'The average lifespan of this species in years, null if unknown.',
     },
     eyeColors: {
       type: new GraphQLList(GraphQLString),

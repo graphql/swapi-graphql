@@ -34,7 +34,8 @@ const StarshipType = new GraphQLObjectType({
   fields: () => ({
     name: {
       type: GraphQLString,
-      description: 'The name of this starship. The common name, such as "Death Star".',
+      description:
+        'The name of this starship. The common name, such as "Death Star".',
     },
     model: {
       type: GraphQLString,
@@ -66,11 +67,13 @@ Battlestation"`,
     },
     crew: {
       type: GraphQLString,
-      description: 'The number of personnel needed to run or pilot this starship.',
+      description:
+        'The number of personnel needed to run or pilot this starship.',
     },
     passengers: {
       type: GraphQLString,
-      description: 'The number of non-essential people this starship can transport.',
+      description:
+        'The number of non-essential people this starship can transport.',
     },
     maxAtmospheringSpeed: {
       type: GraphQLInt,
@@ -95,7 +98,8 @@ distance between our Sun (Sol) and Earth.`,
     cargoCapacity: {
       type: GraphQLFloat,
       resolve: ship => convertToNumber(ship.cargo_capacity),
-      description: 'The maximum number of kilograms that this starship can transport.',
+      description:
+        'The maximum number of kilograms that this starship can transport.',
     },
     consumables: {
       type: GraphQLString,

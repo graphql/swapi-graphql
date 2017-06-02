@@ -49,7 +49,8 @@ describe('Vehicle type', async () => {
   it('Gets an object by global ID', async () => {
     const query = '{ vehicle(vehicleID: 4) { id, name } }';
     const result = await swapi(query);
-    const nextQuery = `{ vehicle(id: "${result.data.vehicle.id}") { id, name } }`;
+    const nextQuery = `{ vehicle(id: "${result.data.vehicle
+      .id}") { id, name } }`;
     const nextResult = await swapi(nextQuery);
     expect(result.data.vehicle.name).to.equal('Sand Crawler');
     expect(nextResult.data.vehicle.name).to.equal('Sand Crawler');
