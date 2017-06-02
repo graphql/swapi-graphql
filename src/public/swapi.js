@@ -141,9 +141,8 @@
     styles.forEach(loadStyles);
 
     const scripts = {
-      graphiql: '//cdn.jsdelivr.net/graphiql/' +
-        GRAPHIQL_VERSION +
-        '/graphiql.min.js',
+      graphiql:
+        '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.min.js',
       react: '//cdn.jsdelivr.net/react/15.3.2/react.min.js',
       'react-dom': '//cdn.jsdelivr.net/react/15.3.2/react-dom.min.js',
     };

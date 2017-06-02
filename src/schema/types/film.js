@@ -61,7 +61,8 @@ const FilmType = new GraphQLObjectType({
     releaseDate: {
       type: GraphQLString,
       resolve: film => film.release_date,
-      description: 'The ISO 8601 date format of film release at original creator country.',
+      description:
+        'The ISO 8601 date format of film release at original creator country.',
     },
     speciesConnection: connectionFromUrls(
       'FilmSpecies',

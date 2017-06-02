@@ -32,7 +32,8 @@ import VehicleType from './vehicle';
  */
 const PersonType = new GraphQLObjectType({
   name: 'Person',
-  description: 'An individual person or character within the Star Wars universe.',
+  description:
+    'An individual person or character within the Star Wars universe.',
   fields: () => ({
     name: {
       type: GraphQLString,
@@ -92,7 +93,8 @@ person does not have hair.`,
         }
         return getObjectFromUrl(person.species[0]);
       },
-      description: 'The species that this person belongs to, or null if unknown.',
+      description:
+        'The species that this person belongs to, or null if unknown.',
     },
     starshipConnection: connectionFromUrls(
       'PersonStarships',

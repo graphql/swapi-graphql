@@ -51,7 +51,9 @@ describe('Starship type', async () => {
   it('Gets an object by global ID', async () => {
     const query = '{ starship(starshipID: 5) { id, name } }';
     const result = await swapi(query);
-    const nextQuery = `{ starship(id: "${result.data.starship.id}") { id, name } }`;
+    const nextQuery = `
+      { starship(id: "${result.data.starship.id}") { id, name } }
+    `;
     const nextResult = await swapi(nextQuery);
     expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
     expect(nextResult.data.starship.name).to.equal(

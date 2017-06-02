@@ -48,7 +48,9 @@ describe('Species type', async () => {
   it('Gets an object by global ID', async () => {
     const query = '{ species(speciesID: 4) { id, name } }';
     const result = await swapi(query);
-    const nextQuery = `{ species(id: "${result.data.species.id}") { id, name } }`;
+    const nextQuery = `
+      { species(id: "${result.data.species.id}") { id, name } }
+    `;
     const nextResult = await swapi(nextQuery);
     expect(result.data.species.name).to.equal('Rodian');
     expect(nextResult.data.species.name).to.equal('Rodian');
