@@ -71,7 +71,7 @@
     "babelify": "^7.3.0",
     "browserify": "^14.3.0",
     "browserify-shim": "^3.8.10",
-    "chai": "^3.0.0",
+    "chai": "^4.0.2",
     "chai-subset": "^1.0.1",
     "coveralls": "^2.11.2",
     "eslint": "^3.9.1",
