@@ -56,7 +56,7 @@
     "express-graphql": "^0.6.6",
     "graphql": "0.10.0",
     "graphql-relay": "0.5.1",
-    "react": "15.5.4"
+    "react": "15.6.0"
   },
   "devDependencies": {
     "babel-cli": "6.24.1",
