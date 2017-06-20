@@ -1219,6 +1219,14 @@ create-hmac@^1.1.0, create-hmac@^1.1.2, create-hmac@^1.1.4:
     safe-buffer "^5.0.1"
     sha.js "^2.4.8"
 
+create-react-class@^15.6.0:
+  version "15.6.0"
+  resolved "https://registry.yarnpkg.com/create-react-class/-/create-react-class-15.6.0.tgz#ab448497c26566e1e29413e883207d57cfe7bed4"
+  dependencies:
+    fbjs "^0.8.9"
+    loose-envify "^1.3.1"
+    object-assign "^4.1.1"
+
 cryptiles@2.x.x:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/cryptiles/-/cryptiles-2.0.5.tgz#3bdfecdc608147c1c67202fa291e7dca59eaa3b8"
@@ -1806,9 +1814,9 @@ flat-cache@^1.2.1:
     graceful-fs "^4.1.2"
     write "^0.2.1"
 
-flow-bin@^0.47.0:
-  version "0.47.0"
-  resolved "https://registry.yarnpkg.com/flow-bin/-/flow-bin-0.47.0.tgz#a2a08ab3e0d1f1cb57d17e27b30b118b62fda367"
+flow-bin@^0.48.0:
+  version "0.48.0"
+  resolved "https://registry.yarnpkg.com/flow-bin/-/flow-bin-0.48.0.tgz#72d075143524358db8901525e3c784dc13a7c7ee"
 
 for-in@^1.0.1:
   version "1.0.2"
@@ -1989,9 +1997,9 @@ graphql-relay@0.5.1:
   version "0.5.1"
   resolved "https://registry.yarnpkg.com/graphql-relay/-/graphql-relay-0.5.1.tgz#3b3e44430a24c0f636e713f43f65bd542fe02ac9"
 
-graphql@0.10.0:
-  version "0.10.0"
-  resolved "https://registry.yarnpkg.com/graphql/-/graphql-0.10.0.tgz#29e4f83d85e79245f8496f40a2232e6e5c5baaee"
+graphql@0.10.3:
+  version "0.10.3"
+  resolved "https://registry.yarnpkg.com/graphql/-/graphql-0.10.3.tgz#c313afd5518e673351bee18fb63e2a0e487407ab"
   dependencies:
     iterall "^1.1.0"
 
@@ -2812,7 +2820,7 @@ oauth-sign@~0.8.1:
   version "0.8.2"
   resolved "https://registry.yarnpkg.com/oauth-sign/-/oauth-sign-0.8.2.tgz#46a6ab7f0aead8deae9ec0565780b7d4efeb9d43"
 
-object-assign@^4.0.0, object-assign@^4.0.1, object-assign@^4.1.0:
+object-assign@^4.0.0, object-assign@^4.0.1, object-assign@^4.1.0, object-assign@^4.1.1:
   version "4.1.1"
   resolved "https://registry.yarnpkg.com/object-assign/-/object-assign-4.1.1.tgz#2109adc7965887cfc05cbbd442cac8bfbb360863"
 
@@ -3019,7 +3027,7 @@ promise@^7.1.1:
   dependencies:
     asap "~2.0.3"
 
-prop-types@^15.5.7:
+prop-types@^15.5.10:
   version "15.5.10"
   resolved "https://registry.yarnpkg.com/prop-types/-/prop-types-15.5.10.tgz#2797dfc3126182e3a95e3dfbb2e893ddd7456154"
   dependencies:
@@ -3103,14 +3111,15 @@ rc@^1.1.7:
     minimist "^1.2.0"
     strip-json-comments "~2.0.1"
 
-react@15.5.4:
-  version "15.5.4"
-  resolved "https://registry.yarnpkg.com/react/-/react-15.5.4.tgz#fa83eb01506ab237cdc1c8c3b1cea8de012bf047"
+react@15.6.1:
+  version "15.6.1"
+  resolved "https://registry.yarnpkg.com/react/-/react-15.6.1.tgz#baa8434ec6780bde997cdc380b79cd33b96393df"
   dependencies:
+    create-react-class "^15.6.0"
     fbjs "^0.8.9"
     loose-envify "^1.1.0"
     object-assign "^4.1.0"
-    prop-types "^15.5.7"
+    prop-types "^15.5.10"
 
 read-only-stream@^2.0.0:
   version "2.0.0"
