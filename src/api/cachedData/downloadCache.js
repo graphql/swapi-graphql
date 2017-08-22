@@ -191,6 +191,21 @@ function getObjectsFromFixtures(fixtures) {
   return fixtures.reduce(augmentWithTransport, objectsByType);
 }
 
+/**
+ * Adds `objectId` to the `field` array on the `target` object.
+ */
+function addIdToField(target, objectId, field) {
+  const id = parseInt(objectId, 10);
+  if (target) {
+    if (!target[field]) {
+      target[field] = [];
+    }
+    if (target[field].indexOf(id) === -1) {
+      target[field].push(id);
+    }
+  }
+}
+
 function addReverseData(objects, type, objectId, object) {
   const keys = Object.keys(object);
   keys.forEach(function(key) {
@@ -199,23 +214,19 @@ function addReverseData(objects, type, objectId, object) {
       const foreignFieldName = fieldTypes[key].name || urlTypes[type];
       if (Array.isArray(object[key])) {
         object[key].forEach(function(foreignId) {
-          if (objects[foreignType][foreignId]) {
-            if (!objects[foreignType][foreignId][foreignFieldName]) {
-              objects[foreignType][foreignId][foreignFieldName] = [];
-            }
-            objects[foreignType][foreignId][foreignFieldName].push(
-              parseInt(objectId, 10),
-            );
-          }
+          addIdToField(
+            objects[foreignType][foreignId],
+            objectId,
+            foreignFieldName,
+          );
         });
       } else {
         const foreignId = object[key];
         if (foreignId) {
-          if (!objects[foreignType][foreignId][foreignFieldName]) {
-            objects[foreignType][foreignId][foreignFieldName] = [];
-          }
-          objects[foreignType][foreignId][foreignFieldName].push(
-            parseInt(objectId, 10),
+          addIdToField(
+            objects[foreignType][foreignId],
+            objectId,
+            foreignFieldName,
           );
         }
       }
