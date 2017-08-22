@@ -1408,7 +1408,6 @@ function _interopRequireDefault(obj) {
 
 (function () {
   'use strict';
-
   /* global GraphiQL: true */
   /* global React: true */
   /* global ReactDOM: true */
