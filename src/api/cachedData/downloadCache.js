@@ -195,7 +195,7 @@ function getObjectsFromFixtures(fixtures) {
  * Adds `objectId` to the `field` array on the `target` object.
  */
 function addIdToField(target, objectId, field) {
-  const id = parseInt(objectId);
+  const id = parseInt(objectId, 10);
   if (target) {
     if (!target[field]) {
       target[field] = [];
