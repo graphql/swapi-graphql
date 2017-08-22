@@ -200,7 +200,7 @@ function addIdToField(target, objectId, field) {
     if (!target[field]) {
       target[field] = [];
     }
-    if (target[field].indexOf(id) !== -1) {
+    if (target[field].indexOf(id) === -1) {
       target[field].push(id);
     }
   }
