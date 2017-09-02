@@ -109,12 +109,15 @@
 
   function extractURLParameters() {
     const extractedParameters = {};
-    window.location.search.slice(1).split('&').forEach(pair => {
-      const [key, value] = pair.split('=');
-      if (key && LEGAL_PARAMETER_NAMES.indexOf(key) !== -1) {
-        extractedParameters[key] = decodeURIComponent(value);
-      }
-    });
+    window.location.search
+      .slice(1)
+      .split('&')
+      .forEach(pair => {
+        const [key, value] = pair.split('=');
+        if (key && LEGAL_PARAMETER_NAMES.indexOf(key) !== -1) {
+          extractedParameters[key] = decodeURIComponent(value);
+        }
+      });
     return extractedParameters;
   }
 
