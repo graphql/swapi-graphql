@@ -27,8 +27,7 @@ function objectWithId(obj: Object): Object {
  * Given an object URL, fetch it, append the ID to it, and return it.
  */
 export async function getObjectFromUrl(url: string): Promise<Object> {
-  const dataString = await localUrlLoader.load(url);
-  const data = JSON.parse(dataString);
+  const data = await localUrlLoader.load(url);
   return objectWithId(data);
 }
 
@@ -72,10 +71,9 @@ export async function getObjectsByType(
     /* eslint-disable no-await-in-loop */
     const pageData = await localUrlLoader.load(nextUrl);
     /* eslint-enable no-await-in-loop */
-    const parsedPageData = JSON.parse(pageData);
-    totalCount = parsedPageData.count;
-    objects = objects.concat(parsedPageData.results.map(objectWithId));
-    nextUrl = parsedPageData.next;
+    totalCount = pageData.count;
+    objects = objects.concat(pageData.results.map(objectWithId));
+    nextUrl = pageData.next;
   }
   return { objects, totalCount };
 }
