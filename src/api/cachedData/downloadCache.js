@@ -7,7 +7,7 @@ const fetch = require('isomorphic-fetch');
 /**
  * The API prefix
  */
-const prefix = 'http://swapi.co/api/';
+const prefix = 'https://swapi.co/api/';
 
 /**
  * A map from field names to the SWAPI type we should map the IDs to.
