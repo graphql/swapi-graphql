@@ -19,9 +19,7 @@ describe('Local API Wrapper', () => {
   });
 
   it('Gets pages', async () => {
-    const firstPeople = await getFromLocalUrl(
-      'https://swapi.co/api/people/?page=1',
-    );
+    const firstPeople = await getFromLocalUrl('https://swapi.co/api/people/');
     expect(firstPeople.results.length).to.equal(10);
     expect(firstPeople.results[0].name).to.equal('Luke Skywalker');
     const secondPeople = await getFromLocalUrl(

@@ -93,7 +93,7 @@ describe('Starship type', async () => {
       cargoCapacity: 1000000000000,
       consumables: '3 years',
       costInCredits: 1000000000000,
-      crew: '342,953',
+      crew: '342953',
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       hyperdriveRating: 4,
       length: 120000,
@@ -104,7 +104,7 @@ describe('Starship type', async () => {
       maxAtmospheringSpeed: null,
       model: 'DS-1 Orbital Battle Station',
       name: 'Death Star',
-      passengers: '843,342',
+      passengers: '843342',
       pilotConnection: { edges: [] },
       starshipClass: 'Deep Space Mobile Battlestation',
     };
@@ -116,7 +116,7 @@ describe('Starship type', async () => {
       '{ allStarships { edges { cursor, node { ...AllStarshipProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allStarships.edges.length).to.equal(36);
+    expect(result.data.allStarships.edges.length).to.equal(37);
   });
 
   it('Pagination query', async () => {

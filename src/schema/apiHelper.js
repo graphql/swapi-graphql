@@ -19,7 +19,7 @@ const localUrlLoader = new DataLoader(urls =>
  * Objects returned from SWAPI don't have an ID field, so add one.
  */
 function objectWithId(obj: Object): Object {
-  obj.id = obj.url.split('/')[5];
+  obj.id = parseInt(obj.url.split('/')[5], 10);
   return obj;
 }
 
@@ -41,17 +41,6 @@ export async function getObjectFromTypeAndId(
   return await getObjectFromUrl(`https://swapi.co/api/${type}/${id}/`);
 }
 
-/**
- * Quick helper method, if the user just passes `first`, we can stop
- * fetching once we have that many items.
- */
-function doneFetching(objects: Array<Object>, args?: ?Object): boolean {
-  if (!args || args.after || args.before || args.last || !args.first) {
-    return false;
-  }
-  return objects.length >= args.first;
-}
-
 type ObjectsByType = {
   objects: Array<Object>,
   totalCount: number,
@@ -60,22 +49,26 @@ type ObjectsByType = {
 /**
  * Given a type, fetch all of the pages, and join the objects together
  */
-export async function getObjectsByType(
-  type: string,
-  args?: ?Object,
-): Promise<ObjectsByType> {
+export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let objects = [];
-  let totalCount = 0;
   let nextUrl = `https://swapi.co/api/${type}/`;
-  while (nextUrl && !doneFetching(objects, args)) {
-    /* eslint-disable no-await-in-loop */
+  while (nextUrl) {
+    // eslint-disable-next-line no-await-in-loop
     const pageData = await localUrlLoader.load(nextUrl);
-    /* eslint-enable no-await-in-loop */
-    totalCount = pageData.count;
     objects = objects.concat(pageData.results.map(objectWithId));
     nextUrl = pageData.next;
   }
-  return { objects, totalCount };
+  objects = sortObjectsById(objects);
+  return { objects, totalCount: objects.length };
+}
+
+export async function getObjectsFromUrls(urls: string[]): Promise<Object[]> {
+  const array = await Promise.all(urls.map(getObjectFromUrl));
+  return sortObjectsById(array);
+}
+
+function sortObjectsById(array: { id: number }[]): Object[] {
+  return array.sort((a, b) => a.id - b.id);
 }
 
 /**

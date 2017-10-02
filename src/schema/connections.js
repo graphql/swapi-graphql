@@ -13,7 +13,7 @@ import {
   connectionDefinitions,
 } from 'graphql-relay';
 
-import { getObjectFromUrl } from './apiHelper';
+import { getObjectsFromUrls } from './apiHelper';
 
 import { GraphQLInt, GraphQLList } from 'graphql';
 
@@ -32,7 +32,7 @@ export function connectionFromUrls(
   const { connectionType } = connectionDefinitions({
     name,
     nodeType: type,
-    resolveNode: edge => getObjectFromUrl(edge.node),
+    resolveNode: edge => edge.node,
     connectionFields: () => ({
       totalCount: {
         type: GraphQLInt,
@@ -44,7 +44,7 @@ for example.`,
       },
       [prop]: {
         type: new GraphQLList(type),
-        resolve: conn => conn.edges.map(edge => getObjectFromUrl(edge.node)),
+        resolve: conn => getObjectsFromUrls(conn.edges.map(edge => edge.node)),
         description: `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
@@ -57,8 +57,8 @@ full "{ edges { node } }" version should be used instead.`,
   return {
     type: connectionType,
     args: connectionArgs,
-    resolve: (obj, args) => {
-      const array = obj[prop] || [];
+    resolve: async (obj, args) => {
+      const array = await getObjectsFromUrls(obj[prop] || []);
       return {
         ...connectionFromArray(array, args),
         totalCount: array.length,
