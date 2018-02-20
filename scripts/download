@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# not used any more
+
 set -e
 
 if [ ! -s src/api/cachedData/cache.js ]; then
