@@ -19,7 +19,7 @@ const localUrlLoader = new DataLoader(urls =>
  * Objects returned from SWAPI don't have an ID field, so add one.
  */
 function objectWithId(obj: Object): Object {
-  obj.id = obj.url.split('/')[5];
+  obj.id = parseInt(obj.url.split('/')[5], 10);
   return obj;
 }
 
@@ -27,8 +27,7 @@ function objectWithId(obj: Object): Object {
  * Given an object URL, fetch it, append the ID to it, and return it.
  */
 export async function getObjectFromUrl(url: string): Promise<Object> {
-  const dataString = await localUrlLoader.load(url);
-  const data = JSON.parse(dataString);
+  const data = await localUrlLoader.load(url);
   return objectWithId(data);
 }
 
@@ -39,18 +38,7 @@ export async function getObjectFromTypeAndId(
   type: string,
   id: string,
 ): Promise<Object> {
-  return await getObjectFromUrl(`http://swapi.co/api/${type}/${id}/`);
-}
-
-/**
- * Quick helper method, if the user just passes `first`, we can stop
- * fetching once we have that many items.
- */
-function doneFetching(objects: Array<Object>, args?: ?Object): boolean {
-  if (!args || args.after || args.before || args.last || !args.first) {
-    return false;
-  }
-  return objects.length >= args.first;
+  return await getObjectFromUrl(`https://swapi.co/api/${type}/${id}/`);
 }
 
 type ObjectsByType = {
@@ -61,23 +49,26 @@ type ObjectsByType = {
 /**
  * Given a type, fetch all of the pages, and join the objects together
  */
-export async function getObjectsByType(
-  type: string,
-  args?: ?Object,
-): Promise<ObjectsByType> {
+export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let objects = [];
-  let totalCount = 0;
-  let nextUrl = `http://swapi.co/api/${type}/`;
-  while (nextUrl && !doneFetching(objects, args)) {
-    /* eslint-disable no-await-in-loop */
+  let nextUrl = `https://swapi.co/api/${type}/`;
+  while (nextUrl) {
+    // eslint-disable-next-line no-await-in-loop
     const pageData = await localUrlLoader.load(nextUrl);
-    /* eslint-enable no-await-in-loop */
-    const parsedPageData = JSON.parse(pageData);
-    totalCount = parsedPageData.count;
-    objects = objects.concat(parsedPageData.results.map(objectWithId));
-    nextUrl = parsedPageData.next;
+    objects = objects.concat(pageData.results.map(objectWithId));
+    nextUrl = pageData.next;
   }
-  return { objects, totalCount };
+  objects = sortObjectsById(objects);
+  return { objects, totalCount: objects.length };
+}
+
+export async function getObjectsFromUrls(urls: string[]): Promise<Object[]> {
+  const array = await Promise.all(urls.map(getObjectFromUrl));
+  return sortObjectsById(array);
+}
+
+function sortObjectsById(array: { id: number }[]): Object[] {
+  return array.sort((a, b) => a.id - b.id);
 }
 
 /**

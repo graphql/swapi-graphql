@@ -93,7 +93,7 @@ describe('Person type', async () => {
       skinColor: 'fair',
       homeworld: { name: 'Tatooine' },
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
-      species: null,
+      species: { name: 'Human' },
       starshipConnection: { edges: [{ node: { name: 'X-wing' } }] },
       vehicleConnection: { edges: [{ node: { name: 'Snowspeeder' } }] },
     };
@@ -105,7 +105,7 @@ describe('Person type', async () => {
       '{ allPeople { edges { cursor, node { ...AllPersonProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allPeople.edges.length).to.equal(82);
+    expect(result.data.allPeople.edges.length).to.equal(87);
   });
 
   it('Pagination query', async () => {

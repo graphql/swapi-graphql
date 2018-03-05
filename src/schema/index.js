@@ -94,7 +94,7 @@ full "{ edges { node } }" version should be used instead.`,
     type: connectionType,
     args: connectionArgs,
     resolve: async (_, args) => {
-      const { objects, totalCount } = await getObjectsByType(swapiType, args);
+      const { objects, totalCount } = await getObjectsByType(swapiType);
       return {
         ...connectionFromArray(objects, args),
         totalCount,

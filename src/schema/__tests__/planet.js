@@ -101,7 +101,7 @@ describe('Planet type', async () => {
       '{ allPlanets { edges { cursor, node { ...AllPlanetProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allPlanets.edges.length).to.equal(60);
+    expect(result.data.allPlanets.edges.length).to.equal(61);
   });
 
   it('Pagination query', async () => {
