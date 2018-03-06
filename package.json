@@ -43,8 +43,8 @@
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "build": "npm run download && npm run build-public",
     "download": "node scripts/download.js",
-    "build-public": "scripts/build-public",
-    "deploy": "scripts/build-public && scripts/deploy-public",
+    "build-public": "node scripts/build-public.js",
+    "deploy": "node scripts/build-public.js && scripts/deploy-public",
     "pretty": "node scripts/pretty.js",
     "pretty-check": "node scripts/pretty.js --check",
     "print-schema": "npm run download && babel-node scripts/print-schema.js"
