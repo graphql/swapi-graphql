@@ -20,7 +20,7 @@ import StarshipType from './starship';
 const MachineType = new GraphQLUnionType({
   name: 'Machine',
   types: [VehicleType, StarshipType],
-  resolveType(value) {
+  resolveType: value => {
     const swapiType = getSwapiTypeFromUrl(value.url);
 
     switch (swapiType) {

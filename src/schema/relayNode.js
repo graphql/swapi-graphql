@@ -9,14 +9,16 @@
 
 import { getObjectFromTypeAndId } from './apiHelper';
 
-import type { GraphQLObjectType } from 'graphql';
+import type { GraphQLObjectType, GraphQLUnionType } from 'graphql';
 
 import { nodeDefinitions, fromGlobalId } from 'graphql-relay';
 
 /**
  * Given a "type" in SWAPI, returns the corresponding GraphQL type.
  */
-export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
+export function swapiTypeToGraphQLType(
+  swapiType: string,
+): GraphQLObjectType | GraphQLUnionType {
   const FilmType = require('./types/film').default;
   const PersonType = require('./types/person').default;
   const PlanetType = require('./types/planet').default;
