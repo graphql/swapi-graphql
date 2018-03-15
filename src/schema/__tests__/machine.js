@@ -52,12 +52,13 @@ function getDocument(query) {
 }
 
 describe('Machine type', async () => {
-
   it('Gets an object by global ID', async () => {
     const query = '{ starship(starshipID: 5) { id, name } }';
     const result = await swapi(query);
     const nextQuery = `
-      { machine(id: "${result.data.starship.id}") { ... on Vehicle { id, name }, ... on Starship { id, name } } }
+      { machine(id: "${
+        result.data.starship.id
+      }") { ... on Vehicle { id, name }, ... on Starship { id, name } } }
     `;
     const nextResult = await swapi(nextQuery);
     expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
@@ -68,7 +69,6 @@ describe('Machine type', async () => {
   });
 
   it('Gets all properties', async () => {
-
     const query = '{ starship(starshipID: 5) { id, name } }';
     const idResult = await swapi(query);
 
@@ -94,10 +94,7 @@ describe('Machine type', async () => {
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       hyperdriveRating: 1,
       length: 38,
-      manufacturers: [
-        'Sienar Fleet Systems',
-        'Cyngus Spaceworks'
-      ],
+      manufacturers: ['Sienar Fleet Systems', 'Cyngus Spaceworks'],
       maxAtmospheringSpeed: 1000,
       model: 'Sentinel-class landing craft',
       name: 'Sentinel-class landing craft',
