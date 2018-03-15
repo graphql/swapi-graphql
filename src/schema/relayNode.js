@@ -61,9 +61,9 @@ export function graphQLTypeToSwapiType(graphQLType: GraphQLObjectType): string {
 
   if (graphQLType.name in typeMap) {
     return typeMap[graphQLType.name];
-  } else {
-    throw new Error('Unrecognized type `' + graphQLType.name + '`.');
   }
+
+  throw new Error('Unrecognized type `' + graphQLType.name + '`.');
 }
 
 const { nodeInterface, nodeField } = nodeDefinitions(
