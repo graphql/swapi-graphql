@@ -23,6 +23,7 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
   const SpeciesType = require('./types/species').default;
   const StarshipType = require('./types/starship').default;
   const VehicleType = require('./types/vehicle').default;
+  const MachineType = require('./types/machine').default;
 
   switch (swapiType) {
     case 'films':
@@ -37,6 +38,8 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
       return VehicleType;
     case 'species':
       return SpeciesType;
+    case 'machines':
+      return MachineType;
     default:
       throw new Error('Unrecognized type `' + swapiType + '`.');
   }

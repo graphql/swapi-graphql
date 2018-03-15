@@ -12,6 +12,7 @@ import {
   GraphQLInt,
   GraphQLList,
   GraphQLObjectType,
+  GraphQLUnionType,
   GraphQLSchema,
 } from 'graphql';
 
@@ -29,21 +30,23 @@ import { swapiTypeToGraphQLType, nodeField } from './relayNode';
 /**
  * Creates a root field to get an object of a given type.
  * Accepts either `id`, the globally unique ID used in GraphQL,
- * or `idName`, the per-type ID used in SWAPI.
+ * or `idName`, the per-type ID used in SWAPI (idName is only
+ * usable on non-union elements).
  */
 function rootFieldByID(idName, swapiType) {
-  const getter = id => getObjectFromTypeAndId(swapiType, id);
+  const type = swapiTypeToGraphQLType(swapiType);
   const argDefs = {};
   argDefs.id = { type: GraphQLID };
-  argDefs[idName] = { type: GraphQLID };
+  if (!(type instanceof GraphQLUnionType)) {
+    argDefs[idName] = { type: GraphQLID };
+  }
   return {
     type: swapiTypeToGraphQLType(swapiType),
     args: argDefs,
     resolve: (_, args) => {
-      if (args[idName] !== undefined && args[idName] !== null) {
-        return getter(args[idName]);
+      if (!(swapiType instanceof GraphQLUnionType) && args[idName] !== undefined && args[idName] !== null) {
+        return getObjectFromTypeAndId(swapiType, args[idName]);
       }
-
       if (args.id !== undefined && args.id !== null) {
         const globalId = fromGlobalId(args.id);
         if (
@@ -53,7 +56,7 @@ function rootFieldByID(idName, swapiType) {
         ) {
           throw new Error('No valid ID extracted from ' + args.id);
         }
-        return getter(globalId.id);
+        return getObjectFromTypeAndId(globalId.type, globalId.id);
       }
       throw new Error('must provide id or ' + idName);
     },
@@ -121,6 +124,7 @@ const rootType = new GraphQLObjectType({
     starship: rootFieldByID('starshipID', 'starships'),
     allVehicles: rootConnection('Vehicles', 'vehicles'),
     vehicle: rootFieldByID('vehicleID', 'vehicles'),
+    machine: rootFieldByID('machineID', 'machines'),
     node: nodeField,
   }),
 });

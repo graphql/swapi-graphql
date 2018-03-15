@@ -32,6 +32,14 @@ export async function getObjectFromUrl(url: string): Promise<Object> {
 }
 
 /**
+ * Given an object URL, return the Swapi type from it
+ * @param url
+ */
+export function getSwapiTypeFromUrl(url: string): string {
+  return url.split('/')[4];
+}
+
+/**
  * Given a type and ID, get the object with the ID.
  */
 export async function getObjectFromTypeAndId(
