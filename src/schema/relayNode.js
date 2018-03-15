@@ -50,13 +50,13 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
  */
 export function graphQLTypeToSwapiType(graphQLType: GraphQLObjectType): string {
   const typeMap = {
-    'Film': 'films',
-    'Person': 'people',
-    'Planet': 'planets',
-    'Starship': 'starships',
-    'Vehicle': 'vehicles',
-    'Species': 'species',
-    'Machine': 'machines',
+    Film: 'films',
+    Person: 'people',
+    Planet: 'planets',
+    Starship: 'starships',
+    Vehicle: 'vehicles',
+    Species: 'species',
+    Machine: 'machines',
   };
 
   if (graphQLType.name in typeMap) {
