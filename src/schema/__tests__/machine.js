@@ -56,9 +56,12 @@ describe('Machine type', async () => {
     const query = '{ starship(starshipID: 5) { id, name } }';
     const result = await swapi(query);
     const nextQuery = `
-      { machine(id: "${
-        result.data.starship.id
-      }") { ... on Vehicle { id, name }, ... on Starship { id, name } } }
+      { 
+        machine(id: "${result.data.starship.id}") { 
+          ... on Vehicle { id, name }, 
+          ... on Starship { id, name } 
+        }
+      }
     `;
     const nextResult = await swapi(nextQuery);
     expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
@@ -107,7 +110,17 @@ describe('Machine type', async () => {
 
   it('All objects query', async () => {
     const query = getDocument(
-      '{ allMachines { edges { cursor, node { ... on Starship { ...AllStarshipProperties }, ... on Vehicle { ...AllVehicleProperties } } } } }',
+      `{ 
+        allMachines { 
+          edges { 
+            cursor, 
+              node { 
+                ... on Starship { ...AllStarshipProperties }, 
+                ... on Vehicle { ...AllVehicleProperties } 
+              } 
+            } 
+          } 
+        }`,
     );
     const result = await swapi(query);
     expect(result.data.allMachines.edges.length).to.equal(76);
@@ -115,7 +128,15 @@ describe('Machine type', async () => {
 
   it('Pagination query', async () => {
     const query = `{
-      allMachines(first: 2) { edges { cursor, node { ... on Vehicle { name }, ... on Starship { name } } } }
+      allMachines(first: 2) {
+        edges {
+          cursor, 
+          node { 
+            ... on Vehicle { name }, 
+            ... on Starship { name } 
+          } 
+        } 
+      }
     }`;
     const result = await swapi(query);
     expect(result.data.allMachines.edges.map(e => e.node.name)).to.deep.equal([
