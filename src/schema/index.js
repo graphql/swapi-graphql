@@ -34,14 +34,14 @@ import { swapiTypeToGraphQLType, nodeField } from './relayNode';
  * usable on non-union elements).
  */
 function rootFieldByID(idName, swapiType) {
-  const type = swapiTypeToGraphQLType(swapiType);
+  const graphQLType = swapiTypeToGraphQLType(swapiType);
   const argDefs = {};
   argDefs.id = { type: GraphQLID };
-  if (!(type instanceof GraphQLUnionType)) {
+  if (!(graphQLType instanceof GraphQLUnionType)) {
     argDefs[idName] = { type: GraphQLID };
   }
   return {
-    type: swapiTypeToGraphQLType(swapiType),
+    type: graphQLType,
     args: argDefs,
     resolve: (_, args) => {
       if (!(swapiType instanceof GraphQLUnionType) && args[idName] !== undefined && args[idName] !== null) {
