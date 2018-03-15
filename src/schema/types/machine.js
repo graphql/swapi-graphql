@@ -7,9 +7,7 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import {
-  GraphQLUnionType
-} from 'graphql';
+import { GraphQLUnionType } from 'graphql';
 
 import { getSwapiTypeFromUrl } from '../apiHelper';
 
@@ -23,7 +21,6 @@ const MachineType = new GraphQLUnionType({
   name: 'Machine',
   types: [VehicleType, StarshipType],
   resolveType(value) {
-
     const swapiType = getSwapiTypeFromUrl(value.url);
 
     switch (swapiType) {
@@ -34,9 +31,8 @@ const MachineType = new GraphQLUnionType({
       default:
         throw new Error('Type `' + swapiType + '` not in Machine type.');
     }
-
   },
-  description: 'Union of Vehicle and Starship : every available machine'
+  description: 'Union of Vehicle and Starship : every available machine',
 });
 
 export default MachineType;

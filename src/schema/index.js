@@ -25,7 +25,11 @@ import {
 
 import { getObjectsByType, getObjectFromTypeAndId } from './apiHelper';
 
-import { swapiTypeToGraphQLType, graphQLTypeToSwapiType, nodeField } from './relayNode';
+import {
+  swapiTypeToGraphQLType,
+  graphQLTypeToSwapiType,
+  nodeField,
+} from './relayNode';
 
 /**
  * Creates a root field to get an object of a given type.
@@ -44,7 +48,11 @@ function rootFieldByID(idName, swapiType) {
     type: graphQLType,
     args: argDefs,
     resolve: (_, args) => {
-      if (!(swapiType instanceof GraphQLUnionType) && args[idName] !== undefined && args[idName] !== null) {
+      if (
+        !(swapiType instanceof GraphQLUnionType) &&
+        args[idName] !== undefined &&
+        args[idName] !== null
+      ) {
         return getObjectFromTypeAndId(swapiType, args[idName]);
       }
       if (args.id !== undefined && args.id !== null) {
@@ -103,7 +111,9 @@ full "{ edges { node } }" version should be used instead.`,
       if (graphQLType instanceof GraphQLUnionType) {
         for (const type of graphQLType.getTypes()) {
           // eslint-disable-next-line no-await-in-loop
-          const objectsByType = await getObjectsByType(graphQLTypeToSwapiType(type));
+          const objectsByType = await getObjectsByType(
+            graphQLTypeToSwapiType(type),
+          );
           objects = objects.concat(objectsByType.objects);
           totalCount += objectsByType.totalCount;
         }
