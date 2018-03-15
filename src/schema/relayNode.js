@@ -45,6 +45,27 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
   }
 }
 
+/**
+ * Given a GraphQL type, return the corresponding SWAPI type
+ */
+export function graphQLTypeToSwapiType(graphQLType: GraphQLObjectType): string {
+  const typeMap = {
+    'Film': 'films',
+    'Person': 'people',
+    'Planet': 'planets',
+    'Starship': 'starships',
+    'Vehicle': 'vehicles',
+    'Species': 'species',
+    'Machine': 'machines',
+  };
+
+  if (graphQLType.name in typeMap) {
+    return typeMap[graphQLType.name];
+  } else {
+    throw new Error('Unrecognized type `' + graphQLType.name + '`.');
+  }
+}
+
 const { nodeInterface, nodeField } = nodeDefinitions(
   globalId => {
     const { type, id } = fromGlobalId(globalId);

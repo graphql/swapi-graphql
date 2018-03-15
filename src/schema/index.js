@@ -25,7 +25,7 @@ import {
 
 import { getObjectsByType, getObjectFromTypeAndId } from './apiHelper';
 
-import { swapiTypeToGraphQLType, nodeField } from './relayNode';
+import { swapiTypeToGraphQLType, graphQLTypeToSwapiType, nodeField } from './relayNode';
 
 /**
  * Creates a root field to get an object of a given type.
@@ -97,7 +97,22 @@ full "{ edges { node } }" version should be used instead.`,
     type: connectionType,
     args: connectionArgs,
     resolve: async (_, args) => {
-      const { objects, totalCount } = await getObjectsByType(swapiType);
+      const graphQLType = swapiTypeToGraphQLType(swapiType);
+      let objects = [];
+      let totalCount = 0;
+      if (graphQLType instanceof GraphQLUnionType) {
+        for (const type of graphQLType.getTypes()) {
+          // eslint-disable-next-line no-await-in-loop
+          const objectsByType = await getObjectsByType(graphQLTypeToSwapiType(type));
+          objects = objects.concat(objectsByType.objects);
+          totalCount += objectsByType.totalCount;
+        }
+      } else {
+        const objectsByType = await getObjectsByType(swapiType);
+        objects = objects.concat(objectsByType.objects);
+        totalCount = objectsByType.totalCount;
+      }
+
       return {
         ...connectionFromArray(objects, args),
         totalCount,
@@ -125,6 +140,7 @@ const rootType = new GraphQLObjectType({
     allVehicles: rootConnection('Vehicles', 'vehicles'),
     vehicle: rootFieldByID('vehicleID', 'vehicles'),
     machine: rootFieldByID('machineID', 'machines'),
+    allMachines: rootConnection('Machines', 'machines'),
     node: nodeField,
   }),
 });
