@@ -1,6 +1,7 @@
 /* eslint-disable no-sync */
 
 import { URL } from 'url';
+import { existsSync, writeFileSync } from 'fs';
 import fetch from 'isomorphic-fetch';
 
 /**
@@ -46,11 +47,24 @@ async function cacheResource(resourseName) {
   } while (url !== null);
 }
 
-Promise.all(resources.map(cacheResource))
-  .then(() => {
-    console.log(JSON.stringify(cache, null, 2));
-  })
-  .catch(function(err) {
-    console.error(err);
-  });
+const outfile = process.argv[2];
+if (!outfile) {
+  console.error('Missing ouput file!');
+  process.exit(1);
+}
+
+if (!existsSync(outfile)) {
+  console.log('Downloading cache...');
+
+  Promise.all(resources.map(cacheResource))
+    .then(() => {
+      const data = JSON.stringify(cache, null, 2);
+      writeFileSync(outfile, data, 'utf-8');
+      console.log('Cached!');
+    })
+    .catch(function(err) {
+      console.error(err);
+      process.exit(1);
+    });
+}
 /* eslint-enable no-console */
