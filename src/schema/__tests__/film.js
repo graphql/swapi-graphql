@@ -120,8 +120,8 @@ describe('Film type', async () => {
       edges { cursor, node { title } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(
-      nextResult.data.allFilms.edges.map(e => e.node.title),
-    ).to.deep.equal(['Return of the Jedi', 'The Phantom Menace']);
+    expect(nextResult.data.allFilms.edges.map(e => e.node.title)).to.deep.equal(
+      ['Return of the Jedi', 'The Phantom Menace'],
+    );
   });
 });

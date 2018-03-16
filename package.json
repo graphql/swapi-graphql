@@ -32,7 +32,7 @@
     "react": "global:React"
   },
   "scripts": {
-    "test": "npm run lint && npm run pretty-check && npm run check && npm run testonly",
+    "test": "npm run lint && npm run check && npm run testonly",
     "start": "npm run download && babel-node src/server/main.js",
     "watch": "babel scripts/watch.js | node",
     "testonly": "mocha $npm_package_options_mocha",
@@ -45,8 +45,7 @@
     "download": "babel-node src/api/cachedData/downloadCache.js src/api/cachedData/cache.json",
     "build-public": "scripts/build-public",
     "deploy": "scripts/build-public && scripts/deploy-public",
-    "pretty": "node scripts/pretty.js",
-    "pretty-check": "node scripts/pretty.js --check",
+    "prettier": "prettier --write 'src/**/*.js'",
     "print-schema": "npm run download && babel-node scripts/print-schema.js"
   },
   "dependencies": {
@@ -75,12 +74,13 @@
     "coveralls": "^2.11.2",
     "eslint": "^4.6.0",
     "eslint-plugin-babel": "4.1.2",
+    "eslint-plugin-prettier": "^2.6.0",
     "eslint-plugin-react": "^7.3.0",
     "flow-bin": "^0.52.0",
     "isomorphic-fetch": "2.2.1",
     "isparta": "^4.0.0",
     "mocha": "^3.5.0",
-    "prettier": "^1.6.1",
+    "prettier": "^1.11.1",
     "sane": "^2.0.0"
   }
 }
