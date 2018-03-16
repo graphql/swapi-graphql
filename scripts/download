@@ -2,8 +2,8 @@
 
 set -e
 
-if [ ! -s src/api/cachedData/cache.js ]; then
+if [ ! -s src/api/cachedData/cache.json ]; then
   echo 'Downloading cache...'
-  babel-node src/api/cachedData/downloadCache.js > src/api/cachedData/cache.js
+  babel-node src/api/cachedData/downloadCache.js > src/api/cachedData/cache.json
   echo 'Cached!'
 fi
