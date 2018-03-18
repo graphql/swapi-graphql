@@ -17,7 +17,7 @@ import { getObjectsFromUrls } from './apiHelper';
 
 import { GraphQLInt, GraphQLList } from 'graphql';
 
-import type { GraphQLOutputType, GraphQLFieldConfig } from 'graphql';
+import type { GraphQLObjectType, GraphQLFieldConfig } from 'graphql';
 
 /**
  * Constructs a GraphQL connection field config; it is assumed
@@ -27,7 +27,7 @@ import type { GraphQLOutputType, GraphQLFieldConfig } from 'graphql';
 export function connectionFromUrls(
   name: string,
   prop: string,
-  type: GraphQLOutputType,
+  type: GraphQLObjectType,
 ): GraphQLFieldConfig<*, *> {
   const { connectionType } = connectionDefinitions({
     name,
