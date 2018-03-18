@@ -44,6 +44,7 @@
     "build": "npm run download && npm run build-public",
     "download": "babel-node src/api/cachedData/downloadCache.js src/api/cachedData/cache.json",
     "build-public": "scripts/build-public",
+    "serve-public": "babel-node scripts/serve-public",
     "deploy": "scripts/build-public && scripts/deploy-public",
     "prettier": "prettier --write 'src/**/*.js'",
     "print-schema": "npm run download && babel-node scripts/print-schema.js"
