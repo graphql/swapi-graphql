@@ -6,7 +6,7 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { GraphQLUnionType, GraphQLObjectType } from 'graphql';
+import { GraphQLUnionType } from 'graphql';
 import { GraphQLUnionTypeConfig } from 'graphql/type/definition';
 
 /**
