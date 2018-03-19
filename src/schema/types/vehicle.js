@@ -57,7 +57,7 @@ Transport".`,
       description: 'The manufacturers of this vehicle.',
     },
     costInCredits: {
-      type: GraphQLInt,
+      type: GraphQLFloat,
       resolve: vehicle => convertToNumber(vehicle.cost_in_credits),
       description: 'The cost of this vehicle new, in Galactic Credits.',
     },
@@ -82,7 +82,7 @@ Transport".`,
       description: 'The maximum speed of this vehicle in atmosphere.',
     },
     cargoCapacity: {
-      type: GraphQLInt,
+      type: GraphQLFloat,
       resolve: ship => convertToNumber(ship.cargo_capacity),
       description:
         'The maximum number of kilograms that this vehicle can transport.',
