@@ -7,19 +7,20 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { GraphQLUnionType } from 'graphql';
+import GraphQLFilteredUnionType from '../graphQLFilteredUnionType';
 
 import { getSwapiTypeFromUrl } from '../apiHelper';
 
 import VehicleType from './vehicle';
 import StarshipType from './starship';
+import PersonType from './person';
 
 /**
  * GraphQL equivalent of every "machine" in the SW univers (from SWAPI)
  */
-const MachineType = new GraphQLUnionType({
+const MachineType = new GraphQLFilteredUnionType({
   name: 'Machine',
-  types: [VehicleType, StarshipType],
+  types: [VehicleType, StarshipType, PersonType],
   resolveType: value => {
     const swapiType = getSwapiTypeFromUrl(value.url);
 
@@ -28,11 +29,22 @@ const MachineType = new GraphQLUnionType({
         return VehicleType;
       case 'starships':
         return StarshipType;
+      case 'people':
+        return PersonType;
       default:
         throw new Error('Type `' + swapiType + '` not in Machine type.');
     }
   },
-  description: 'Union of Vehicle and Starship : every available machine',
+  filter: (type, objects) => {
+    if (type.name === PersonType.name) {
+      // filter Person to return only droid (species ID : 2)
+      return objects.filter(person =>
+        person.species.includes('https://swapi.co/api/species/2/'),
+      );
+    }
+    return objects;
+  },
+  description: 'Union of Vehicle, Starship and Droid : every available machine',
 });
 
 export default MachineType;

@@ -48,6 +48,22 @@ function getDocument(query) {
       filmConnection(first:1) { edges { node { title } } }
       pilotConnection(first:1) { edges { node { name } } }
     }
+    
+    fragment AllPersonProperties on Person {
+      birthYear
+      eyeColor
+      gender
+      hairColor
+      height
+      homeworld { name }
+      mass
+      name
+      skinColor
+      species { name }
+      filmConnection(first:1) { edges { node { title } } }
+      starshipConnection(first:1) { edges { node { name } } }
+      vehicleConnection(first:1) { edges { node { name } } }
+    }
   `;
 }
 
@@ -59,7 +75,8 @@ describe('Machine type', async () => {
       { 
         machine(id: "${result.data.starship.id}") { 
           ... on Vehicle { id, name }, 
-          ... on Starship { id, name } 
+          ... on Starship { id, name },
+          ... on Person { id, name }
         }
       }
     `;
@@ -83,6 +100,9 @@ describe('Machine type', async () => {
         }
         ... on Vehicle {
           ...AllVehicleProperties
+        }
+        ... on Person {
+          ...AllPersonProperties
         }
       }
     }`,
@@ -116,14 +136,15 @@ describe('Machine type', async () => {
             cursor, 
               node { 
                 ... on Starship { ...AllStarshipProperties }, 
-                ... on Vehicle { ...AllVehicleProperties } 
+                ... on Vehicle { ...AllVehicleProperties },
+                ... on Person { ... AllPersonProperties }
               } 
             } 
           } 
         }`,
     );
     const result = await swapi(query);
-    expect(result.data.allMachines.edges.length).to.equal(76);
+    expect(result.data.allMachines.edges.length).to.equal(81);
   });
 
   it('Pagination query', async () => {
@@ -133,7 +154,8 @@ describe('Machine type', async () => {
           cursor, 
           node { 
             ... on Vehicle { name }, 
-            ... on Starship { name } 
+            ... on Starship { name },
+            ... on Person { name }
           } 
         } 
       }
@@ -146,7 +168,7 @@ describe('Machine type', async () => {
     const nextCursor = result.data.allMachines.edges[1].cursor;
 
     const nextQuery = `{ allMachines(first: 2, after:"${nextCursor}") {
-      edges { cursor, node { ... on Vehicle { name }, ... on Starship { name } } } }
+      edges { cursor, node { ... on Vehicle { name }, ... on Starship { name }, ... on Person { name } } } }
     }`;
     const nextResult = await swapi(nextQuery);
     expect(

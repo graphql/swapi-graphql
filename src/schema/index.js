@@ -30,6 +30,7 @@ import {
   graphQLTypeToSwapiType,
   nodeField,
 } from './relayNode';
+import GraphQLFilteredUnionType from './graphQLFilteredUnionType';
 
 /**
  * Creates a root field to get an object of a given type.
@@ -114,6 +115,13 @@ full "{ edges { node } }" version should be used instead.`,
           const objectsByType = await getObjectsByType(
             graphQLTypeToSwapiType(type),
           );
+          if (graphQLType instanceof GraphQLFilteredUnionType) {
+            objectsByType.objects = graphQLType.filter(
+              type,
+              objectsByType.objects,
+            );
+            objectsByType.totalCount = objectsByType.objects.length;
+          }
           objects = objects.concat(objectsByType.objects);
           totalCount += objectsByType.totalCount;
         }
