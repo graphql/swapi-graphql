@@ -4,6 +4,8 @@
  *
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
+ *
+ * @flow strict
  */
 
 export { getFromLocalUrl } from './local';
