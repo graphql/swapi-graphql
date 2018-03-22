@@ -14,6 +14,9 @@
     "type": "git",
     "url": "http://github.com/graphql/swapi-graphql.git"
   },
+  "engines": {
+    "node": ">=6.0.0"
+  },
   "options": {
     "mocha": "--require babel-register --require scripts/mocha-bootload src/**/__tests__/*.js"
   },
