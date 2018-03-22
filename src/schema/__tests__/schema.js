@@ -11,10 +11,6 @@ import { describe, it } from 'mocha';
 import swapiSchema from '../';
 import { graphql } from 'graphql';
 
-// 80+ char lines are useful in describe/it, so ignore in this file.
-// Some chai expects appear as unused expressions
-/* eslint-disable max-len, no-unused-expressions */
-
 describe('Schema', () => {
   it('Gets an error when ID is omitted', async () => {
     const query = '{ species { name } }';

@@ -22,9 +22,8 @@ export async function getFromLocalUrl(
     throw new Error(`No entry in local cache for ${url}`);
   }
   if (process.env.NODE_ENV !== 'test') {
-    /* eslint-disable no-console */
+    // eslint-disable-next-line no-console
     console.log(`Hit the local cache for ${url}.`);
-    /* eslint-enable no-console */
   }
   return text;
 }

@@ -10,9 +10,6 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
-// 80+ char lines are useful in describe/it, so ignore in this file.
-/* eslint-disable max-len */
-
 function getDocument(query) {
   return `${query}
     fragment AllVehicleProperties on Vehicle {
