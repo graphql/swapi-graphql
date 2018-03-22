@@ -13,7 +13,7 @@
   /* global ReactDOM: true */
   /* global Schema: true */
 
-  const GRAPHIQL_VERSION = '0.8.1';
+  const GRAPHIQL_VERSION = '0.11.11';
   const PROTOCOL = getProtocol();
   const LEGAL_PARAMETER_NAMES = ['query', 'variables', 'operationName'];
 
@@ -139,15 +139,15 @@
 
   function loadAssets(done) {
     const styles = [
-      '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.css',
+      '//cdn.jsdelivr.net/npm/graphiql@' + GRAPHIQL_VERSION + '/graphiql.css',
     ];
     styles.forEach(loadStyles);
 
     const scripts = {
       graphiql:
-        '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.min.js',
-      react: '//cdn.jsdelivr.net/react/15.3.2/react.min.js',
-      'react-dom': '//cdn.jsdelivr.net/react/15.3.2/react-dom.min.js',
+        '//cdn.jsdelivr.net/npm/graphiql@' + GRAPHIQL_VERSION + '/graphiql.min.js',
+      react: '//cdn.jsdelivr.net/react/15.4.2/react.min.js',
+      'react-dom': '//cdn.jsdelivr.net/react/15.4.2/react-dom.min.js',
     };
 
     function loaded(key) {
