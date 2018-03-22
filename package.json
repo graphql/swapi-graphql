@@ -35,9 +35,9 @@
     "react": "global:React"
   },
   "scripts": {
-    "prepare": "npm run download",
+    "prepare": "npm run download && npm run build",
     "test": "npm run lint && npm run check && npm run testonly",
-    "start": "babel-node src/server/main.js",
+    "start": "node lib/server/main.js",
     "watch": "babel scripts/watch.js | node",
     "testonly": "mocha $npm_package_options_mocha",
     "lint": "eslint src",
@@ -45,7 +45,7 @@
     "check": "flow check",
     "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-    "build": "npm run build-public",
+    "build": "babel src --optional runtime --ignore __tests__,public --out-dir lib/",
     "download": "babel-node scripts/download.js cache/data.json",
     "build-public": "scripts/build-public",
     "serve-public": "babel-node scripts/serve-public",

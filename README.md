@@ -33,6 +33,7 @@ npm test
 A local express server is in `./server`. It can be run with:
 
 ```sh
+npm run build # Only if you changed something
 npm start
 ```
 
