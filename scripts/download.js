@@ -4,11 +4,7 @@
  *
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
- *
- * @flow strict
  */
-
-/* eslint-disable no-sync */
 
 import { URL } from 'url';
 import { existsSync, writeFileSync } from 'fs';
@@ -41,12 +37,10 @@ function addToCache(url, result) {
   cache[normalizeUrl] = result;
 }
 
-/* eslint-disable no-console */
 async function cacheResource(resourseName) {
   let url = `https://swapi.co/api/${resourseName}/`;
   do {
     console.error(url);
-    // eslint-disable-next-line no-await-in-loop
     const response = await fetchFromUrl(url);
     addToCache(url, response);
     for (const obj of response.results || []) {
@@ -76,4 +70,3 @@ if (!existsSync(outfile)) {
       process.exit(1);
     });
 }
-/* eslint-enable no-console */

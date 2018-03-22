@@ -8,7 +8,7 @@
  * @flow strict
  */
 
-import swapiData from './cachedData/cache';
+import swapiData from '../../cache/data';
 
 /**
  * Given a URL of an object in the SWAPI, return the data

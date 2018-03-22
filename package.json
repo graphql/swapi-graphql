@@ -37,7 +37,7 @@
   "scripts": {
     "prepare": "npm run download",
     "test": "npm run lint && npm run check && npm run testonly",
-    "start": "npm run download && babel-node src/server/main.js",
+    "start": "babel-node src/server/main.js",
     "watch": "babel scripts/watch.js | node",
     "testonly": "mocha $npm_package_options_mocha",
     "lint": "eslint src",
@@ -45,13 +45,13 @@
     "check": "flow check",
     "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-    "build": "npm run download && npm run build-public",
-    "download": "babel-node src/api/cachedData/downloadCache.js src/api/cachedData/cache.json",
+    "build": "npm run build-public",
+    "download": "babel-node scripts/download.js cache/data.json",
     "build-public": "scripts/build-public",
     "serve-public": "babel-node scripts/serve-public",
     "deploy": "scripts/build-public && scripts/deploy-public",
     "prettier": "prettier --write 'src/**/*.js'",
-    "print-schema": "npm run download && babel-node scripts/print-schema.js"
+    "print-schema": "babel-node scripts/print-schema.js"
   },
   "dependencies": {
     "babel-runtime": "^6.26.0",
