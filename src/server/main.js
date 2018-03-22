@@ -8,11 +8,14 @@
  * @flow strict
  */
 
+import cors from 'cors';
 import express from 'express';
 import graphqlHTTP from 'express-graphql';
 import swapiSchema from '../schema';
 
 const app = express();
+
+app.use(cors());
 
 // Requests to /graphql redirect to /
 app.all('/graphql', (req, res) => res.redirect('/'));
