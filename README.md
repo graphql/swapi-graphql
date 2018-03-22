@@ -12,6 +12,8 @@ Uses:
 
 Try it out at: http://graphql.org/swapi-graphql
 
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+
 ## Getting Started
 
 Install dependencies with
