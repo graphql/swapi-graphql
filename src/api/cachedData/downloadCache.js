@@ -19,8 +19,7 @@ import fetch from 'isomorphic-fetch';
  */
 async function fetchFromUrl(url) {
   const fetched = await fetch(url);
-  const json = await fetched.text();
-  return JSON.parse(json);
+  return fetched.json();
 }
 
 /**
