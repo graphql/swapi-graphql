@@ -35,7 +35,7 @@
     "react": "global:React"
   },
   "scripts": {
-    "prepare": "npm run download && npm run build",
+    "postinstall": "npm run download && npm run build",
     "test": "npm run lint && npm run check && npm run testonly",
     "start": "node lib/server/main.js",
     "watch": "babel scripts/watch.js | node",
