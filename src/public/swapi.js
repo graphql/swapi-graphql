@@ -145,7 +145,9 @@
 
     const scripts = {
       graphiql:
-        '//cdn.jsdelivr.net/npm/graphiql@' + GRAPHIQL_VERSION + '/graphiql.min.js',
+        '//cdn.jsdelivr.net/npm/graphiql@' +
+        GRAPHIQL_VERSION +
+        '/graphiql.min.js',
       react: '//cdn.jsdelivr.net/react/15.4.2/react.min.js',
       'react-dom': '//cdn.jsdelivr.net/react/15.4.2/react-dom.min.js',
     };
