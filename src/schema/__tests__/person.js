@@ -1,6 +1,6 @@
 /**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) 2015-present, Facebook, Inc.
+ * All rights reserved.
  *
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
@@ -9,9 +9,6 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { swapi } from './swapi';
-
-// 80+ char lines are useful in describe/it, so ignore in this file.
-/* eslint-disable max-len */
 
 function getDocument(query) {
   return `${query}
@@ -123,9 +120,9 @@ describe('Person type', async () => {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(
-      nextResult.data.allPeople.edges.map(e => e.node.name),
-    ).to.deep.equal(['R2-D2', 'Darth Vader']);
+    expect(nextResult.data.allPeople.edges.map(e => e.node.name)).to.deep.equal(
+      ['R2-D2', 'Darth Vader'],
+    );
   });
 
   describe('Edge cases', () => {

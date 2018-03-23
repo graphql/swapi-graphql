@@ -12,6 +12,8 @@ Uses:
 
 Try it out at: http://graphql.org/swapi-graphql
 
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
+
 ## Getting Started
 
 Install dependencies with
@@ -33,6 +35,7 @@ npm test
 A local express server is in `./server`. It can be run with:
 
 ```sh
+npm run build # Only if you changed something
 npm start
 ```
 

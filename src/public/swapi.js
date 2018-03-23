@@ -1,6 +1,6 @@
 /**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) 2015-present, Facebook, Inc.
+ * All rights reserved.
  *
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
@@ -13,7 +13,7 @@
   /* global ReactDOM: true */
   /* global Schema: true */
 
-  const GRAPHIQL_VERSION = '0.8.1';
+  const GRAPHIQL_VERSION = '0.11.11';
   const PROTOCOL = getProtocol();
   const LEGAL_PARAMETER_NAMES = ['query', 'variables', 'operationName'];
 
@@ -139,15 +139,17 @@
 
   function loadAssets(done) {
     const styles = [
-      '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.css',
+      '//cdn.jsdelivr.net/npm/graphiql@' + GRAPHIQL_VERSION + '/graphiql.css',
     ];
     styles.forEach(loadStyles);
 
     const scripts = {
       graphiql:
-        '//cdn.jsdelivr.net/graphiql/' + GRAPHIQL_VERSION + '/graphiql.min.js',
-      react: '//cdn.jsdelivr.net/react/15.3.2/react.min.js',
-      'react-dom': '//cdn.jsdelivr.net/react/15.3.2/react-dom.min.js',
+        '//cdn.jsdelivr.net/npm/graphiql@' +
+        GRAPHIQL_VERSION +
+        '/graphiql.min.js',
+      react: '//cdn.jsdelivr.net/react/15.4.2/react.min.js',
+      'react-dom': '//cdn.jsdelivr.net/react/15.4.2/react-dom.min.js',
     };
 
     function loaded(key) {
