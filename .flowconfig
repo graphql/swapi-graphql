@@ -9,4 +9,3 @@
 [libs]
 
 [options]
-suppress_comment=.*\\$FlowIssue
