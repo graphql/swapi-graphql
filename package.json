@@ -47,10 +47,9 @@
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "build": "babel src --optional runtime --ignore __tests__,public --out-dir lib/",
     "download": "babel-node scripts/download.js cache/data.json",
-    "build-public": "scripts/build-public",
+    "build-public": "babel-node scripts/build-public.js",
+    "deploy": "node scripts/build-public.js && scripts/deploy-public",
     "serve-public": "babel-node scripts/serve-public",
-    "deploy": "scripts/build-public && scripts/deploy-public",
-    "prettier": "prettier --write 'src/**/*.js'",
     "print-schema": "babel-node scripts/print-schema.js"
   },
   "dependencies": {
@@ -59,6 +58,7 @@
     "dataloader": "1.4.0",
     "express": "^4.16.3",
     "express-graphql": "^0.6.12",
+    "fs-copy-file-sync": "^1.0.1",
     "graphql": "0.13.2",
     "graphql-relay": "0.5.4"
   },
