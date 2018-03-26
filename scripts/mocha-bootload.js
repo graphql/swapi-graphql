@@ -7,9 +7,4 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  */
 
-process.on('unhandledRejection', function(error) {
-  console.error('Unhandled Promise Rejection:');
-  console.error((error && error.stack) || error);
-});
-
 process.env.NODE_ENV = 'test';
