@@ -7,21 +7,10 @@
  */
 
 import { URL } from 'url';
+import { Agent } from 'https';
 import { existsSync, writeFileSync } from 'fs';
 import fetch from 'isomorphic-fetch';
 
-/**
- * Fetches and parses JSON from a URL
- */
-async function fetchFromUrl(url) {
-  const fetched = await fetch(url);
-  return fetched.json();
-}
-
-/**
- * Iterate through the resources, fetch from the URL, convert the results into
- * objects, then generate and print the cache.
- */
 const resources = [
   'people',
   'starships',
@@ -31,23 +20,36 @@ const resources = [
   'films',
 ];
 
-const cache = {};
-function addToCache(url, result) {
-  const normalizeUrl = new URL(url).toString();
-  cache[normalizeUrl] = result;
+function normalizeUrl(url) {
+  return new URL(url).toString();
 }
 
-async function cacheResource(resourseName) {
-  let url = `https://swapi.co/api/${resourseName}/`;
-  do {
-    console.error(url);
-    const response = await fetchFromUrl(url);
-    addToCache(url, response);
-    for (const obj of response.results || []) {
-      addToCache(obj.url, obj);
+/**
+ * Iterate through the resources, fetch from the URL, convert the results into
+ * objects, then generate and print the cache.
+ */
+async function cacheResources() {
+  const agent = new Agent({ keepAlive: true });
+  const cache = {};
+
+  for (const name of resources) {
+    let url = `https://swapi.co/api/${name}/`;
+
+    while (url != null) {
+      console.error(url);
+      const response = await fetch(url, { agent });
+      const data = await response.json();
+
+      cache[normalizeUrl(url)] = data;
+      for (const obj of data.results || []) {
+        cache[normalizeUrl(obj.url)] = obj;
+      }
+
+      url = data.next;
     }
-    url = response.next;
-  } while (url !== null);
+  }
+
+  return cache;
 }
 
 const outfile = process.argv[2];
@@ -59,8 +61,8 @@ if (!outfile) {
 if (!existsSync(outfile)) {
   console.log('Downloading cache...');
 
-  Promise.all(resources.map(cacheResource))
-    .then(() => {
+  cacheResources()
+    .then(cache => {
       const data = JSON.stringify(cache, null, 2);
       writeFileSync(outfile, data, 'utf-8');
       console.log('Cached!');
