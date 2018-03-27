@@ -13,8 +13,6 @@ mkdir -p lib/public
 
 cp src/public/*.{ico,html} lib/public/
 
-browserify -t babelify --outfile lib/public/swapi.js src/public/swapi.js
-
 browserify \
   --standalone Schema \
   -t babelify \
