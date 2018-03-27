@@ -7,7 +7,7 @@
  */
 
 import { graphql } from 'graphql';
-import schema from '../schema';
+import schema from './schema';
 
 export function execute(query, variables, operationName) {
   return graphql(schema, query, null, null, variables, operationName);

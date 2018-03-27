@@ -10,7 +10,7 @@
 import express from 'express';
 
 const app = express();
-app.use(express.static('./lib/public'))
+app.use(express.static('./public'))
 
 // Listen for incoming HTTP requests
 const listener = app.listen(() => {

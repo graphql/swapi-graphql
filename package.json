@@ -47,7 +47,7 @@
     "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "build": "babel src --optional runtime --ignore __tests__,public --out-dir lib/",
     "download": "babel-node scripts/download.js cache/data.json",
-    "build-public": "scripts/build-public",
+    "build-public": "browserify --standalone Schema -t babelify --outfile public/schema.js src/schema-proxy.js",
     "serve-public": "babel-node scripts/serve-public",
     "deploy": "scripts/build-public && scripts/deploy-public",
     "prettier": "prettier --write 'src/**/*.js'",
