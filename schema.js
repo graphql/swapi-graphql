@@ -35080,9 +35080,9 @@ function connectionFromUrls(name, prop, type) {
       }, prop, {
         type: new _graphql.GraphQLList(type),
         resolve: function resolve(conn) {
-          return (0, _apiHelper.getObjectsFromUrls)(conn.edges.map(function (edge) {
+          return conn.edges.map(function (edge) {
             return edge.node;
-          }));
+          });
         },
         description: 'A list of all of the objects returned in the connection. This is a convenience\nfield provided for quickly exploring the API; rather than querying for\n"{ edges { node } }" when no edge data is needed, this field can be be used\ninstead. Note that when clients like Relay need to fetch the "cursor" field on\nthe edge to enable efficient pagination, this shortcut cannot be used, and the\nfull "{ edges { node } }" version should be used instead.'
       });
