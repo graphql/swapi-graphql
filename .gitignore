@@ -1,5 +1,6 @@
 /lib
+/public/schema.js
 /node_modules
 /npm-debug.log
 /coverage
-/src/api/cachedData/cache.js
+/cache/data.json

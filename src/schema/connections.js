@@ -1,10 +1,11 @@
-/* @flow */
 /**
- *  Copyright (c) 2015, Facebook, Inc.
- *  All rights reserved.
+ * Copyright (c) 2015-present, Facebook, Inc.
+ * All rights reserved.
  *
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
+ *
+ * @flow strict
  */
 
 import {
@@ -17,7 +18,7 @@ import { getObjectsFromUrls } from './apiHelper';
 
 import { GraphQLInt, GraphQLList } from 'graphql';
 
-import type { GraphQLOutputType, GraphQLFieldConfig } from 'graphql';
+import type { GraphQLObjectType, GraphQLFieldConfig } from 'graphql';
 
 /**
  * Constructs a GraphQL connection field config; it is assumed
@@ -27,7 +28,7 @@ import type { GraphQLOutputType, GraphQLFieldConfig } from 'graphql';
 export function connectionFromUrls(
   name: string,
   prop: string,
-  type: GraphQLOutputType,
+  type: GraphQLObjectType,
 ): GraphQLFieldConfig<*, *> {
   const { connectionType } = connectionDefinitions({
     name,
@@ -44,7 +45,7 @@ for example.`,
       },
       [prop]: {
         type: new GraphQLList(type),
-        resolve: conn => getObjectsFromUrls(conn.edges.map(edge => edge.node)),
+        resolve: conn => conn.edges.map(edge => edge.node),
         description: `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used

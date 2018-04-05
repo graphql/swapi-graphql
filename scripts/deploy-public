@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2015, Facebook, Inc.
+# Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -21,14 +21,14 @@ PARENT=`git rev-parse gh-pages 2> /dev/null` || {
 }
 
 echo "Preparing index based on:"
-ls lib/public/*
-git update-index --add lib/public/*
+ls public/*
+git update-index --add public/*
 
-TREE=`git write-tree --prefix=lib/public`
+TREE=`git write-tree --prefix=public`
 echo "Wrote tree object: $TREE"
 
 echo "Reseting index to former state."
-git reset lib/public
+git reset public
 
 COMMIT=`git commit-tree $TREE -p $PARENT -m "Build gh-pages from $HEAD"`
 echo "Wrote commit object: $COMMIT"
