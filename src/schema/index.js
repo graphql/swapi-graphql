@@ -11,9 +11,11 @@
 import {
   GraphQLID,
   GraphQLInt,
+  GraphQLBoolean,
   GraphQLList,
   GraphQLObjectType,
   GraphQLSchema,
+  GraphQLNonNull,
 } from 'graphql';
 
 import {
@@ -26,6 +28,8 @@ import {
 import { getObjectsByType, getObjectFromTypeAndId } from './apiHelper';
 
 import { swapiTypeToGraphQLType, nodeField } from './relayNode';
+
+const favoritesByUserId = {};
 
 /**
  * Creates a root field to get an object of a given type.
@@ -104,6 +108,15 @@ full "{ edges { node } }" version should be used instead.`,
   };
 }
 
+const Favorites = new GraphQLObjectType({
+  name: 'Favorites',
+  fields: () => ({
+    films: {
+      type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(GraphQLID))),
+    },
+  }),
+});
+
 /**
  * The GraphQL type equivalent of the Root resource
  */
@@ -122,8 +135,74 @@ const rootType = new GraphQLObjectType({
     starship: rootFieldByID('starshipID', 'starships'),
     allVehicles: rootConnection('Vehicles', 'vehicles'),
     vehicle: rootFieldByID('vehicleID', 'vehicles'),
+    favorites: {
+      type: Favorites,
+      args: {
+        userId: {
+          type: new GraphQLNonNull(GraphQLID),
+        },
+      },
+      resolve: (_, { userId }) => ({
+        films: favoritesByUserId[userId] || [],
+      }),
+    },
     node: nodeField,
   }),
 });
 
-export default new GraphQLSchema({ query: rootType });
+const mutationType = new GraphQLObjectType({
+  name: 'Mutation',
+  fields: () => ({
+    addToFavorites: {
+      type: Favorites,
+      args: {
+        userId: {
+          type: new GraphQLNonNull(GraphQLID),
+        },
+        filmId: {
+          type: new GraphQLNonNull(GraphQLID),
+        },
+      },
+      resolve: (_, { userId, filmId }) => {
+        if (!favoritesByUserId[userId]) {
+          favoritesByUserId[userId] = [];
+        }
+
+        if (favoritesByUserId[userId].includes(filmId)) {
+          return { films: favoritesByUserId[userId] };
+        }
+
+        favoritesByUserId[userId].push(filmId);
+        return { films: favoritesByUserId[userId] };
+      },
+    },
+    removeFromFavorites: {
+      type: Favorites,
+      args: {
+        userId: {
+          type: new GraphQLNonNull(GraphQLID),
+        },
+        filmId: {
+          type: new GraphQLNonNull(GraphQLID),
+        },
+      },
+      resolve: (_, { userId, filmId }) => {
+        if (!favoritesByUserId[userId]) {
+          return { films: favoritesByUserId[userId] };
+        }
+
+        if (!favoritesByUserId[userId].includes(filmId)) {
+          return { films: favoritesByUserId[userId] };
+        }
+
+        favoritesByUserId[userId].splice(
+          favoritesByUserId[userId].indexOf(filmId),
+          1,
+        );
+        return { films: favoritesByUserId[userId] };
+      },
+    },
+  }),
+});
+
+export default new GraphQLSchema({ query: rootType, mutation: mutationType });
