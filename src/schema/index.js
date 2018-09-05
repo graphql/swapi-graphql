@@ -111,6 +111,9 @@ full "{ edges { node } }" version should be used instead.`,
 const Favorites = new GraphQLObjectType({
   name: 'Favorites',
   fields: () => ({
+    id: {
+      type: new GraphQLNonNull(GraphQLID),
+    },
     films: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(GraphQLID))),
     },
@@ -143,6 +146,7 @@ const rootType = new GraphQLObjectType({
         },
       },
       resolve: (_, { userId }) => ({
+        id: `${userId}$favorites`,
         films: favoritesByUserId[userId] || [],
       }),
     },
@@ -169,11 +173,17 @@ const mutationType = new GraphQLObjectType({
         }
 
         if (favoritesByUserId[userId].includes(filmId)) {
-          return { films: favoritesByUserId[userId] };
+          return {
+            id: `${userId}$favorites`,
+            films: favoritesByUserId[userId],
+          };
         }
 
         favoritesByUserId[userId].push(filmId);
-        return { films: favoritesByUserId[userId] };
+        return {
+          id: `${userId}$favorites`,
+          films: favoritesByUserId[userId],
+        };
       },
     },
     removeFromFavorites: {
@@ -188,18 +198,27 @@ const mutationType = new GraphQLObjectType({
       },
       resolve: (_, { userId, filmId }) => {
         if (!favoritesByUserId[userId]) {
-          return { films: favoritesByUserId[userId] };
+          return {
+            id: `${userId}$favorites`,
+            films: favoritesByUserId[userId],
+          };
         }
 
         if (!favoritesByUserId[userId].includes(filmId)) {
-          return { films: favoritesByUserId[userId] };
+          return {
+            id: `${userId}$favorites`,
+            films: favoritesByUserId[userId],
+          };
         }
 
         favoritesByUserId[userId].splice(
           favoritesByUserId[userId].indexOf(filmId),
           1,
         );
-        return { films: favoritesByUserId[userId] };
+        return {
+          id: `${userId}$favorites`,
+          films: favoritesByUserId[userId],
+        };
       },
     },
   }),
