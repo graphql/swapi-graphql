@@ -37,7 +37,7 @@
   "scripts": {
     "postinstall": "npm run download && npm run build",
     "test": "npm run lint && npm run check && npm run testonly",
-    "start": "node lib/server/main.js",
+    "start": "PORT=8080 node lib/server/main.js",
     "watch": "babel scripts/watch.js | node",
     "testonly": "mocha $npm_package_options_mocha",
     "lint": "eslint src",

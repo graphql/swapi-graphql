@@ -27,6 +27,16 @@ import SpeciesType from './species';
 import StarshipType from './starship';
 import VehicleType from './vehicle';
 
+const Posters = [
+  '/posters/e1.jpg',
+  '/posters/e2.jpg',
+  '/posters/e3.jpg',
+  '/posters/e4.jpg',
+  '/posters/e5.jpg',
+  '/posters/e6.jpg',
+  '/posters/e7.jpg',
+];
+
 /**
  * The GraphQL type equivalent of the Film resource
  */
@@ -89,6 +99,10 @@ const FilmType = new GraphQLObjectType({
     created: createdField(),
     edited: editedField(),
     id: globalIdField('films'),
+    poster: {
+      type: GraphQLString,
+      resolve: film => Posters[film.episode_id - 1],
+    },
   }),
   interfaces: () => [nodeInterface],
 });
