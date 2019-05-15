@@ -51,7 +51,8 @@
     "serve-public": "babel-node scripts/serve-public",
     "deploy": "scripts/build-public && scripts/deploy-public",
     "prettier": "prettier --write 'src/**/*.js'",
-    "print-schema": "babel-node scripts/print-schema.js"
+    "print-schema": "babel-node scripts/print-schema.js",
+    "store-schema": "babel-node scripts/store-schema.js"
   },
   "dependencies": {
     "babel-runtime": "^6.26.0",
