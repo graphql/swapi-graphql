@@ -3,3 +3,13 @@ language: node_js
 node_js: stable
 
 cache: yarn
+
+jobs:
+  include:
+    - stage: build docker image
+      script:
+      - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+      - docker build -t $DOCKER_USERNAME/swapi-graphql .
+      - docker images
+      - docker tag $DOCKER_USERNAME/swapi-graphql:latest $DOCKER_USERNAME/swapi-graphql:latest
+      - docker push $DOCKER_USERNAME/swapi-graphql
