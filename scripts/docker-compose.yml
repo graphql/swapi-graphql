@@ -1,0 +1,24 @@
+version: '3'
+services:
+  ouroboros:
+    container_name: ouroboros
+    hostname: ouroboros
+    image: pyouroboros/ouroboros
+    environment:
+      - CLEANUP=true
+      - INTERVAL=300
+      - LOG_LEVEL=info
+      - SELF_UPDATE=true
+      - IGNORE=mongo influxdb postgres mariadb
+      - TZ=America/Chicago
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  swapi-graphql:
+    container_name: swapi-graphql
+    hostname: swapi.graphql.org
+    image: acao/swapi-graphql:latest
+    environment:
+      - PORT=80
+    ports:
+      - "80:80"

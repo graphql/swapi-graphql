@@ -24,7 +24,8 @@ app.use(
   '/',
   graphqlHTTP(() => ({
     schema: swapiSchema,
-    graphiql: true,
+    // disable until we can get a new release of express-graphql with latest graphiql
+    // graphiql: true,
   })),
 );
 
@@ -43,7 +44,7 @@ const listener = app.listen(process.env.PORT || undefined, () => {
 process.on('SIGTERM', () => {
   console.info('SIGTERM signal received.');
   console.log('Closing swapi-graphql server.');
-  app.close(() => {
-    console.log('Http server closed.');
+  listener.close(() => {
+    console.log('Swapi-graphql server closed.');
   });
 });
