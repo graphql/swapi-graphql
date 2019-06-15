@@ -38,3 +38,12 @@ const listener = app.listen(process.env.PORT || undefined, () => {
   // eslint-disable-next-line no-console
   console.log('Listening at http://%s%s', host, port === 80 ? '' : ':' + port);
 });
+
+// Handle SIGTERM from docker
+process.on('SIGTERM', () => {
+  console.info('SIGTERM signal received.');
+  console.log('Closing swapi-graphql server.');
+  app.close(() => {
+    console.log('Http server closed.');
+  });
+});
