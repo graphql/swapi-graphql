@@ -3,6 +3,8 @@
 .*/scripts/.*
 .*/node_modules/flow-bin/.*
 .*/node_modules/fbjs/.*
+.*/node_modules/express-graphql/dist/.*
+.*/node_modules/module-deps/test/invalid_pkg/.*
 
 [include]
 
