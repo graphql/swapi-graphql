@@ -33,7 +33,6 @@
   <script src="//cdn.jsdelivr.net/react/15.4.2/react.min.js"></script>
   <script src="//cdn.jsdelivr.net/react/15.4.2/react-dom.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/graphiql@0.13.0/graphiql.min.js"></script>
-  <script src="schema.js"></script>
   <script>
       // Parse the search string to get url parameters.
       var search = window.location.search;
@@ -84,7 +83,7 @@
        function graphQLFetcher(graphQLParams) {
           // This example expects a GraphQL server at the path /graphql.
           // Change this to point wherever you host your GraphQL server.
-          return fetch('http://165.227.22.36/', {
+          return fetch(parameters.fetchURL || 'http://165.227.22.36/', {
             method: 'post',
             headers: {
               'Accept': 'application/json',
