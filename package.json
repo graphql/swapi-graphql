@@ -49,7 +49,7 @@
     "download": "babel-node scripts/download.js cache/data.json",
     "build-public": "browserify --standalone Schema -t babelify --outfile public/schema.js src/schema-proxy.js",
     "serve-public": "babel-node scripts/serve-public",
-    "deploy": "scripts/build-public && scripts/deploy-public",
+    "deploy": "yarn run build-public && scripts/deploy-public",
     "prettier": "prettier --write 'src/**/*.js'",
     "print-schema": "babel-node scripts/print-schema.js",
     "store-schema": "babel-node scripts/store-schema.js"
