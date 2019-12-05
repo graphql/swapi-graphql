@@ -15,7 +15,13 @@ import swapiSchema from './schema/index';
 
 const app = express();
 
-app.use(cors({ origin: '*' }));
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'PUT', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
+  }),
+);
 
 // Requests to /graphql redirect to /
 app.all('/graphql', (req, res) => res.redirect('/'));
@@ -31,6 +37,7 @@ app.get('/schema', (req, res) => {
     res.end();
   });
 });
+
 // octet-stream
 app.use('/schema.graphql', express.static('./schema.graphql'));
 
