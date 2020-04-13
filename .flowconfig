@@ -4,6 +4,8 @@
 .*/node_modules/flow-bin/.*
 .*/node_modules/fbjs/.*
 
+.*/node_modules/graphql/subscription/mapAsyncIterator.js.flow
+
 [include]
 
 [libs]

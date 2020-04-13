@@ -65,7 +65,7 @@ function rootFieldByID(idName, swapiType) {
  * Creates a connection that will return all objects of the given
  * `swapiType`; the connection will be named using `name`.
  */
-function rootConnection(name, swapiType) {
+function rootConnection(name: string, swapiType: string) {
   const graphqlType = swapiTypeToGraphQLType(swapiType);
   const { connectionType } = connectionDefinitions({
     name,
@@ -79,6 +79,7 @@ This allows a client to fetch the first five objects by passing "5" as the
 argument to "first", then fetch the total count so it could display "5 of 83",
 for example.`,
       },
+      // $FlowFixMe
       [swapiType]: {
         type: new GraphQLList(graphqlType),
         resolve: conn => conn.edges.map(edge => edge.node),
