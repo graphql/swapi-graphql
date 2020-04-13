@@ -9,7 +9,7 @@
 
 const awsServerlessExpress = require('aws-serverless-express');
 
-const app = require('../lib/service');
+const app = require('../lib/swapi-rest');
 
 // NOTE: If you get ERR_CONTENT_DECODING_FAILED in your browser, this is likely
 // due to a compressed response (e.g. gzip) which has not been handled correctly
