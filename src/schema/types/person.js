@@ -89,6 +89,7 @@ person does not have hair.`,
     species: {
       type: SpeciesType,
       resolve: person => {
+        console.log(person);
         if (!person.species || person.species.length === 0) {
           return null;
         }
