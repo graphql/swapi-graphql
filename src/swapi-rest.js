@@ -23,7 +23,7 @@ const resources = [
 const app = new Express();
 
 resources.forEach(r => {
-  app.get(`/api/${r}/`, (req, res, next) => {
+  app.get(`/api/${r}`, (req, res, next) => {
     if (!data || !data[r]) {
       res.status(500);
       res.error(`bad data, missing file or invalid swapi resource '${r}'`);
