@@ -33,7 +33,7 @@ async function cacheResources() {
   const cache = {};
 
   for (const name of resources) {
-    let url = `https://raw.githubusercontent.com/johnlindquist/swapi-json-server/master/${name}.json`;
+    let url = `https://swapi.dev/api/${name}/`;
 
     while (url != null) {
       console.error(url);
@@ -45,7 +45,7 @@ async function cacheResources() {
         cache[normalizeUrl(obj.url)] = obj;
       }
 
-      url = data.next;
+      url = data.next ? data.next.replace('http:', 'https:') : null;
     }
   }
 
