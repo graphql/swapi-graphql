@@ -43,7 +43,6 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
   }
 }
 
-// $FlowFixMe
 const { nodeInterface, nodeField } = nodeDefinitions(
   globalId => {
     const { type, id } = fromGlobalId(globalId);
