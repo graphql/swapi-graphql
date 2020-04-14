@@ -20,7 +20,7 @@ const localUrlLoader = new DataLoader(urls =>
  * Objects returned from SWAPI don't have an ID field, so add one.
  */
 function objectWithId(obj: Object): Object {
-  obj.id = obj.pk;
+  obj.id = parseInt(obj.url.split('/')[5], 10);
   return obj;
 }
 
@@ -52,13 +52,11 @@ type ObjectsByType = {
  */
 export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let objects = [];
-  let nextUrl = `https://raw.githubusercontent.com/johnlindquist/swapi-json-server/master/${type}.json`;
+  let nextUrl = `https://swapi.co/api/${type}/`;
   while (nextUrl) {
     // eslint-disable-next-line no-await-in-loop
     const pageData = await localUrlLoader.load(nextUrl);
-
-    objects = objects.concat(pageData.map(objectWithId).map(d => d.fields));
-
+    objects = objects.concat(pageData.results.map(objectWithId));
     nextUrl = pageData.next;
   }
   objects = sortObjectsById(objects);
@@ -66,7 +64,6 @@ export async function getObjectsByType(type: string): Promise<ObjectsByType> {
 }
 
 export async function getObjectsFromUrls(urls: string[]): Promise<Object[]> {
-  console.log({ urls });
   const array = await Promise.all(urls.map(getObjectFromUrl));
   return sortObjectsById(array);
 }
