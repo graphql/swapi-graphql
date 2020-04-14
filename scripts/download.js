@@ -33,7 +33,7 @@ async function cacheResources() {
   const cache = {};
 
   for (const name of resources) {
-    let url = `https://swapi.co/api/${name}/`;
+    let url = `https://swapi.dev/api/${name}/`;
 
     while (url != null) {
       console.error(url);
