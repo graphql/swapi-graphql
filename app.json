@@ -1,6 +1,6 @@
 {
   "name": "SWAPI GraphQL Wrapper",
-  "description": "A wrapper around [SWAPI](http://swapi.co) built using GraphQL.",
+  "description": "A wrapper around [SWAPI](http://swapi.dev) built using GraphQL.",
   "repository": "https://github.com/graphql/swapi-graphql",
   "keywords": ["graphql", "swapi", "swapi-graphql"]
 }

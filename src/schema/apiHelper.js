@@ -39,7 +39,7 @@ export async function getObjectFromTypeAndId(
   type: string,
   id: string,
 ): Promise<Object> {
-  return await getObjectFromUrl(`https://swapi.co/api/${type}/${id}/`);
+  return await getObjectFromUrl(`https://swapi.dev/api/${type}/${id}/`);
 }
 
 type ObjectsByType = {
@@ -52,7 +52,7 @@ type ObjectsByType = {
  */
 export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let objects = [];
-  let nextUrl = `https://swapi.co/api/${type}/`;
+  let nextUrl = `https://swapi.dev/api/${type}/`;
   while (nextUrl) {
     // eslint-disable-next-line no-await-in-loop
     const pageData = await localUrlLoader.load(nextUrl);
