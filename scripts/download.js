@@ -45,7 +45,7 @@ async function cacheResources() {
         cache[normalizeUrl(obj.url)] = obj;
       }
 
-      url = data.next;
+      url = data.next ? data.next.replace('http:', 'https:') : null;
     }
   }
 
