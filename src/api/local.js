@@ -17,7 +17,7 @@ import swapiData from '../../cache/data';
 export async function getFromLocalUrl(
   url: string,
 ): Promise<{ [key: string]: any }> {
-  const text = swapiData[url];
+  const text = swapiData[url.replace('http:', 'https:')];
   if (!text) {
     throw new Error(`No entry in local cache for ${url}`);
   }

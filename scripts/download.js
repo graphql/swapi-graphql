@@ -20,8 +20,12 @@ const resources = [
   'films',
 ];
 
+function replaceHttp(url) {
+  return url.replace(/"http:\/\//i, 'https://');
+}
+
 function normalizeUrl(url) {
-  return new URL(url).toString();
+  return replaceHttp(new URL(url).toString());
 }
 
 /**
@@ -36,16 +40,19 @@ async function cacheResources() {
     let url = `https://swapi.dev/api/${name}/`;
 
     while (url != null) {
-      console.error(url);
-      const response = await fetch(url, { agent });
-      const data = await response.json();
+      const response = await fetch(replaceHttp(url), { agent });
+      const data = await response.text();
 
-      cache[normalizeUrl(url)] = data;
+      const result = replaceHttp(data);
+
+      console.log(result.match('https:'));
+
+      cache[normalizeUrl(url)] = JSON.parse(data);
       for (const obj of data.results || []) {
-        cache[normalizeUrl(obj.url)] = obj;
+        cache[normalizeUrl(obj.url)] = { ...obj, url: replaceHttp(obj.url) };
       }
 
-      url = data.next ? data.next.replace('http:', 'https:') : null;
+      url = data.next ? replaceHttp(data.next) : null;
     }
   }
 
