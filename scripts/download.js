@@ -20,8 +20,12 @@ const resources = [
   'films',
 ];
 
+function replaceHttp(url) {
+  return url.replace(/http:\/\//g, 'https://');
+}
+
 function normalizeUrl(url) {
-  return new URL(url).toString();
+  return replaceHttp(new URL(url).toString());
 }
 
 /**
@@ -38,7 +42,9 @@ async function cacheResources() {
     while (url != null) {
       console.error(url);
       const response = await fetch(url, { agent });
-      const data = await response.json();
+      const text = await response.text();
+
+      const data = JSON.parse(replaceHttp(text));
 
       cache[normalizeUrl(url)] = data;
       for (const obj of data.results || []) {
