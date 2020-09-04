@@ -1,6 +1,6 @@
 {
   "name": "swapi-graphql",
-  "description": "A GraphQL wrapper for swapi.devm",
+  "description": "A GraphQL wrapper for swapi.dev",
   "contributors": [
     "Nicholas Schrock <schrockn@fb.com>",
     "Daniel Schafer <dschafer@fb.com>"
@@ -29,18 +29,18 @@
     "react": "global:React"
   },
   "scripts": {
-    "postinstall": "yarn run download && yarn run build",
-    "test": "yarn run lint && yarn run check && yarn run testonly",
+    "postinstall": "npm run download && npm run build",
     "start": "node lib/server",
     "watch": "babel scripts/watch.js | node",
-    "testonly": "mocha $yarn_package_options_mocha",
+    "test": "npm run lint && npm run check && npm run test:only",
+    "test:only": "mocha $npm_package_options_mocha",
     "lint": "eslint src handler",
-    "lintfix": "eslint --fix src handler",
+    "lint:fix": "eslint --fix src handler",
     "check": "flow check",
     "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
-    "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $yarn_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-    "build": "rimraf lib && babel src --ignore __tests__,public --out-dir lib/ && yarn build-lambda",
-    "build-lambda": "NODE_ENV=development netlify-lambda build handler",
+    "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+    "build": "rimraf lib && babel src --ignore __tests__,public --out-dir lib/ && npm run build:lambda",
+    "build:lambda": "NODE_ENV=development netlify-lambda build handler",
     "download": "babel-node scripts/download.js cache/data.json",
     "serve-public": "babel-node scripts/serve-public",
     "prettier": "prettier --write 'src/**/*.js'",
