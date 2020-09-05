@@ -113,7 +113,7 @@ describe('Starship type', async () => {
       '{ allStarships { edges { cursor, node { ...AllStarshipProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allStarships.edges.length).to.equal(37);
+    expect(result.data.allStarships.edges.length).to.equal(36);
   });
 
   it('Pagination query', async () => {
