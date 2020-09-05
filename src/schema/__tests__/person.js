@@ -90,7 +90,7 @@ describe('Person type', async () => {
       skinColor: 'fair',
       homeworld: { name: 'Tatooine' },
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
-      species: { name: 'Human' },
+      species: null,
       starshipConnection: { edges: [{ node: { name: 'X-wing' } }] },
       vehicleConnection: { edges: [{ node: { name: 'Snowspeeder' } }] },
     };
