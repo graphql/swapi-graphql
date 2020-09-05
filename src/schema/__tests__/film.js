@@ -99,7 +99,7 @@ describe('Film type', async () => {
       '{ allFilms { edges { cursor, node { ...AllFilmProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allFilms.edges.length).to.equal(7);
+    expect(result.data.allFilms.edges.length).to.equal(6);
   });
 
   it('Pagination query', async () => {
