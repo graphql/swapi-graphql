@@ -102,7 +102,7 @@ describe('Person type', async () => {
       '{ allPeople { edges { cursor, node { ...AllPersonProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allPeople.edges.length).to.equal(87);
+    expect(result.data.allPeople.edges.length).to.equal(82);
   });
 
   it('Pagination query', async () => {
