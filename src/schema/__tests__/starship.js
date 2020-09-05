@@ -90,7 +90,7 @@ describe('Starship type', async () => {
       cargoCapacity: 1000000000000,
       consumables: '3 years',
       costInCredits: 1000000000000,
-      crew: '342953',
+      crew: '342,953',
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       hyperdriveRating: 4,
       length: 120000,
@@ -101,7 +101,7 @@ describe('Starship type', async () => {
       maxAtmospheringSpeed: null,
       model: 'DS-1 Orbital Battle Station',
       name: 'Death Star',
-      passengers: '843342',
+      passengers: '843,342',
       pilotConnection: { edges: [] },
       starshipClass: 'Deep Space Mobile Battlestation',
     };
