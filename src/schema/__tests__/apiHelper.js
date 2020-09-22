@@ -25,8 +25,8 @@ describe('API Helper', () => {
 
   it('Gets all pages at once', async () => {
     const { objects, totalCount } = await getObjectsByType('people');
-    expect(objects.length).to.equal(87);
-    expect(totalCount).to.equal(87);
+    expect(objects.length).to.equal(82);
+    expect(totalCount).to.equal(82);
     expect(objects[0].name).to.equal('Luke Skywalker');
   });
 

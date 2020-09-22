@@ -88,7 +88,7 @@ describe('Species type', async () => {
       eyeColors: ['black'],
       hairColors: ['n/a'],
       homeworld: { name: 'Rodia' },
-      language: 'Galactic Basic',
+      language: 'Galatic Basic',
       name: 'Rodian',
       personConnection: { edges: [{ node: { name: 'Greedo' } }] },
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
@@ -122,7 +122,7 @@ describe('Species type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allSpecies.edges.map(e => e.node.name),
-    ).to.deep.equal(['Wookiee', 'Rodian']);
+    ).to.deep.equal(['Wookie', 'Rodian']);
   });
 
   describe('Edge cases', () => {
