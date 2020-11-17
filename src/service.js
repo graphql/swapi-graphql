@@ -35,6 +35,9 @@ app.get('/schema', (req, res) => {
 app.use('/schema.graphql', express.static('./schema.graphql'));
 
 // Finally, serve up the GraphQL Schema itself
-app.use('/', graphqlHTTP(() => ({ schema: swapiSchema })));
+app.use(
+  '/',
+  graphqlHTTP(() => ({ schema: swapiSchema })),
+);
 
 module.exports = app;
