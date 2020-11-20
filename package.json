@@ -33,6 +33,7 @@
     "start": "node lib/server",
     "watch": "babel scripts/watch.js | node",
     "test": "npm run lint && npm run check && npm run test:only",
+    "test:coverage": "nyc --report-dir coverage --reporter=lcov  --reporter=text mocha $npm_package_options_mocha",
     "test:only": "mocha $npm_package_options_mocha",
     "lint": "eslint src handler",
     "lint:fix": "eslint --fix src handler",
@@ -78,6 +79,7 @@
     "isparta": "^4.1.1",
     "mocha": "^6.1.4",
     "netlify-lambda": "^1.6.3",
+    "nyc": "^15.1.0",
     "prettier": "^1.18.2",
     "sane": "^4.1.0"
   }
