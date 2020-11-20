@@ -27,8 +27,8 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 12.x
+      - uses: bahmutov/npm-install@v1.4.5
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1.4.5
         run: npm install
       - name: Mocha
         run: npm run test:only 
