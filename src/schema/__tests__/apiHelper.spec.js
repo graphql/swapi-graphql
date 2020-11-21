@@ -6,9 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
-
 import {
   getObjectFromUrl,
   getObjectsByType,
@@ -18,22 +15,22 @@ import {
 describe('API Helper', () => {
   it('Gets a person', async () => {
     const luke = await getObjectFromUrl('https://swapi.dev/api/people/1/');
-    expect(luke.name).to.equal('Luke Skywalker');
+    expect(luke.name).toBe('Luke Skywalker');
     const threePO = await getObjectFromUrl('https://swapi.dev/api/people/2/');
-    expect(threePO.name).to.equal('C-3PO');
+    expect(threePO.name).toBe('C-3PO');
   });
 
   it('Gets all pages at once', async () => {
     const { objects, totalCount } = await getObjectsByType('people');
-    expect(objects.length).to.equal(82);
-    expect(totalCount).to.equal(82);
-    expect(objects[0].name).to.equal('Luke Skywalker');
+    expect(objects.length).toBe(82);
+    expect(totalCount).toBe(82);
+    expect(objects[0].name).toBe('Luke Skywalker');
   });
 
   it('Gets a person by ID', async () => {
     const luke = await getObjectFromTypeAndId('people', 1);
-    expect(luke.name).to.equal('Luke Skywalker');
+    expect(luke.name).toBe('Luke Skywalker');
     const threePO = await getObjectFromTypeAndId('people', 2);
-    expect(threePO.name).to.equal('C-3PO');
+    expect(threePO.name).toBe('C-3PO');
   });
 });

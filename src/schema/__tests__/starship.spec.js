@@ -6,8 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
 function getDocument(query) {
@@ -32,17 +30,17 @@ function getDocument(query) {
   `;
 }
 
-describe('Starship type', async () => {
+describe('Starship type', () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ starship(starshipID: 5) { name } }';
     const result = await swapi(query);
-    expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
+    expect(result.data.starship.name).toBe('Sentinel-class landing craft');
   });
 
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ starship(starshipID: 9) { name } }';
     const result = await swapi(query);
-    expect(result.data.starship.name).to.equal('Death Star');
+    expect(result.data.starship.name).toBe('Death Star');
   });
 
   it('Gets an object by global ID', async () => {
@@ -52,11 +50,9 @@ describe('Starship type', async () => {
       { starship(id: "${result.data.starship.id}") { id, name } }
     `;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
-    expect(nextResult.data.starship.name).to.equal(
-      'Sentinel-class landing craft',
-    );
-    expect(result.data.starship.id).to.equal(nextResult.data.starship.id);
+    expect(result.data.starship.name).toBe('Sentinel-class landing craft');
+    expect(nextResult.data.starship.name).toBe('Sentinel-class landing craft');
+    expect(result.data.starship.id).toBe(nextResult.data.starship.id);
   });
 
   it('Gets an object by global ID with node', async () => {
@@ -71,9 +67,9 @@ describe('Starship type', async () => {
       }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.starship.name).to.equal('Sentinel-class landing craft');
-    expect(nextResult.data.node.name).to.equal('Sentinel-class landing craft');
-    expect(result.data.starship.id).to.equal(nextResult.data.node.id);
+    expect(result.data.starship.name).toBe('Sentinel-class landing craft');
+    expect(nextResult.data.node.name).toBe('Sentinel-class landing craft');
+    expect(result.data.starship.id).toBe(nextResult.data.node.id);
   });
 
   it('Gets all properties', async () => {
@@ -105,7 +101,7 @@ describe('Starship type', async () => {
       pilotConnection: { edges: [] },
       starshipClass: 'Deep Space Mobile Battlestation',
     };
-    expect(result.data.starship).to.deep.equal(expected);
+    expect(result.data.starship).toMatchObject(expected);
   });
 
   it('All objects query', async () => {
@@ -113,7 +109,7 @@ describe('Starship type', async () => {
       '{ allStarships { edges { cursor, node { ...AllStarshipProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allStarships.edges.length).to.equal(36);
+    expect(result.data.allStarships.edges.length).toBe(36);
   });
 
   it('Pagination query', async () => {
@@ -121,7 +117,7 @@ describe('Starship type', async () => {
       allStarships(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allStarships.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allStarships.edges.map(e => e.node.name)).toMatchObject([
       'CR90 corvette',
       'Star Destroyer',
     ]);
@@ -133,7 +129,7 @@ describe('Starship type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allStarships.edges.map(e => e.node.name),
-    ).to.deep.equal(['Sentinel-class landing craft', 'Death Star']);
+    ).toMatchObject(['Sentinel-class landing craft', 'Death Star']);
   });
 
   describe('Edge cases', () => {
@@ -141,10 +137,8 @@ describe('Starship type', async () => {
       const query =
         '{ starship(starshipID: 5) { name, maxAtmospheringSpeed } }';
       const result = await swapi(query);
-      expect(result.data.starship.name).to.equal(
-        'Sentinel-class landing craft',
-      );
-      expect(result.data.starship.maxAtmospheringSpeed).to.equal(1000);
+      expect(result.data.starship.name).toBe('Sentinel-class landing craft');
+      expect(result.data.starship.maxAtmospheringSpeed).toBe(1000);
     });
   });
 });

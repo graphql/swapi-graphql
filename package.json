@@ -33,7 +33,7 @@
     "start": "node lib/server",
     "watch": "babel scripts/watch.js | node",
     "test": "npm run lint && npm run check && npm run test:only",
-    "test:only": "jest --require babel-register  src/**/__tests__/*.js",
+    "test:only": "jest",
     "lint": "eslint src handler",
     "lint:fix": "eslint --fix src handler",
     "check": "flow check",
