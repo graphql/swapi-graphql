@@ -1,25 +1,9 @@
-name: Validation
+name: Lint and Tests 
 
 on: push 
 
 jobs:
-  lint:
-    name: Linting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Use Node.js 12.x
-        uses: actions/setup-node@v1
-        with:
-          node-version: 12.x
-      - name: Install dependencies
-        run: |
-          npm install
-      - name: ESLint
-        run: npm run lint
-
-  test:
-    name: Run unit tests
+  validation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
@@ -30,7 +14,9 @@ jobs:
       - uses: bahmutov/npm-install@v1.4.5
       - name: Install dependencies
         run: npm install
-      - name: Mocha
+      - name: Lint
+        run: npm run lint
+      - name: Tests
         run: npm run test:only 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
