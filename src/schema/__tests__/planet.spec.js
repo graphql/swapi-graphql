@@ -6,8 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
 function getDocument(query) {
@@ -28,17 +26,17 @@ function getDocument(query) {
   `;
 }
 
-describe('Planet type', async () => {
+describe('Planet type', () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ planet(planetID: 1) { name } }';
     const result = await swapi(query);
-    expect(result.data.planet.name).to.equal('Tatooine');
+    expect(result.data.planet.name).toBe('Tatooine');
   });
 
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ planet(planetID: 2) { name } }';
     const result = await swapi(query);
-    expect(result.data.planet.name).to.equal('Alderaan');
+    expect(result.data.planet.name).toBe('Alderaan');
   });
 
   it('Gets an object by global ID', async () => {
@@ -46,9 +44,9 @@ describe('Planet type', async () => {
     const result = await swapi(query);
     const nextQuery = `{ planet(id: "${result.data.planet.id}") { id, name } }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.planet.name).to.equal('Tatooine');
-    expect(nextResult.data.planet.name).to.equal('Tatooine');
-    expect(result.data.planet.id).to.equal(nextResult.data.planet.id);
+    expect(result.data.planet.name).toBe('Tatooine');
+    expect(nextResult.data.planet.name).toBe('Tatooine');
+    expect(result.data.planet.id).toBe(nextResult.data.planet.id);
   });
 
   it('Gets an object by global ID with node', async () => {
@@ -63,9 +61,9 @@ describe('Planet type', async () => {
       }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.planet.name).to.equal('Tatooine');
-    expect(nextResult.data.node.name).to.equal('Tatooine');
-    expect(result.data.planet.id).to.equal(nextResult.data.node.id);
+    expect(result.data.planet.name).toBe('Tatooine');
+    expect(nextResult.data.node.name).toBe('Tatooine');
+    expect(result.data.planet.id).toBe(nextResult.data.node.id);
   });
 
   it('Gets all properties', async () => {
@@ -90,7 +88,7 @@ describe('Planet type', async () => {
       surfaceWater: 1,
       terrains: ['desert'],
     };
-    expect(result.data.planet).to.deep.equal(expected);
+    expect(result.data.planet).toMatchObject(expected);
   });
 
   it('All objects query', async () => {
@@ -98,7 +96,7 @@ describe('Planet type', async () => {
       '{ allPlanets { edges { cursor, node { ...AllPlanetProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allPlanets.edges.length).to.equal(60);
+    expect(result.data.allPlanets.edges.length).toBe(60);
   });
 
   it('Pagination query', async () => {
@@ -106,7 +104,7 @@ describe('Planet type', async () => {
       allPlanets(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allPlanets.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allPlanets.edges.map(e => e.node.name)).toMatchObject([
       'Tatooine',
       'Alderaan',
     ]);
@@ -118,6 +116,6 @@ describe('Planet type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allPlanets.edges.map(e => e.node.name),
-    ).to.deep.equal(['Yavin IV', 'Hoth']);
+    ).toMatchObject(['Yavin IV', 'Hoth']);
   });
 });

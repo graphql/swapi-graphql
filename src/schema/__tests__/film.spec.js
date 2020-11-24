@@ -6,8 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
 function getDocument(query) {
@@ -28,17 +26,17 @@ function getDocument(query) {
   `;
 }
 
-describe('Film type', async () => {
+describe('Film type', () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ film(filmID: 1) { title } }';
     const result = await swapi(query);
-    expect(result.data.film.title).to.equal('A New Hope');
+    expect(result.data.film.title).toBe('A New Hope');
   });
 
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ film(filmID: 2) { title } }';
     const result = await swapi(query);
-    expect(result.data.film.title).to.equal('The Empire Strikes Back');
+    expect(result.data.film.title).toBe('The Empire Strikes Back');
   });
 
   it('Gets an object by global ID', async () => {
@@ -46,9 +44,9 @@ describe('Film type', async () => {
     const result = await swapi(query);
     const nextQuery = `{ film(id: "${result.data.film.id}") { id, title } }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.film.title).to.equal('A New Hope');
-    expect(nextResult.data.film.title).to.equal('A New Hope');
-    expect(result.data.film.id).to.equal(nextResult.data.film.id);
+    expect(result.data.film.title).toBe('A New Hope');
+    expect(nextResult.data.film.title).toBe('A New Hope');
+    expect(result.data.film.id).toBe(nextResult.data.film.id);
   });
 
   it('Gets an object by global ID with node', async () => {
@@ -63,9 +61,9 @@ describe('Film type', async () => {
       }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.film.title).to.equal('A New Hope');
-    expect(nextResult.data.node.title).to.equal('A New Hope');
-    expect(result.data.film.id).to.equal(nextResult.data.node.id);
+    expect(result.data.film.title).toBe('A New Hope');
+    expect(nextResult.data.node.title).toBe('A New Hope');
+    expect(result.data.film.id).toBe(nextResult.data.node.id);
   });
 
   it('Gets all properties', async () => {
@@ -91,7 +89,7 @@ describe('Film type', async () => {
       characterConnection: { edges: [{ node: { name: 'Luke Skywalker' } }] },
       planetConnection: { edges: [{ node: { name: 'Tatooine' } }] },
     };
-    expect(result.data.film).to.deep.equal(expected);
+    expect(result.data.film).toMatchObject(expected);
   });
 
   it('All objects query', async () => {
@@ -99,7 +97,7 @@ describe('Film type', async () => {
       '{ allFilms { edges { cursor, node { ...AllFilmProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allFilms.edges.length).to.equal(6);
+    expect(result.data.allFilms.edges.length).toBe(6);
   });
 
   it('Pagination query', async () => {
@@ -107,7 +105,7 @@ describe('Film type', async () => {
       allFilms(first: 2) { edges { cursor, node { title } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allFilms.edges.map(e => e.node.title)).to.deep.equal([
+    expect(result.data.allFilms.edges.map(e => e.node.title)).toMatchObject([
       'A New Hope',
       'The Empire Strikes Back',
     ]);
@@ -119,6 +117,6 @@ describe('Film type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allFilms.edges.map(e => e.node.title),
-    ).to.deep.equal(['Return of the Jedi', 'The Phantom Menace']);
+    ).toMatchObject(['Return of the Jedi', 'The Phantom Menace']);
   });
 });

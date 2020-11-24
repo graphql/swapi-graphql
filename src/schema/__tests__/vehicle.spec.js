@@ -6,8 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
 function getDocument(query) {
@@ -30,17 +28,17 @@ function getDocument(query) {
   `;
 }
 
-describe('Vehicle type', async () => {
+describe('Vehicle type', () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ vehicle(vehicleID: 4) { name } }';
     const result = await swapi(query);
-    expect(result.data.vehicle.name).to.equal('Sand Crawler');
+    expect(result.data.vehicle.name).toBe('Sand Crawler');
   });
 
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ vehicle(vehicleID: 6) { name } }';
     const result = await swapi(query);
-    expect(result.data.vehicle.name).to.equal('T-16 skyhopper');
+    expect(result.data.vehicle.name).toBe('T-16 skyhopper');
   });
 
   it('Gets an object by global ID', async () => {
@@ -50,9 +48,9 @@ describe('Vehicle type', async () => {
       { vehicle(id: "${result.data.vehicle.id}") { id, name } }
     `;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.vehicle.name).to.equal('Sand Crawler');
-    expect(nextResult.data.vehicle.name).to.equal('Sand Crawler');
-    expect(result.data.vehicle.id).to.equal(nextResult.data.vehicle.id);
+    expect(result.data.vehicle.name).toBe('Sand Crawler');
+    expect(nextResult.data.vehicle.name).toBe('Sand Crawler');
+    expect(result.data.vehicle.id).toBe(nextResult.data.vehicle.id);
   });
 
   it('Gets an object by global ID with node', async () => {
@@ -67,9 +65,9 @@ describe('Vehicle type', async () => {
       }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.vehicle.name).to.equal('Sand Crawler');
-    expect(nextResult.data.node.name).to.equal('Sand Crawler');
-    expect(result.data.vehicle.id).to.equal(nextResult.data.node.id);
+    expect(result.data.vehicle.name).toBe('Sand Crawler');
+    expect(nextResult.data.node.name).toBe('Sand Crawler');
+    expect(result.data.vehicle.id).toBe(nextResult.data.node.id);
   });
 
   it('Gets all properties', async () => {
@@ -96,7 +94,7 @@ describe('Vehicle type', async () => {
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       vehicleClass: 'wheeled',
     };
-    expect(result.data.vehicle).to.deep.equal(expected);
+    expect(result.data.vehicle).toMatchObject(expected);
   });
 
   it('All objects query', async () => {
@@ -104,7 +102,7 @@ describe('Vehicle type', async () => {
       '{ allVehicles { edges { cursor, node { ...AllVehicleProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allVehicles.edges.length).to.equal(39);
+    expect(result.data.allVehicles.edges.length).toBe(39);
   });
 
   it('Pagination query', async () => {
@@ -112,7 +110,7 @@ describe('Vehicle type', async () => {
       allVehicles(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allVehicles.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allVehicles.edges.map(e => e.node.name)).toMatchObject([
       'Sand Crawler',
       'T-16 skyhopper',
     ]);
@@ -124,6 +122,6 @@ describe('Vehicle type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allVehicles.edges.map(e => e.node.name),
-    ).to.deep.equal(['X-34 landspeeder', 'TIE/LN starfighter']);
+    ).toMatchObject(['X-34 landspeeder', 'TIE/LN starfighter']);
   });
 });

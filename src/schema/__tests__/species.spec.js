@@ -6,8 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
 function getDocument(query) {
@@ -29,17 +27,17 @@ function getDocument(query) {
   `;
 }
 
-describe('Species type', async () => {
+describe('Species type', () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ species(speciesID: 4) { name } }';
     const result = await swapi(query);
-    expect(result.data.species.name).to.equal('Rodian');
+    expect(result.data.species.name).toBe('Rodian');
   });
 
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ species(speciesID: 6) { name } }';
     const result = await swapi(query);
-    expect(result.data.species.name).to.equal("Yoda's species");
+    expect(result.data.species.name).toBe("Yoda's species");
   });
 
   it('Gets an object by global ID', async () => {
@@ -49,9 +47,9 @@ describe('Species type', async () => {
       { species(id: "${result.data.species.id}") { id, name } }
     `;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.species.name).to.equal('Rodian');
-    expect(nextResult.data.species.name).to.equal('Rodian');
-    expect(result.data.species.id).to.equal(nextResult.data.species.id);
+    expect(result.data.species.name).toBe('Rodian');
+    expect(nextResult.data.species.name).toBe('Rodian');
+    expect(result.data.species.id).toBe(nextResult.data.species.id);
   });
 
   it('Gets an object by global ID with node', async () => {
@@ -66,9 +64,9 @@ describe('Species type', async () => {
       }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.species.name).to.equal('Rodian');
-    expect(nextResult.data.node.name).to.equal('Rodian');
-    expect(result.data.species.id).to.equal(nextResult.data.node.id);
+    expect(result.data.species.name).toBe('Rodian');
+    expect(nextResult.data.node.name).toBe('Rodian');
+    expect(result.data.species.id).toBe(nextResult.data.node.id);
   });
 
   it('Gets all properties', async () => {
@@ -94,7 +92,7 @@ describe('Species type', async () => {
       filmConnection: { edges: [{ node: { title: 'A New Hope' } }] },
       skinColors: ['green', 'blue'],
     };
-    expect(result.data.species).to.deep.equal(expected);
+    expect(result.data.species).toMatchObject(expected);
   });
 
   it('All objects query', async () => {
@@ -102,7 +100,7 @@ describe('Species type', async () => {
       '{ allSpecies { edges { cursor, node { ...AllSpeciesProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allSpecies.edges.length).to.equal(37);
+    expect(result.data.allSpecies.edges.length).toBe(37);
   });
 
   it('Pagination query', async () => {
@@ -110,7 +108,7 @@ describe('Species type', async () => {
       allSpecies(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allSpecies.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allSpecies.edges.map(e => e.node.name)).toMatchObject([
       'Human',
       'Droid',
     ]);
@@ -122,7 +120,7 @@ describe('Species type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allSpecies.edges.map(e => e.node.name),
-    ).to.deep.equal(['Wookie', 'Rodian']);
+    ).toMatchObject(['Wookie', 'Rodian']);
   });
 
   describe('Edge cases', () => {
@@ -135,8 +133,8 @@ describe('Species type', async () => {
         }
       }`;
       const result = await swapi(query);
-      expect(result.data.species.name).to.equal('Muun');
-      expect(result.data.species.hairColors).to.deep.equal([]);
+      expect(result.data.species.name).toBe('Muun');
+      expect(result.data.species.hairColors).toMatchObject([]);
     });
   });
 });

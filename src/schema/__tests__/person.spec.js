@@ -6,8 +6,6 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 import { swapi } from './swapi';
 
 function getDocument(query) {
@@ -30,17 +28,17 @@ function getDocument(query) {
   `;
 }
 
-describe('Person type', async () => {
+describe('Person type', () => {
   it('Gets an object by SWAPI ID', async () => {
     const query = '{ person(personID: 1) { name } }';
     const result = await swapi(query);
-    expect(result.data.person.name).to.equal('Luke Skywalker');
+    expect(result.data.person.name).toBe('Luke Skywalker');
   });
 
   it('Gets a different object by SWAPI ID', async () => {
     const query = '{ person(personID: 2) { name } }';
     const result = await swapi(query);
-    expect(result.data.person.name).to.equal('C-3PO');
+    expect(result.data.person.name).toBe('C-3PO');
   });
 
   it('Gets an object by global ID', async () => {
@@ -48,9 +46,9 @@ describe('Person type', async () => {
     const result = await swapi(query);
     const nextQuery = `{ person(id: "${result.data.person.id}") { id, name } }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.person.name).to.equal('Luke Skywalker');
-    expect(nextResult.data.person.name).to.equal('Luke Skywalker');
-    expect(result.data.person.id).to.equal(nextResult.data.person.id);
+    expect(result.data.person.name).toBe('Luke Skywalker');
+    expect(nextResult.data.person.name).toBe('Luke Skywalker');
+    expect(result.data.person.id).toBe(nextResult.data.person.id);
   });
 
   it('Gets an object by global ID with node', async () => {
@@ -65,9 +63,9 @@ describe('Person type', async () => {
       }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(result.data.person.name).to.equal('Luke Skywalker');
-    expect(nextResult.data.node.name).to.equal('Luke Skywalker');
-    expect(result.data.person.id).to.equal(nextResult.data.node.id);
+    expect(result.data.person.name).toBe('Luke Skywalker');
+    expect(nextResult.data.node.name).toBe('Luke Skywalker');
+    expect(result.data.person.id).toBe(nextResult.data.node.id);
   });
 
   it('Gets all properties', async () => {
@@ -94,7 +92,7 @@ describe('Person type', async () => {
       starshipConnection: { edges: [{ node: { name: 'X-wing' } }] },
       vehicleConnection: { edges: [{ node: { name: 'Snowspeeder' } }] },
     };
-    expect(result.data.person).to.deep.equal(expected);
+    expect(result.data.person).toMatchObject(expected);
   });
 
   it('All objects query', async () => {
@@ -102,7 +100,7 @@ describe('Person type', async () => {
       '{ allPeople { edges { cursor, node { ...AllPersonProperties } } } }',
     );
     const result = await swapi(query);
-    expect(result.data.allPeople.edges.length).to.equal(82);
+    expect(result.data.allPeople.edges.length).toBe(82);
   });
 
   it('Pagination query', async () => {
@@ -110,7 +108,7 @@ describe('Person type', async () => {
       allPeople(first: 2) { edges { cursor, node { name } } }
     }`;
     const result = await swapi(query);
-    expect(result.data.allPeople.edges.map(e => e.node.name)).to.deep.equal([
+    expect(result.data.allPeople.edges.map(e => e.node.name)).toMatchObject([
       'Luke Skywalker',
       'C-3PO',
     ]);
@@ -122,22 +120,22 @@ describe('Person type', async () => {
     const nextResult = await swapi(nextQuery);
     expect(
       nextResult.data.allPeople.edges.map(e => e.node.name),
-    ).to.deep.equal(['R2-D2', 'Darth Vader']);
+    ).toMatchObject(['R2-D2', 'Darth Vader']);
   });
 
   describe('Edge cases', () => {
     it('Returns null if no species is set', async () => {
       const query = '{ person(personID: 42) { name, species { name } } }';
       const result = await swapi(query);
-      expect(result.data.person.name).to.equal('Quarsh Panaka');
-      expect(result.data.person.species).to.equal(null);
+      expect(result.data.person.name).toBe('Quarsh Panaka');
+      expect(result.data.person.species).toBe(null);
     });
 
     it('Returns correctly if a species is set', async () => {
       const query = '{ person(personID: 67) { name, species { name } } }';
       const result = await swapi(query);
-      expect(result.data.person.name).to.equal('Dooku');
-      expect(result.data.person.species.name).to.equal('Human');
+      expect(result.data.person.name).toBe('Dooku');
+      expect(result.data.person.species.name).toBe('Human');
     });
   });
 });
