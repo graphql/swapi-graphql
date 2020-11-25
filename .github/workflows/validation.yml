@@ -11,7 +11,13 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 12.x
-      - uses: bahmutov/npm-install@v1.4.5
+      - name: Cache Node.js modules
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.OS }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-node-
       - name: Install dependencies
         run: npm install
       - name: Lint
