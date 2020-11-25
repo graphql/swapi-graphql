@@ -3,16 +3,20 @@ const packageJSON = require('./package.json');
 process.env.TZ = 'UTC';
 
 module.exports = {
-  verbose: true,
   name: packageJSON.name,
-  displayName: packageJSON.name,
+  globals: {
+    'ts-jest': {
+      disableSourceMapSupport: true,
+    },
+  },
+  verbose: true,
   transform: {
-    '\\.[jt]sx?$': 'babel-jest',
+    '^.+\\.tsx?$': 'ts-jest',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testURL: 'http://localhost',
   transformIgnorePatterns: ['[/\\\\]node_modules[/\\\\].+\\.(js|jsx)$'],
-  testMatch: ['**/*.(spec|test).js'],
+  testMatch: ['**/*.(spec|test).ts'],
   collectCoverage: true,
   coverageDirectory: './coverage/',
 };

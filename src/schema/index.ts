@@ -34,7 +34,7 @@ import { swapiTypeToGraphQLType, nodeField } from './relayNode';
  */
 function rootFieldByID(idName, swapiType) {
   const getter = id => getObjectFromTypeAndId(swapiType, id);
-  const argDefs = {};
+  const argDefs = {} as Record<string, any>;
   argDefs.id = { type: GraphQLID };
   argDefs[idName] = { type: GraphQLID };
   return {
