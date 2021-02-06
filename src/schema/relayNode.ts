@@ -5,7 +5,6 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
  */
 
 import { getObjectFromTypeAndId } from './apiHelper';
@@ -46,7 +45,7 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
 const { nodeInterface, nodeField } = nodeDefinitions(
   globalId => {
     const { type, id } = fromGlobalId(globalId);
-    return getObjectFromTypeAndId(type, id);
+    return getObjectFromTypeAndId(type, Number(id));
   },
   obj => {
     const parts = obj.url.split('/');

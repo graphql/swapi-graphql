@@ -29,7 +29,7 @@
     "postinstall": "npm run download && npm run build",
     "start": "node lib/server",
     "watch": "babel scripts/watch.js | node",
-    "test": "npm run lint && npm run check && npm run test:only",
+    "test": "npm run lint && npm run test:only",
     "test:only": "jest",
     "lint": "eslint src handler",
     "lint:fix": "eslint --fix src handler",
@@ -56,6 +56,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.12.3",
+    "@types/graphql-relay": "^0.6.0",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
     "babel-eslint": "^10.0.3",
@@ -77,6 +78,8 @@
     "jest": "^26.6.3",
     "netlify-lambda": "^1.6.3",
     "prettier": "^1.18.2",
-    "sane": "^4.1.0"
+    "sane": "^4.1.0",
+    "ts-jest": "^26.4.4",
+    "typescript": "^4.1.2"
   }
 }

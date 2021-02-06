@@ -29,7 +29,7 @@ import PersonType from './person';
 /**
  * The GraphQL type equivalent of the Starship resource
  */
-const StarshipType = new GraphQLObjectType({
+const StarshipType: GraphQLObjectType = new GraphQLObjectType({
   name: 'Starship',
   description: 'A single transport craft that has hyperdrive capability.',
   fields: () => ({
@@ -52,7 +52,7 @@ Battlestation"`,
     manufacturers: {
       type: new GraphQLList(GraphQLString),
       resolve: ship => {
-        return ship.manufacturer.split(',').map(s => s.trim());
+        return ship.manufacturer.split(',').map((s: string) => s.trim());
       },
       description: 'The manufacturers of this starship.',
     },

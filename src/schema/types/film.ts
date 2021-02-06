@@ -30,7 +30,7 @@ import VehicleType from './vehicle';
 /**
  * The GraphQL type equivalent of the Film resource
  */
-const FilmType = new GraphQLObjectType({
+const FilmType: GraphQLObjectType = new GraphQLObjectType({
   name: 'Film',
   description: 'A single film.',
   fields: () => ({
@@ -55,7 +55,7 @@ const FilmType = new GraphQLObjectType({
     producers: {
       type: new GraphQLList(GraphQLString),
       resolve: film => {
-        return film.producer.split(',').map(s => s.trim());
+        return film.producer.split(',').map((s: string) => s.trim());
       },
       description: 'The name(s) of the producer(s) of this film.',
     },

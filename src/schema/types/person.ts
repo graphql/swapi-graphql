@@ -31,7 +31,7 @@ import VehicleType from './vehicle';
 /**
  * The GraphQL type equivalent of the People resource
  */
-const PersonType = new GraphQLObjectType({
+const PersonType: GraphQLObjectType = new GraphQLObjectType({
   name: 'Person',
   description:
     'An individual person or character within the Star Wars universe.',

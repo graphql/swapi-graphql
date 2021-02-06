@@ -29,7 +29,7 @@ export function connectionFromUrls(
   name: string,
   prop: string,
   type: GraphQLObjectType,
-): GraphQLFieldConfig<*, *> {
+): GraphQLFieldConfig<any, Record<string, unknown>> {
   const { connectionType } = connectionDefinitions({
     name,
     nodeType: type,
@@ -45,7 +45,7 @@ for example.`,
       },
       [prop]: {
         type: new GraphQLList(type),
-        resolve: conn => conn.edges.map(edge => edge.node),
+        resolve: conn => conn.edges.map((edge: any) => edge.node),
         description: `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
