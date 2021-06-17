@@ -8,7 +8,7 @@ function CharacterCard({ person }) {
     <div>
       <img
         alt="empty star"
-        src={isFavorited ? fullStar : emptyStar}
+        src={isFavorited || window.localStorage[person.name] ? fullStar : emptyStar}
         onClick={() => {
           if (!isFavorited) {
             window.localStorage.setItem(person.name, person);
