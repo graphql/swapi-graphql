@@ -1,10 +1,16 @@
+import React, { useState } from "react";
 import emptyStar from "./assets/empty_star.png";
 import fullStar from "./assets/full_star.png";
 
-function CharacterCard({person}) {
+function CharacterCard({ person }) {
+  const [isFavorited, toggleFavorited] = useState(false);
   return (
     <div>
-      <img src={emptyStar} alt="empty star" />
+      <img
+        alt="empty star"
+        src={isFavorited ? fullStar : emptyStar}
+        onClick={() => toggleFavorited(!isFavorited)}
+      />
       <p>Name: {person.name}</p>
       <p>Birth Year: {person.birthYear}</p>
       <p>Gender: {person.gender}</p>
