@@ -1,6 +1,6 @@
 function SearchBar({ updateSearch }) {
   return (
-    <form>
+    <form onSubmit={(e) => e.preventDefault()}>
       <label>Search: </label>
       <input
         type="text"
