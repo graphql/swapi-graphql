@@ -9,7 +9,14 @@ function CharacterCard({ person }) {
       <img
         alt="empty star"
         src={isFavorited ? fullStar : emptyStar}
-        onClick={() => toggleFavorited(!isFavorited)}
+        onClick={() => {
+          if (!isFavorited) {
+            window.localStorage.setItem(person.name, person);
+          } else {
+            window.localStorage.removeItem(person.name);
+          }
+          toggleFavorited(!isFavorited);
+        }}
       />
       <p>Name: {person.name}</p>
       <p>Birth Year: {person.birthYear}</p>
