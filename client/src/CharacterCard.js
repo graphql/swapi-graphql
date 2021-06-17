@@ -4,10 +4,13 @@ import fullStar from "./assets/full_star.png";
 
 function CharacterCard({ person }) {
   const [isFavorited, toggleFavorited] = useState(false);
+  if (!isFavorited && window.localStorage[person.name]) {
+    toggleFavorited(true);
+  }
   return (
     <div>
       <img
-        alt="empty star"
+        alt="favorite star"
         src={isFavorited || window.localStorage[person.name] ? fullStar : emptyStar}
         onClick={() => {
           if (!isFavorited) {
