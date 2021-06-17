@@ -1,7 +1,7 @@
 const app = require('./service');
 
 // Listen for incoming HTTP requests
-const listener = app.listen(process.env.PORT || undefined, () => {
+const listener = app.listen(8080 || undefined, () => {
   let host = listener.address().address;
   if (host === '::') {
     host = 'localhost';
