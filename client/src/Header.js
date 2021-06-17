@@ -1,10 +1,10 @@
 import SearchBar from "./SearchBar";
 
-function Header({ searchCharacters }) {
+function Header({ updateSearch }) {
   return (
     <div>
       <span>Star Wars Characters</span>
-      <SearchBar searchCharacters={searchCharacters} />
+      <SearchBar updateSearch={updateSearch} />
     </div>
   );
 }

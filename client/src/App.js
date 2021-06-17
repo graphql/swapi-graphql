@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, gql } from "@apollo/client";
 import CharacterContainer from "./CharacterContainer";
 import Header from "./Header";
@@ -31,15 +32,18 @@ const searchCharacters = (characters, query) => {
 };
 
 function App() {
+  let [search, updateSearch] = useState("");
   const { loading, error, data } = useQuery(GET_CHARACTERS);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error :</p>;
 
+  const people = searchCharacters(data.allPeople.people, search);
+
   return (
     <div className="App">
-      <Header searchCharacters={searchCharacters} />
-      <CharacterContainer people={data.allPeople.people} />
+      <Header updateSearch={updateSearch} />
+      <CharacterContainer people={people} />
     </div>
   );
 }
