@@ -1,3 +1,15 @@
+import styled from "styled-components";
+
+const StyledButton = styled.button`
+  background-image: linear-gradient(to bottom, #01144d, #afb3bd);
+  color: white;
+  border-radius: 3px;
+  &:hover {
+    cursor: pointer;
+    background-image: linear-gradient(to top, #01144d, #afb3bd);
+  }
+`;
+
 function SearchBar({ updateSearch }) {
   return (
     <form onSubmit={(e) => e.preventDefault()}>
@@ -11,9 +23,14 @@ function SearchBar({ updateSearch }) {
           updateSearch(document.getElementById("search").value);
         }}
       ></input>
-      <button type="button" onClick={() => {
+      <StyledButton
+        type="button"
+        onClick={() => {
           updateSearch(document.getElementById("search").value);
-        }}>Search</button>
+        }}
+      >
+        Search
+      </StyledButton>
     </form>
   );
 }
