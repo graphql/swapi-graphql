@@ -12,11 +12,22 @@ const StyledCardContainer = styled.div`
   overflow: hidden;
 `;
 
-function CharacterContainer({ people }) {
+function CharacterContainer({
+  people,
+  handleFavoriteChange,
+  favorites,
+  changeFavorites,
+}) {
   return (
     <StyledCardContainer>
       {people.map((person) => {
-        return <CharacterCard person={person} key={person.name} />;
+        return (
+          <CharacterCard
+            person={person}
+            key={person.name}
+            handleFavoriteChange={handleFavoriteChange}
+          />
+        );
       })}
     </StyledCardContainer>
   );

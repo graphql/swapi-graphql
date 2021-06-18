@@ -17,7 +17,7 @@ const StyledStar = styled.img`
   float: right;
 `;
 
-function CharacterCard({ person }) {
+function CharacterCard({ person, handleFavoriteChange, favorites, changeFavorites }) {
   const [isFavorited, toggleFavorited] = useState(false);
   if (!isFavorited && window.localStorage[person.name]) {
     toggleFavorited(true);
@@ -31,9 +31,11 @@ function CharacterCard({ person }) {
         }
         onClick={() => {
           if (!isFavorited) {
-            window.localStorage.setItem(person.name, person);
+            window.localStorage.setItem(person.name, person.name);
+            handleFavoriteChange('add', person);
           } else {
             window.localStorage.removeItem(person.name);
+            handleFavoriteChange('remove', person);
           }
           toggleFavorited(!isFavorited);
         }}
