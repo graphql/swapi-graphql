@@ -38,7 +38,14 @@ function App() {
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error :</p>;
 
-  const people = searchCharacters(data.allPeople.people, search);
+  let people = searchCharacters(data.allPeople.people, search);
+  console.log(people);
+  people = people.slice().sort((a, b) => {
+    if (a.name > b.name) {
+      return 1;
+    }
+    return -1;
+  });
 
   return (
     <div className="App">
