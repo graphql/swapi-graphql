@@ -5,8 +5,7 @@ import fullStar from "./assets/full_star.png";
 
 const StyledCard = styled.div`
   position: relative;
-  max-height: 300px;
-  width: 20%;
+  height: 266px;
   border: 2px solid;
   margin: 10px;
   padding: 5px;
