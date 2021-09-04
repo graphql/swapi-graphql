@@ -29,7 +29,7 @@ import PersonType from './person';
 /**
  * The GraphQL type equivalent of the Planet resource
  */
-const PlanetType = new GraphQLObjectType({
+const PlanetType: GraphQLObjectType = new GraphQLObjectType({
   name: 'Planet',
   description: `A large mass, planet or planetoid in the Star Wars Universe, at the time of
 0 ABY.`,
@@ -69,14 +69,14 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`,
     climates: {
       type: new GraphQLList(GraphQLString),
       resolve: planet => {
-        return planet.climate.split(',').map(s => s.trim());
+        return planet.climate.split(',').map((s: string) => s.trim());
       },
       description: 'The climates of this planet.',
     },
     terrains: {
       type: new GraphQLList(GraphQLString),
       resolve: planet => {
-        return planet.terrain.split(',').map(s => s.trim());
+        return planet.terrain.split(',').map((s: string) => s.trim());
       },
       description: 'The terrains of this planet.',
     },
