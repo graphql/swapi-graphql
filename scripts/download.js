@@ -60,7 +60,7 @@ async function cacheResources() {
 
 const outfile = process.argv[2];
 if (!outfile) {
-  console.error('Missing ouput file!');
+  console.error('Missing output file!');
   process.exit(1);
 }
 
