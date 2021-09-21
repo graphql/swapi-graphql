@@ -27,7 +27,7 @@ git update-index --add public/*
 TREE=`git write-tree --prefix=public`
 echo "Wrote tree object: $TREE"
 
-echo "Reseting index to former state."
+echo "Resetting index to former state."
 git reset public
 
 COMMIT=`git commit-tree $TREE -p $PARENT -m "Build gh-pages from $HEAD"`
