@@ -15,7 +15,7 @@ import swapiSchema from './schema/index';
 
 const app = express();
 
-app.use(cors({ origin: '*' }));
+app.use(cors());
 
 // Requests to /graphql redirect to /
 app.all('/graphql', (req, res) => res.redirect('/'));
