@@ -15,7 +15,7 @@
     "url": "http://github.com/graphql/swapi-graphql.git"
   },
   "engines": {
-    "node": ">=6.0.0"
+    "node": ">=20.0.0"
   },
   "browserify": {
     "transform": [
