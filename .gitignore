@@ -5,3 +5,6 @@ node_modules
 npm-debug.log
 /coverage
 /cache/data.json
+
+# Local Netlify folder
+.netlify
