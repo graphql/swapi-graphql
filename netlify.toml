@@ -11,3 +11,7 @@
   for = "/graphql*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
+[[plugins]]
+package = "netlify-plugin-cache"
+  [plugins.inputs]
+  paths = ["cache/data.json"]
