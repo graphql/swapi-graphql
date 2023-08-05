@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "moduleResolution": "NodeNext",
+        "module": "NodeNext",
+        "strict": true,
+        "lib": ["ESNext"],
+        "outDir": "lib",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "rootDir": "src",
+        "checkJs": false
+    },
+    "include": ["src/**/*.ts"],
+    "exclude": ["node_modules", "**/*.test.ts", "public", "handler", "**/__tests__/**", "**/__tests__/**/*.spec.ts"]
+}

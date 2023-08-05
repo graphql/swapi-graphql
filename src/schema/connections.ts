@@ -5,20 +5,20 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
   connectionFromArray,
   connectionArgs,
-  connectionDefinitions,
+  connectionDefinitions
 } from 'graphql-relay';
 
-import { getObjectsFromUrls } from './apiHelper';
+import { getObjectsFromUrls } from './apiHelper.js';
 
 import { GraphQLInt, GraphQLList } from 'graphql';
 
-import type { GraphQLObjectType, GraphQLFieldConfig } from 'graphql';
+import type { GraphQLObjectType } from 'graphql';
 
 /**
  * Constructs a GraphQL connection field config; it is assumed
@@ -29,7 +29,7 @@ export function connectionFromUrls(
   name: string,
   prop: string,
   type: GraphQLObjectType,
-): GraphQLFieldConfig<*, *> {
+) {
   const { connectionType } = connectionDefinitions({
     name,
     nodeType: type,
@@ -45,6 +45,7 @@ for example.`,
       },
       [prop]: {
         type: new GraphQLList(type),
+        // @ts-expect-error messiness
         resolve: conn => conn.edges.map(edge => edge.node),
         description: `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
@@ -58,6 +59,7 @@ full "{ edges { node } }" version should be used instead.`,
   return {
     type: connectionType,
     args: connectionArgs,
+    // @ts-expect-error something
     resolve: async (obj, args) => {
       const array = await getObjectsFromUrls(obj[prop] || []);
       return {

@@ -5,7 +5,7 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
@@ -17,21 +17,41 @@ import {
 
 import { globalIdField } from 'graphql-relay';
 
-import { nodeInterface } from '../relayNode';
-import { createdField, editedField } from '../commonFields';
-import { connectionFromUrls } from '../connections';
-import { getObjectFromUrl, convertToNumber } from '../apiHelper';
+import { nodeInterface } from '../relayNode.js';
+import { createdField, editedField } from '../commonFields.js';
+import { connectionFromUrls } from '../connections.js';
+import { getObjectFromUrl, convertToNumber } from '../apiHelper.js';
 
-import FilmType from './film';
-import PlanetType from './planet';
-import SpeciesType from './species';
-import StarshipType from './starship';
-import VehicleType from './vehicle';
+import FilmType from './film.js';
+import PlanetType from './planet.js';
+import SpeciesType from './species.js';
+import StarshipType from './starship.js';
+import VehicleType from './vehicle.js';
+
+
+type Person = {
+  name: string,
+  birth_year: string,
+  eye_color: string,
+  hair_color: string,
+  height: string,
+  mass: string,
+  skin_color: string,
+  homeworld: string,
+  films: Array<string>,
+  species: Array<string>,
+  starships: Array<string>,
+  vehicles: Array<string>,
+  url: string,
+  created: string,
+  edited: string,
+  id: string,
+}
 
 /**
  * The GraphQL type equivalent of the People resource
  */
-const PersonType = new GraphQLObjectType({
+const PersonType: GraphQLObjectType<Person> = new GraphQLObjectType<Person>({
   name: 'Person',
   description:
     'An individual person or character within the Star Wars universe.',

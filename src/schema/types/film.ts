@@ -5,7 +5,7 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
@@ -17,20 +17,39 @@ import {
 
 import { globalIdField } from 'graphql-relay';
 
-import { nodeInterface } from '../relayNode';
-import { createdField, editedField } from '../commonFields';
-import { connectionFromUrls } from '../connections';
+import { nodeInterface } from '../relayNode.js';
+import { createdField, editedField } from '../commonFields.js';
+import { connectionFromUrls } from '../connections.js';
 
-import PersonType from './person';
-import PlanetType from './planet';
-import SpeciesType from './species';
-import StarshipType from './starship';
-import VehicleType from './vehicle';
+import PersonType from './person.js';
+import PlanetType from './planet.js';
+import SpeciesType from './species.js';
+import StarshipType from './starship.js';
+import VehicleType from './vehicle.js';
+
+export type Film = {
+  title: string,
+  episode_id: number,
+  opening_crawl: string,
+  director: string,
+  producer: string,
+  release_date: string,
+  species: Array<string>,
+  starships: Array<string>,
+  vehicles: Array<string>,
+  characters: Array<string>,
+  planets: Array<string>,
+  url: string,
+  created: string,
+  edited: string,
+  id: string,
+};
+
 
 /**
  * The GraphQL type equivalent of the Film resource
  */
-const FilmType = new GraphQLObjectType({
+const FilmType: GraphQLObjectType<Film> = new GraphQLObjectType<Film>({
   name: 'Film',
   description: 'A single film.',
   fields: () => ({
