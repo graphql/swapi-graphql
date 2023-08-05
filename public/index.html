@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -30,12 +30,18 @@
       href="//unpkg.com/graphiql/graphiql.min.css"
       rel="stylesheet"
     />
+    <link
+      type="text/css"
+      href="//unpkg.com/@graphiql/plugin-explorer/dist/style.css"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="splash">Loading&hellip;</div>
     <script src="//unpkg.com/react/umd/react.production.min.js"></script>
     <script src="//unpkg.com/react-dom/umd/react-dom.production.min.js"></script>
     <script src="//unpkg.com/graphiql/graphiql.min.js"></script>
+    <script src="//unpkg.com/@graphiql/plugin-explorer/dist/index.umd.js"></script>
     <script>
       // Parse the search string to get url parameters.
       var search = window.location.search;
@@ -100,8 +106,10 @@
       const fetcher = GraphiQL.createFetcher({
         url:
           parameters.fetchURL ||
-          "https://swapi-graphql.netlify.app/.netlify/functions/index",
+          "/graphql",
       });
+
+      const explorerPlugin = GraphiQLPluginExplorer.explorerPlugin();
 
       // Render <GraphiQL /> into the body.
       ReactDOM.render(
@@ -113,6 +121,7 @@
           onEditQuery: onEditQuery,
           onEditVariables: onEditVariables,
           onEditOperationName: onEditOperationName,
+          plugins: [explorerPlugin]
         }),
         document.body
       );

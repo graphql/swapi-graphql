@@ -115,8 +115,8 @@ describe('Film type', () => {
       edges { cursor, node { title } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(
-      nextResult.data.allFilms.edges.map(e => e.node.title),
-    ).toMatchObject(['Return of the Jedi', 'The Phantom Menace']);
+    expect(nextResult.data.allFilms.edges.map(e => e.node.title)).toMatchObject(
+      ['Return of the Jedi', 'The Phantom Menace'],
+    );
   });
 });

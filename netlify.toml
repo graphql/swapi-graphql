@@ -1,3 +1,8 @@
 [build]
-  functions = "netlify-lambda-lib"
+  functions = "handler"
   command = "npm run download && npm run build"
+  publish = "public/"
+[[headers]]
+  for = "/graphql*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

@@ -118,9 +118,9 @@ describe('Person type', () => {
       edges { cursor, node { name } } }
     }`;
     const nextResult = await swapi(nextQuery);
-    expect(
-      nextResult.data.allPeople.edges.map(e => e.node.name),
-    ).toMatchObject(['R2-D2', 'Darth Vader']);
+    expect(nextResult.data.allPeople.edges.map(e => e.node.name)).toMatchObject(
+      ['R2-D2', 'Darth Vader'],
+    );
   });
 
   describe('Edge cases', () => {
