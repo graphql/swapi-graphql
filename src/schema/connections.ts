@@ -45,7 +45,6 @@ for example.`,
       },
       [prop]: {
         type: new GraphQLList(type),
-        // @ts-expect-error messiness
         resolve: conn => conn.edges.map(edge => edge.node),
         description: `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
@@ -59,7 +58,6 @@ full "{ edges { node } }" version should be used instead.`,
   return {
     type: connectionType,
     args: connectionArgs,
-    // @ts-expect-error something
     resolve: async (obj, args) => {
       const array = await getObjectsFromUrls(obj[prop] || []);
       return {

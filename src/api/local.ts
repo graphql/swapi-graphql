@@ -9,7 +9,6 @@
  */
 
 import { DataResult } from '../types.js';
-import { readFile } from 'fs/promises';
 
 
 /**
@@ -19,9 +18,9 @@ import { readFile } from 'fs/promises';
 export async function getFromLocalUrl(
   url: string,
 ) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   const swapiData = (await import('../../cache/data.json')).default
-  // @ts-expect-error hey
   const text = swapiData[url] as DataResult;
   if (!text) {
     throw new Error(`No entry in local cache for ${url}`);

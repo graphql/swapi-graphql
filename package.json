@@ -26,7 +26,7 @@
     "test:only": "vitest run --config ./vitest.config.ts",
     "lint": "eslint src/** handler/**",
     "lint:fix": "eslint --fix src handler/**",
-    "check": "flow check",
+    "check": "tsc --noEmit",
     "build": "rimraf lib && tsc ",
     "download": "node scripts/download.js cache/data.json",
     "serve-public": "node scripts/serve-public",
