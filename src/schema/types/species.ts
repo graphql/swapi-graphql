@@ -5,7 +5,7 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
@@ -18,19 +18,37 @@ import {
 
 import { globalIdField } from 'graphql-relay';
 
-import { nodeInterface } from '../relayNode';
-import { createdField, editedField } from '../commonFields';
-import { connectionFromUrls } from '../connections';
-import { getObjectFromUrl, convertToNumber } from '../apiHelper';
+import { nodeInterface } from '../relayNode.js';
+import { createdField, editedField } from '../commonFields.js';
+import { connectionFromUrls } from '../connections.js';
+import { getObjectFromUrl, convertToNumber } from '../apiHelper.js';
 
-import FilmType from './film';
-import PersonType from './person';
-import PlanetType from './planet';
+import FilmType from './film.js';
+import PersonType from './person.js';
+import PlanetType from './planet.js';
 
+export type Species = {
+  name: string,
+  classification: string,
+  designation: string,
+  average_height: string,
+  average_lifespan: string,
+  eye_colors: string,
+  hair_colors: string,
+  skin_colors: string,
+  language: string,
+  homeworld: string,
+  people: Array<string>,
+  films: Array<string>,
+  url: string,
+  created: string,
+  edited: string,
+  id: string,
+}
 /**
  * The GraphQL type equivalent of the Species resource
  */
-const SpeciesType = new GraphQLObjectType({
+const SpeciesType: GraphQLObjectType<Species> = new GraphQLObjectType<Species>({
   name: 'Species',
   description: 'A type of person or character within the Star Wars Universe.',
   fields: () => ({
