@@ -44,7 +44,7 @@
     "@typescript-eslint/eslint-plugin": "^6.2.1",
     "@typescript-eslint/parser": "^6.2.1",
     "eslint": "^8.46.0",
-    "isomorphic-fetch": "2.2.1",
+    "isomorphic-fetch": "^3.0.0",
     "netlify-cli": "^15.10.0",
     "netlify-plugin-cache": "^1.0.3",
     "prettier": "^1.18.2",
