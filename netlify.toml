@@ -14,4 +14,4 @@
 [[plugins]]
 package = "netlify-plugin-cache"
   [plugins.inputs]
-  paths = ["cache/data.json"]
+    paths = ["cache/data.json"]
