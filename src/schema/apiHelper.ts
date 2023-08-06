@@ -47,9 +47,9 @@ export async function getObjectFromUrl(url: string): Promise<ObjectWithId> {
  */
 export async function getObjectFromTypeAndId(
   type: endPoints,
-  id: string,
-): Promise<Object> {
-  return await getObjectFromUrl(`${swapiPath}/${type}/${id}`);
+  id: string | number,
+): Promise<ObjectWithId> {
+  return await getObjectFromUrl(`${swapiPath}/api/${type}/${id}/`);
 }
 
 type ObjectsByType = {

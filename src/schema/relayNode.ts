@@ -20,12 +20,6 @@ import StarshipType from './types/starship.js';
 import VehicleType from './types/vehicle.js';
 import { endPoints } from '../types.js';
 
-// export function swapiTypeToGraphQLType(swapiType: 'films'): typeof FilmType;
-// export function swapiTypeToGraphQLType(swapiType: 'people'): typeof PersonType;
-// export function swapiTypeToGraphQLType(swapiType: 'planets'): typeof PlanetType;
-// export function swapiTypeToGraphQLType(swapiType: 'species'): typeof SpeciesType;
-// export function swapiTypeToGraphQLType(swapiType: 'starships'): typeof StarshipType;
-// export function swapiTypeToGraphQLType(swapiType: 'vehicles'): typeof VehicleType;
 /**
  * Given a "type" in SWAPI, returns the corresponding GraphQL type.
  */
