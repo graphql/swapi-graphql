@@ -5,7 +5,7 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
@@ -18,18 +18,38 @@ import {
 
 import { globalIdField } from 'graphql-relay';
 
-import { nodeInterface } from '../relayNode';
-import { createdField, editedField } from '../commonFields';
-import { connectionFromUrls } from '../connections';
-import { convertToNumber } from '../apiHelper';
+import { nodeInterface } from '../relayNode.js';
+import { createdField, editedField } from '../commonFields.js';
+import { connectionFromUrls } from '../connections.js';
+import { convertToNumber } from '../apiHelper.js';
 
-import FilmType from './film';
-import PersonType from './person';
+import FilmType from './film.js';
+import PersonType from './person.js';
 
+export type Vehicle = {
+  name: string,
+  model: string,
+  vehicle_class: string,
+  manufacturer: string,
+  cost_in_credits: string,
+  length: string,
+  crew: string,
+  passengers: string,
+  max_atmosphering_speed: string,
+  cargo_capacity: string,
+  consumables: string,
+  pilots: Array<string>,
+  films: Array<string>,
+  url: string,
+  created: string,
+  edited: string,
+  id: string,
+
+}
 /**
  * The GraphQL type equivalent of the Vehicle resource
  */
-const VehicleType = new GraphQLObjectType({
+const VehicleType: GraphQLObjectType<Vehicle> = new GraphQLObjectType<Vehicle>({
   name: 'Vehicle',
   description:
     'A single transport craft that does not have hyperdrive capability',

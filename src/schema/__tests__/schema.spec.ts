@@ -6,13 +6,13 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
-import swapiSchema from '../';
-import { graphql } from 'graphql';
+import { describe, expect, it } from 'vitest'
+import { swapi } from './swapi';
 
 describe('Schema', () => {
   it('Gets an error when ID is omitted', async () => {
     const query = '{ species { name } }';
-    const result = await graphql(swapiSchema, query);
+    const result = await swapi(query, false);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0].message).toBe('must provide id or speciesID');
     expect(result.data).toMatchObject({ species: null });
@@ -20,10 +20,10 @@ describe('Schema', () => {
 
   it('Gets an error when global ID is invalid', async () => {
     const query = '{ species(id: "notanid") { name } }';
-    const result = await graphql(swapiSchema, query);
+    const result = await swapi(query, false);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0].message).toEqual(
-      expect.stringContaining('No entry in local cache for'),
+      expect.stringContaining('No valid ID extracted from notanid'),
     );
     expect(result.data).toMatchObject({ species: null });
   });

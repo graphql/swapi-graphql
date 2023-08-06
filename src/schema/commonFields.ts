@@ -5,13 +5,13 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import { GraphQLString } from 'graphql';
 
 // These two fields appear on all types, so let's only write them once.
-export function createdField(): any {
+export function createdField() {
   return {
     type: GraphQLString,
     description:
@@ -19,7 +19,7 @@ export function createdField(): any {
   };
 }
 
-export function editedField(): any {
+export function editedField() {
   return {
     type: GraphQLString,
     description:

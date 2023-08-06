@@ -5,7 +5,7 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
@@ -18,18 +18,35 @@ import {
 
 import { globalIdField } from 'graphql-relay';
 
-import { nodeInterface } from '../relayNode';
-import { createdField, editedField } from '../commonFields';
-import { connectionFromUrls } from '../connections';
-import { convertToNumber } from '../apiHelper';
+import { nodeInterface } from '../relayNode.js';
+import { createdField, editedField } from '../commonFields.js';
+import { connectionFromUrls } from '../connections.js';
+import { convertToNumber } from '../apiHelper.js';
 
-import FilmType from './film';
-import PersonType from './person';
+import FilmType from './film.js';
+import PersonType from './person.js';
 
+export type Planet = {
+  name: string,
+  diameter: string,
+  rotation_period: string,
+  orbital_period: string,
+  gravity: string,
+  population: string,
+  climate: string,
+  terrain: string,
+  surface_water: string,
+  residents: Array<string>,
+  films: Array<string>,
+  url: string,
+  created: string,
+  edited: string,
+  id: string,
+};
 /**
  * The GraphQL type equivalent of the Planet resource
  */
-const PlanetType = new GraphQLObjectType({
+const PlanetType: GraphQLObjectType<Planet> = new GraphQLObjectType<Planet>({
   name: 'Planet',
   description: `A large mass, planet or planetoid in the Star Wars Universe, at the time of
 0 ABY.`,
