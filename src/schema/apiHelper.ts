@@ -82,10 +82,12 @@ function sortObjectsById(array: ObjectWithId[]): ObjectWithId[] {
  * Given a string, convert it to a number
  */
 export function convertToNumber(value: string): number | null {
-  if (['unknown', 'n/a'].indexOf(value) !== -1) {
+  if (['unknown', 'indefinite', 'n/a'].indexOf(value) !== -1) {
     return null;
   }
+  // if none, it's 0
+  if(value === 'none') return 0;
   // remove digit grouping
-  const numberString = value.replace(/,/, '');
+  const numberString = value.replace(/,/, '').replace('km', '');
   return Number(numberString);
 }

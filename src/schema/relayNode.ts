@@ -30,8 +30,6 @@ import { endPoints } from '../types.js';
  * Given a "type" in SWAPI, returns the corresponding GraphQL type.
  */
 export function swapiTypeToGraphQLType(swapiType: endPoints) {
-
-
   switch (swapiType) {
     case 'films':
       return FilmType;
@@ -55,10 +53,9 @@ const { nodeInterface, nodeField } = nodeDefinitions<unknown>(
     const { type, id } = fromGlobalId(globalId);
     return getObjectFromTypeAndId(type as endPoints, id);
   },
-  // @ts-expect-error not sure what to do here
  (obj) => {
     const parts = obj.url.split('/');
-    return swapiTypeToGraphQLType(parts[parts.length - 3]);
+    return swapiTypeToGraphQLType(parts[parts.length - 3]).name;
   },
 );
 
