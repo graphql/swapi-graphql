@@ -121,7 +121,8 @@
           onEditQuery: onEditQuery,
           onEditVariables: onEditVariables,
           onEditOperationName: onEditOperationName,
-          plugins: [explorerPlugin]
+          plugins: [explorerPlugin],
+          shouldPersistHeaders: true,
         }),
         document.body
       );

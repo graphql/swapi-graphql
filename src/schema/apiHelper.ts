@@ -41,7 +41,7 @@ export async function getObjectFromUrl(url: string): Promise<ObjectWithId> {
  */
 export async function getObjectFromTypeAndId(
   type: endPoints,
-  id: string,
+  id: string | number,
 ): Promise<ObjectWithId> {
   return await getObjectFromUrl(`https://swapi.dev/api/${type}/${id}/`);
 }
