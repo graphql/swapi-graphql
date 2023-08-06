@@ -8,7 +8,7 @@
 
  */
 
-import { DataResult } from '../types.js';
+import { DataResult, ResultItem } from '../types.js';
 
 
 /**
@@ -21,7 +21,7 @@ export async function getFromLocalUrl(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   const swapiData = (await import('../../cache/data.json')).default
-  const text = swapiData[url] as DataResult;
+  const text = swapiData[url] as ResultItem;
   if (!text) {
     throw new Error(`No entry in local cache for ${url}`);
   }
@@ -29,5 +29,5 @@ export async function getFromLocalUrl(
     // eslint-disable-next-line no-console
     console.log(`Hit the local cache for ${url}.`);
   }
-  return text as DataResult;
+  return text as ResultItem;
 }

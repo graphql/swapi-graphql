@@ -22,8 +22,8 @@ function getDocument(query) {
       language
       name
       skinColors
-      filmConnection(first:1) { edges { node { title } } }
-      personConnection(first:1) { edges { node { name } } }
+      filmConnection(first: 1) { edges { node { title } } }
+      personConnection(first: 1) { edges { node { name } } }
     }
   `;
 }

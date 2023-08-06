@@ -29,7 +29,7 @@ import StarshipType from './starship.js';
 import VehicleType from './vehicle.js';
 
 
-type Person = {
+export type Person = {
   name: string,
   birth_year: string,
   eye_color: string,

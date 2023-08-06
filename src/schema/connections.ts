@@ -16,9 +16,7 @@ import {
 
 import { getObjectsFromUrls } from './apiHelper.js';
 
-import { GraphQLInt, GraphQLList } from 'graphql';
-
-import type { GraphQLObjectType } from 'graphql';
+import { GraphQLInt, GraphQLList,  type GraphQLObjectType  } from 'graphql';
 
 /**
  * Constructs a GraphQL connection field config; it is assumed

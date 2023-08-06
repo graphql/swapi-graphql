@@ -2,11 +2,10 @@
   functions = "handler"
   command = "npm run download && npm run build"
   publish = "public/"
-
-[watch]
-  functions = "handler"
+[dev]
   command = "npm run download && npm run build"
   publish = "public/"
+  functions = "handler"
 [[headers]]
   for = "/*"
   [headers.values]

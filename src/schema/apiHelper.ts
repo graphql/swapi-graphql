@@ -10,9 +10,9 @@
 
 import DataLoader from 'dataloader';
 
-import { swapiPath } from './constants.js';
+import { swapiPath } from './constants.mjs';
 import { getFromLocalUrl } from '../api/index.js';
-import { DataResult, ObjectWithId, endPoints } from '../types.js';
+import { DataResult, ObjectWithId, endPoints, ResultItem, NormalResultItem } from '../types.js';
 
 
 const localUrlLoader = new DataLoader((urls: readonly string[]) =>
@@ -22,7 +22,8 @@ const localUrlLoader = new DataLoader((urls: readonly string[]) =>
 /**
  * Objects returned from SWAPI don't have an ID field, so add one.
  */
-function objectWithId(obj: DataResult): ObjectWithId {
+function objectWithId(obj: NormalResultItem): ObjectWithId {
+  // @ts-expect-error 
   return { 
     ...obj,
     id: parseInt(obj.url.split('/')[5], 10)
@@ -34,8 +35,11 @@ function objectWithId(obj: DataResult): ObjectWithId {
  */
 export async function getObjectFromUrl(url: string): Promise<ObjectWithId> {
   const data = await localUrlLoader.load(url);
-  // some objects have a 'properties' field, others simply have the data
-  return objectWithId(data.properties || data);
+    // some objects have a 'properties' field, others simply have the data
+  if('properties' in data && data.properties) {
+    return objectWithId(data.properties);
+  }
+  return objectWithId(data as NormalResultItem);
 }
 
 /**
@@ -62,7 +66,9 @@ export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let nextUrl = `${swapiPath}/${type}`;
   while (nextUrl) {
     // eslint-disable-next-line no-await-in-loop
+    // @ts-expect-error 
     const pageData = await localUrlLoader.load(nextUrl) as DataResult;
+    // @ts-expect-error
     const results = pageData.result || pageData.results || [];
     objects = objects.concat(results.map(item => objectWithId(item.properties || item)));
     nextUrl = pageData.next as string;
@@ -84,10 +90,12 @@ function sortObjectsById(array: ObjectWithId[]): ObjectWithId[] {
  * Given a string, convert it to a number
  */
 export function convertToNumber(value: string): number | null {
-  if (['unknown', 'n/a'].indexOf(value) !== -1) {
+  if (['unknown', 'indefinite', 'n/a'].indexOf(value) !== -1) {
     return null;
   }
+  // if none, it's 0
+  if(value === 'none') return 0;
   // remove digit grouping
-  const numberString = value.replace(/,/, '');
+  const numberString = value.replace(/,/, '').replace('km', '');
   return Number(numberString);
 }

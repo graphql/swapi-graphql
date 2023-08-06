@@ -20,15 +20,16 @@
   "type": "module",
   "scripts": {
     "postinstall": "npm run download && npm run build",
-    "watch": "netlify dev",
+    "dev": "npm run download && netlify dev -c 'tsc --watch'",
     "start": "netlify build",
     "test": "npm run lint && npm run check && npm run test:only",
-    "test:only": "vitest run --config ./vitest.config.ts",
+    "test:only": "vitest run",
     "lint": "eslint src/** handler/**",
     "lint:fix": "eslint --fix src handler/**",
     "check": "tsc --noEmit",
-    "build": "rimraf lib && tsc ",
-    "download": "node scripts/download.js cache/data.json",
+    "build": "rimraf lib && tsc",
+    "build:watch": "tsc --watch",
+    "download": "node scripts/download.mjs cache/data.json",
     "serve-public": "node scripts/serve-public",
     "prettier": "prettier --write 'src/**/*.js'",
     "print-schema": "node scripts/print-schema.js",
@@ -54,7 +55,7 @@
     "typescript": "^5.1.6",
     "vitest": "^0.34.1"
   },
-  "resolutions": {
+  "overrides": {
     "graphql": "^16.7.1"
   }
 }
