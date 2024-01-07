@@ -11,7 +11,7 @@ Uses:
 * [aws-serverless-express](https://github.com/awslabs/aws-serverless-express) - to use `express-graphql` on aws lambda.
 * [GraphiQL](https://github.com/graphql/graphiql) - for easy exploration of this GraphQL server.
 
-Try it out at: http://graphql.org/swapi-graphql
+Try it out at: https://studio.apollographql.com/public/star-wars-swapi/variant/current/explorer
 
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 [![Deploy to now](https://deploy.now.sh/static/button.svg)](https://deploy.now.sh/?repo=https://github.com/graphql/swapi-graphql)
