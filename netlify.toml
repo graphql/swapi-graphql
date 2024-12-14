@@ -2,7 +2,15 @@
   functions = "handler"
   command = "npm run download && npm run build"
   publish = "public/"
+[dev]
+  command = "npm run download && npm run build"
+  publish = "public/"
+  functions = "handler"
 [[headers]]
   for = "/graphql*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
+[[plugins]]
+package = "netlify-plugin-cache"
+  [plugins.inputs]
+    paths = ["cache/data.json"]

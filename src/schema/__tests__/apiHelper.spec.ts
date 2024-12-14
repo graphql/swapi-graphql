@@ -6,11 +6,14 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
+
+import { describe, expect, it } from 'vitest'
+
 import {
   getObjectFromUrl,
   getObjectsByType,
   getObjectFromTypeAndId,
-} from '../apiHelper';
+} from '../apiHelper.js';
 
 describe('API Helper', () => {
   it('Gets a person', async () => {

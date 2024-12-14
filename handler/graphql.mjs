@@ -11,4 +11,4 @@ import { createHandler } from 'graphql-http/lib/use/@netlify/functions';
 import schema from '../lib/schema';
 
 // Create the GraphQL over HTTP native fetch handler
-export const handler = createHandler({ schema: schema.default });
+export const handler = createHandler({ schema });

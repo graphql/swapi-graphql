@@ -5,26 +5,25 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
  */
 
-import { getObjectFromTypeAndId } from './apiHelper';
+import { getObjectFromTypeAndId } from './apiHelper.js';
 
-import type { GraphQLObjectType } from 'graphql';
 
 import { nodeDefinitions, fromGlobalId } from 'graphql-relay';
+
+import FilmType from './types/film.js';
+import PersonType from './types/person.js';
+import PlanetType from './types/planet.js';
+import SpeciesType from './types/species.js';
+import StarshipType from './types/starship.js';
+import VehicleType from './types/vehicle.js';
+import { endPoints } from '../types.js';
 
 /**
  * Given a "type" in SWAPI, returns the corresponding GraphQL type.
  */
-export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
-  const FilmType = require('./types/film').default;
-  const PersonType = require('./types/person').default;
-  const PlanetType = require('./types/planet').default;
-  const SpeciesType = require('./types/species').default;
-  const StarshipType = require('./types/starship').default;
-  const VehicleType = require('./types/vehicle').default;
-
+export function swapiTypeToGraphQLType(swapiType: endPoints) {
   switch (swapiType) {
     case 'films':
       return FilmType;
@@ -43,14 +42,14 @@ export function swapiTypeToGraphQLType(swapiType: string): GraphQLObjectType {
   }
 }
 
-const { nodeInterface, nodeField } = nodeDefinitions(
+const { nodeInterface, nodeField } = nodeDefinitions<unknown>(
   globalId => {
     const { type, id } = fromGlobalId(globalId);
-    return getObjectFromTypeAndId(type, id);
+    return getObjectFromTypeAndId(type as endPoints, id);
   },
-  obj => {
+ (obj) => {
     const parts = obj.url.split('/');
-    return swapiTypeToGraphQLType(parts[parts.length - 3]);
+    return swapiTypeToGraphQLType(parts[parts.length - 3]).name;
   },
 );
 

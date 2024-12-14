@@ -5,20 +5,18 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
   connectionFromArray,
   connectionArgs,
-  connectionDefinitions,
+  connectionDefinitions
 } from 'graphql-relay';
 
-import { getObjectsFromUrls } from './apiHelper';
+import { getObjectsFromUrls } from './apiHelper.js';
 
-import { GraphQLInt, GraphQLList } from 'graphql';
-
-import type { GraphQLObjectType, GraphQLFieldConfig } from 'graphql';
+import { GraphQLInt, GraphQLList,  type GraphQLObjectType  } from 'graphql';
 
 /**
  * Constructs a GraphQL connection field config; it is assumed
@@ -29,7 +27,7 @@ export function connectionFromUrls(
   name: string,
   prop: string,
   type: GraphQLObjectType,
-): GraphQLFieldConfig<*, *> {
+) {
   const { connectionType } = connectionDefinitions({
     name,
     nodeType: type,

@@ -5,7 +5,7 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
@@ -18,18 +18,40 @@ import {
 
 import { globalIdField } from 'graphql-relay';
 
-import { nodeInterface } from '../relayNode';
-import { createdField, editedField } from '../commonFields';
-import { connectionFromUrls } from '../connections';
-import { convertToNumber } from '../apiHelper';
+import { nodeInterface } from '../relayNode.js';
+import { createdField, editedField } from '../commonFields.js';
+import { connectionFromUrls } from '../connections.js';
+import { convertToNumber } from '../apiHelper.js';
 
-import FilmType from './film';
-import PersonType from './person';
+import FilmType from './film.js';
+import PersonType from './person.js';
+
+export type Starship = {
+  name: string,
+  model: string,
+  starship_class: string,
+  manufacturer: string,
+  cost_in_credits: string,
+  length: string,
+  crew: string,
+  passengers: string,
+  max_atmosphering_speed: string,
+  hyperdrive_rating: string,
+  MGLT: string,
+  cargo_capacity: string,
+  consumables: string,
+  films: Array<string>,
+  pilots: Array<string>,
+  url: string,
+  created: string,
+  edited: string,
+  id: string,
+};
 
 /**
  * The GraphQL type equivalent of the Starship resource
  */
-const StarshipType = new GraphQLObjectType({
+const StarshipType: GraphQLObjectType<Starship> = new GraphQLObjectType<Starship>({
   name: 'Starship',
   description: 'A single transport craft that has hyperdrive capability.',
   fields: () => ({
