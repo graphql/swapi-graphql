@@ -3,7 +3,7 @@
  */
 export const handler = async function(event) {
   if (req.httpMethod === 'OPTIONS') {
-    return { statusCode: 200 }
+    return { statusCode: 200 };
   }
   let location = '/graphql';
   if (event.queryStringParameters) {
