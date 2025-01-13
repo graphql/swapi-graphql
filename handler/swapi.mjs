@@ -2,7 +2,7 @@
  * 301 permanently redirect /swapi requests to /graphql
  */
 export const handler = async function(event) {
-  if (req.httpMethod === 'OPTIONS') {
+  if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200 };
   }
   let location = '/graphql';
