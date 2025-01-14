@@ -61,7 +61,9 @@ const SpeciesType = new GraphQLObjectType({
     eyeColors: {
       type: new GraphQLList(GraphQLString),
       resolve: species => {
-        return species.eye_colors.split(',').map(s => s.trim());
+        return species.eye_colors
+          ? species.eye_colors.split(',').map(s => s.trim())
+          : null;
       },
       description: `Common eye colors for this species, null if this species does not typically
 have eyes.`,
@@ -72,7 +74,9 @@ have eyes.`,
         if (species.hair_colors === 'none') {
           return [];
         }
-        return species.hair_colors.split(',').map(s => s.trim());
+        return species.hair_colors
+          ? species.hair_colors.split(',').map(s => s.trim())
+          : null;
       },
       description: `Common hair colors for this species, null if this species does not typically
 have hair.`,
@@ -80,7 +84,9 @@ have hair.`,
     skinColors: {
       type: new GraphQLList(GraphQLString),
       resolve: species => {
-        return species.skin_colors.split(',').map(s => s.trim());
+        return species.skin_colors
+          ? species.skin_colors.split(',').map(s => s.trim())
+          : null;
       },
       description: `Common skin colors for this species, null if this species does not typically
 have skin.`,

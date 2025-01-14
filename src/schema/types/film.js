@@ -55,7 +55,9 @@ const FilmType = new GraphQLObjectType({
     producers: {
       type: new GraphQLList(GraphQLString),
       resolve: film => {
-        return film.producer.split(',').map(s => s.trim());
+        return film.producer
+          ? film.producer.split(',').map(s => s.trim())
+          : null;
       },
       description: 'The name(s) of the producer(s) of this film.',
     },
