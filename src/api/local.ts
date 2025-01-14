@@ -8,7 +8,7 @@
 
  */
 
-import { DataResult, ResultItem } from '../types.js';
+import { ResultItem } from '../types.js';
 
 
 /**

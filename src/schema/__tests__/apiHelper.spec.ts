@@ -17,9 +17,9 @@ import {
 
 describe('API Helper', () => {
   it('Gets a person', async () => {
-    const luke = await getObjectFromUrl('https://swapi.tech/api/people/1/');
+    const luke = await getObjectFromUrl('https://swapi.tech/api/people/1');
     expect(luke.name).toBe('Luke Skywalker');
-    const threePO = await getObjectFromUrl('https://swapi.tech/api/people/2/');
+    const threePO = await getObjectFromUrl('https://swapi.tech/api/people/2');
     expect(threePO.name).toBe('C-3PO');
   });
 

@@ -12,7 +12,7 @@ import DataLoader from 'dataloader';
 
 import { swapiPath } from './constants.mjs';
 import { getFromLocalUrl } from '../api/index.js';
-import { DataResult, ObjectWithId, endPoints, ResultItem, NormalResultItem } from '../types.js';
+import { DataResult, ObjectWithId, endPoints, NormalResultItem } from '../types.js';
 
 
 const localUrlLoader = new DataLoader((urls: readonly string[]) =>
@@ -23,7 +23,7 @@ const localUrlLoader = new DataLoader((urls: readonly string[]) =>
  * Objects returned from SWAPI don't have an ID field, so add one.
  */
 function objectWithId(obj: NormalResultItem): ObjectWithId {
-  // @ts-expect-error 
+  // @ts-expect-error data mapping
   return { 
     ...obj,
     id: parseInt(obj.url.split('/')[5], 10)
@@ -66,9 +66,9 @@ export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let nextUrl = `${swapiPath}/${type}`;
   while (nextUrl) {
     // eslint-disable-next-line no-await-in-loop
-    // @ts-expect-error 
+    // @ts-expect-error inconsistent data mapping
     const pageData = await localUrlLoader.load(nextUrl) as DataResult;
-    // @ts-expect-error
+    // @ts-expect-error inconsistent data mapping
     const results = pageData.result || pageData.results || [];
     objects = objects.concat(results.map(item => objectWithId(item.properties || item)));
     nextUrl = pageData.next as string;

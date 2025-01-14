@@ -10,14 +10,14 @@ import { getFromLocalUrl } from '../local';
 
 describe('Local API Wrapper', () => {
   it('Gets a person', async () => {
-    const luke = await getFromLocalUrl('https://swapi.tech/api/people/1/');
+    const luke = await getFromLocalUrl('https://swapi.tech/api/people/1');
     expect(luke.name).toBe('Luke Skywalker');
-    const threePO = await getFromLocalUrl('https://swapi.tech/api/people/2/');
+    const threePO = await getFromLocalUrl('https://swapi.tech/api/people/2');
     expect(threePO.name).toBe('C-3PO');
   });
 
   it('Gets pages', async () => {
-    const firstPeople = await getFromLocalUrl('https://swapi.tech/api/people/');
+    const firstPeople = await getFromLocalUrl('https://swapi.tech/api/people');
     expect(firstPeople.results.length).toBe(10);
     expect(firstPeople.results[0].name).toBe('Luke Skywalker');
     const secondPeople = await getFromLocalUrl(
@@ -28,7 +28,7 @@ describe('Local API Wrapper', () => {
   });
 
   it('Gets first page by default', async () => {
-    const people = await getFromLocalUrl('https://swapi.tech/api/people/');
+    const people = await getFromLocalUrl('https://swapi.tech/api/people');
     expect(people.results.length).toBe(10);
     expect(people.results[0].name).toBe('Luke Skywalker');
   });
