@@ -52,7 +52,7 @@ Battlestation"`,
     manufacturers: {
       type: new GraphQLList(GraphQLString),
       resolve: ship => {
-        return ship.manufacturer.split(',').map(s => s.trim());
+        return ship.manufacturer?.split(',').map(s => s.trim());
       },
       description: 'The manufacturers of this starship.',
     },

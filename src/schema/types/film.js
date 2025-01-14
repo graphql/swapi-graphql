@@ -55,13 +55,13 @@ const FilmType = new GraphQLObjectType({
     producers: {
       type: new GraphQLList(GraphQLString),
       resolve: film => {
-        return film.producer.split(',').map(s => s.trim());
+        return film.producer?.split(',').map(s => s.trim());
       },
       description: 'The name(s) of the producer(s) of this film.',
     },
     releaseDate: {
       type: GraphQLString,
-      resolve: film => film.release_date,
+      resolve: film => film?.release_date,
       description:
         'The ISO 8601 date format of film release at original creator country.',
     },

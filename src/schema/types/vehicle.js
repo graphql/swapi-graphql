@@ -53,7 +53,7 @@ Transport".`,
     manufacturers: {
       type: new GraphQLList(GraphQLString),
       resolve: vehicle => {
-        return vehicle.manufacturer.split(',').map(s => s.trim());
+        return vehicle.manufacturer?.split(',').map(s => s.trim());
       },
       description: 'The manufacturers of this vehicle.',
     },

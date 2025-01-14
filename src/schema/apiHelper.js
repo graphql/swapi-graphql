@@ -28,7 +28,10 @@ function objectWithId(obj: Object): Object {
 /**
  * Given an object URL, fetch it, append the ID to it, and return it.
  */
-export async function getObjectFromUrl(url: string): Promise<Object> {
+export async function getObjectFromUrl(url: string?): Promise<Object | null> {
+  if (!url) {
+    return null;
+  }
   const data = await localUrlLoader.load(url);
   // some objects have a 'properties' field, others simply have the data
   return objectWithId(data.properties || data);
