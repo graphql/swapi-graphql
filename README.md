@@ -1,7 +1,7 @@
 SWAPI GraphQL Wrapper
 =====================
 
-A wrapper around [SWAPI](http://swapi.dev) built using GraphQL converting it into [this schema](schema.graphql).
+A wrapper around [SWAPI](http://swapi.tech) built using GraphQL converting it into [this schema](schema.graphql).
 
 Uses:
 

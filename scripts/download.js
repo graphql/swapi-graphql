@@ -10,6 +10,7 @@ import { URL } from 'url';
 import { Agent } from 'https';
 import { existsSync, writeFileSync } from 'fs';
 import fetch from 'isomorphic-fetch';
+import { swapiPath } from '../src/schema/constants';
 
 const resources = [
   'people',
@@ -21,7 +22,16 @@ const resources = [
 ];
 
 function replaceHttp(url) {
-  return url.replace(/http:\/\//g, 'https://');
+  let resultUrl = url;
+  if (url.endsWith('/')) {
+    resultUrl = url.slice(0, -1);
+  }
+  return (
+    resultUrl
+      .replaceAll(/http:\/\//g, 'https://')
+      // normalize irregularities in the swapi.tech API
+      .replaceAll('https://swapi.tech', 'https://www.swapi.tech')
+  );
 }
 
 function normalizeUrl(url) {
@@ -37,18 +47,18 @@ async function cacheResources() {
   const cache = {};
 
   for (const name of resources) {
-    let url = `https://swapi.tech/api/${name}/`;
+    let url = `${swapiPath}/${name}`;
 
     while (url != null) {
-      console.error(url);
       const response = await fetch(url, { agent });
       const text = await response.text();
 
       const data = JSON.parse(replaceHttp(text));
 
       cache[normalizeUrl(url)] = data;
-      for (const obj of data.results || []) {
-        cache[normalizeUrl(obj.url)] = obj;
+      for (const obj of data.result || data.results || []) {
+        const itemUrl = obj.url || obj.properties.url;
+        cache[normalizeUrl(itemUrl)] = obj;
       }
 
       url = data.next ? data.next.replace('http:', 'https:') : null;
@@ -73,7 +83,7 @@ if (!existsSync(outfile)) {
       writeFileSync(outfile, data, 'utf-8');
       console.log('Cached!');
     })
-    .catch(function(err) {
+    .catch(function (err) {
       console.error(err);
       process.exit(1);
     });
