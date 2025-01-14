@@ -79,6 +79,9 @@ function sortObjectsById(array: { id: number }[]): Object[] {
  * Given a string, convert it to a number
  */
 export function convertToNumber(value: string): ?number {
+  if (value === undefined || value === null) {
+    return null;
+  }
   if (['unknown', 'n/a'].indexOf(value) !== -1) {
     return null;
   }
