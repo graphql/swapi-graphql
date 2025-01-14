@@ -11,6 +11,7 @@
 import DataLoader from 'dataloader';
 
 import { getFromLocalUrl } from '../api';
+import { swapiPath } from './constants';
 
 const localUrlLoader = new DataLoader(urls =>
   Promise.all(urls.map(getFromLocalUrl)),
@@ -29,7 +30,8 @@ function objectWithId(obj: Object): Object {
  */
 export async function getObjectFromUrl(url: string): Promise<Object> {
   const data = await localUrlLoader.load(url);
-  return objectWithId(data);
+  // some objects have a 'properties' field, others simply have the data
+  return objectWithId(data.properties || data);
 }
 
 /**
@@ -39,7 +41,7 @@ export async function getObjectFromTypeAndId(
   type: string,
   id: string,
 ): Promise<Object> {
-  return await getObjectFromUrl(`https://swapi.dev/api/${type}/${id}/`);
+  return await getObjectFromUrl(`${swapiPath}/${type}/${id}`);
 }
 
 type ObjectsByType = {
@@ -52,11 +54,12 @@ type ObjectsByType = {
  */
 export async function getObjectsByType(type: string): Promise<ObjectsByType> {
   let objects = [];
-  let nextUrl = `https://swapi.dev/api/${type}/`;
+  let nextUrl = `${swapiPath}/${type}`;
   while (nextUrl) {
     // eslint-disable-next-line no-await-in-loop
     const pageData = await localUrlLoader.load(nextUrl);
-    objects = objects.concat(pageData.results.map(objectWithId));
+    const results = pageData.result || pageData.results || [];
+    objects = objects.concat(results.map(item => objectWithId(item.properties || item)));
     nextUrl = pageData.next;
   }
   objects = sortObjectsById(objects);
