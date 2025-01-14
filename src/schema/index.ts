@@ -5,10 +5,11 @@
  * This source code is licensed under the license found in the
  * LICENSE-examples file in the root directory of this source tree.
  *
- * @flow strict
+
  */
 
 import {
+  GraphQLFieldConfig,
   GraphQLID,
   GraphQLInt,
   GraphQLList,
@@ -21,25 +22,31 @@ import {
   connectionFromArray,
   connectionArgs,
   connectionDefinitions,
+  Connection,
+  Edge
 } from 'graphql-relay';
 
-import { getObjectsByType, getObjectFromTypeAndId } from './apiHelper';
+import { getObjectsByType, getObjectFromTypeAndId } from './apiHelper.js';
 
-import { swapiTypeToGraphQLType, nodeField } from './relayNode';
+import { swapiTypeToGraphQLType, nodeField } from './relayNode.js';
+import { endPoints } from '../types.js';
 
 /**
  * Creates a root field to get an object of a given type.
  * Accepts either `id`, the globally unique ID used in GraphQL,
  * or `idName`, the per-type ID used in SWAPI.
  */
-function rootFieldByID(idName, swapiType) {
-  const getter = id => getObjectFromTypeAndId(swapiType, id);
-  const argDefs = {};
-  argDefs.id = { type: GraphQLID };
-  argDefs[idName] = { type: GraphQLID };
+function rootFieldByID(
+  idName: string,
+  swapiType: endPoints,
+): GraphQLFieldConfig<unknown, unknown> {
+  const getter = (id: string) => getObjectFromTypeAndId(swapiType, id);
   return {
     type: swapiTypeToGraphQLType(swapiType),
-    args: argDefs,
+    args: {
+      id: { type: GraphQLID },
+      [idName]: { type: GraphQLID },
+    },
     resolve: (_, args) => {
       if (args[idName] !== undefined && args[idName] !== null) {
         return getter(args[idName]);
@@ -65,7 +72,10 @@ function rootFieldByID(idName, swapiType) {
  * Creates a connection that will return all objects of the given
  * `swapiType`; the connection will be named using `name`.
  */
-function rootConnection(name, swapiType) {
+function rootConnection(
+  name: string,
+  swapiType: endPoints,
+): GraphQLFieldConfig<Connection<{ id: string }>, unknown> {
   const graphqlType = swapiTypeToGraphQLType(swapiType);
   const { connectionType } = connectionDefinitions({
     name,
@@ -81,12 +91,12 @@ for example.`,
       },
       [swapiType]: {
         type: new GraphQLList(graphqlType),
-        resolve: conn => conn.edges.map(edge => edge.node),
+        resolve: conn => conn.edges.map((edge: Edge<{ id: string }>) => edge.node),
         description: `A list of all of the objects returned in the connection. This is a convenience
 field provided for quickly exploring the API; rather than querying for
 "{ edges { node } }" when no edge data is needed, this field can be be used
 instead. Note that when clients like Relay need to fetch the "cursor" field on
-the edge to enable efficient pagination, this shortcut cannot be used, and the
+the edge to enable efficient pagunknownination, this shortcut cannot be used, and the
 full "{ edges { node } }" version should be used instead.`,
       },
     }),
@@ -127,3 +137,4 @@ const rootType = new GraphQLObjectType({
 });
 
 export default new GraphQLSchema({ query: rootType });
+

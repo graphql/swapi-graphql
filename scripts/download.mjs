@@ -10,7 +10,7 @@ import { URL } from 'url';
 import { Agent } from 'https';
 import { existsSync, writeFileSync } from 'fs';
 import fetch from 'isomorphic-fetch';
-import { swapiPath } from '../src/schema/constants';
+import { swapiPath } from '../src/schema/constants.mjs';
 
 const resources = [
   'people',

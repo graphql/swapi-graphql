@@ -17,62 +17,41 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "browserify": {
-    "transform": [
-      "babelify"
-    ]
-  },
-  "browserify-shim": {
-    "react": "global:React"
-  },
+  "type": "module",
   "scripts": {
-    "postinstall": "npm run download && npm run build",
-    "watch": "netlify dev",
+    "dev": "npm run download && netlify dev -c 'tsc --watch'",
     "start": "netlify build",
     "test": "npm run lint && npm run check && npm run test:only",
-    "test:only": "jest",
+    "test:only": "vitest run",
     "lint": "eslint src/** handler/**",
     "lint:fix": "eslint --fix src handler/**",
-    "check": "flow check",
-    "cover": "babel-node node_modules/.bin/isparta cover --root src --report html node_modules/.bin/_mocha -- $npm_package_options_mocha",
-    "coveralls": "babel-node node_modules/.bin/isparta cover --root src --report lcovonly node_modules/.bin/_mocha -- $npm_package_options_mocha && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-    "build": "rimraf lib && babel src --ignore __tests__,public,handler --out-dir lib/",
-    "download": "babel-node scripts/download.js cache/data.json",
-    "serve-public": "babel-node scripts/serve-public",
+    "check": "tsc --noEmit",
+    "build": "rimraf lib && tsc",
+    "build:watch": "tsc --watch",
+    "download": "node scripts/download.mjs cache/data.json",
+    "serve-public": "node scripts/serve-public",
     "prettier": "prettier --write 'src/**/*.js'",
-    "print-schema": "babel-node scripts/print-schema.js",
-    "store-schema": "babel-node scripts/store-schema.js"
+    "print-schema": "node scripts/print-schema.js",
+    "store-schema": "node scripts/store-schema.js"
   },
   "dependencies": {
-    "babel-runtime": "^6.26.0",
-    "dataloader": "1.4.0",
-    "graphql": "14.5.8",
+    "dataloader": "2.2.2",
+    "graphql": "^16.7.1",
     "graphql-http": "^1.21.0",
-    "graphql-relay": "0.6.0"
+    "graphql-relay": "0.10.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.12.3",
-    "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.3",
-    "babel-eslint": "^10.0.3",
-    "babel-jest": "^26.6.3",
-    "babel-plugin-syntax-async-functions": "6.13.0",
-    "babel-plugin-syntax-object-rest-spread": "^6.13.0",
-    "babel-plugin-transform-flow-strip-types": "^6.22.0",
-    "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-plugin-transform-runtime": "^6.23.0",
-    "babel-preset-env": "^1.7.0",
-    "babel-register": "^6.26.0",
-    "coveralls": "^3.0.4",
+    "@typescript-eslint/eslint-plugin": "^6.2.1",
+    "@typescript-eslint/parser": "^6.2.1",
+    "eslint": "^8.46.0",
+    "isomorphic-fetch": "^3.0.0",
     "netlify-cli": "^15.10.0",
-    "eslint": "^5.16.0",
-    "eslint-plugin-babel": "5.3.0",
-    "eslint-plugin-prettier": "^3.1.0",
-    "flow-bin": "^0.69.0",
-    "isomorphic-fetch": "2.2.1",
-    "isparta": "^4.1.1",
-    "jest": "^26.6.3",
+    "netlify-plugin-cache": "^1.0.3",
     "prettier": "^1.18.2",
-    "sane": "^4.1.0"
+    "typescript": "^5.1.6",
+    "vitest": "^0.34.1"
+  },
+  "overrides": {
+    "graphql": "^16.7.1"
   }
 }

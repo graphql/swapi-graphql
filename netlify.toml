@@ -2,8 +2,16 @@
   functions = "handler"
   command = "npm run download && npm run build"
   publish = "public/"
+[dev]
+  command = "npm run download && npm run build"
+  publish = "public/"
+  functions = "handler"
 [[headers]]
   for = "/*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Headers = "*"
+[[plugins]]
+package = "netlify-plugin-cache"
+  [plugins.inputs]
+    paths = ["cache/data.json"]

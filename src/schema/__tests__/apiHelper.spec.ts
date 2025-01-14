@@ -6,17 +6,20 @@
  * LICENSE-examples file in the root directory of this source tree.
  */
 
+
+import { describe, expect, it } from 'vitest'
+
 import {
   getObjectFromUrl,
   getObjectsByType,
   getObjectFromTypeAndId,
-} from '../apiHelper';
+} from '../apiHelper.js';
 
 describe('API Helper', () => {
   it('Gets a person', async () => {
-    const luke = await getObjectFromUrl('https://swapi.tech/api/people/1/');
+    const luke = await getObjectFromUrl('https://swapi.tech/api/people/1');
     expect(luke.name).toBe('Luke Skywalker');
-    const threePO = await getObjectFromUrl('https://swapi.tech/api/people/2/');
+    const threePO = await getObjectFromUrl('https://swapi.tech/api/people/2');
     expect(threePO.name).toBe('C-3PO');
   });
 
