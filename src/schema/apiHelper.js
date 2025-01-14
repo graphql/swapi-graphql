@@ -28,7 +28,7 @@ function objectWithId(obj: Object): Object {
 /**
  * Given an object URL, fetch it, append the ID to it, and return it.
  */
-export async function getObjectFromUrl(url: string?): Promise<Object | null> {
+export async function getObjectFromUrl(url: ?string): Promise<Object | null> {
   if (!url) {
     return null;
   }
