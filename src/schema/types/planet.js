@@ -69,14 +69,19 @@ G. "2" is twice or 2 standard Gs. "0.5" is half or 0.5 standard Gs.`,
     climates: {
       type: new GraphQLList(GraphQLString),
       resolve: planet => {
-        return planet.climate?.split(',').map(s => s.trim());
+        return planet.climate
+          ? planet.climate.split(',').map(s => s.trim())
+          : null;
       },
+      nullable: true,
       description: 'The climates of this planet.',
     },
     terrains: {
       type: new GraphQLList(GraphQLString),
       resolve: planet => {
-        return planet.terrain?.split(',').map(s => s.trim());
+        return planet.terrain
+          ? planet.terrain.split(',').map(s => s.trim())
+          : null;
       },
       description: 'The terrains of this planet.',
     },

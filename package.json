@@ -64,7 +64,6 @@
     "babel-preset-env": "^1.7.0",
     "babel-register": "^6.26.0",
     "coveralls": "^3.0.4",
-    "netlify-cli": "^15.10.0",
     "eslint": "^5.16.0",
     "eslint-plugin-babel": "5.3.0",
     "eslint-plugin-prettier": "^3.1.0",
@@ -72,6 +71,7 @@
     "isomorphic-fetch": "2.2.1",
     "isparta": "^4.1.1",
     "jest": "^26.6.3",
+    "netlify-cli": "^15.10.0",
     "prettier": "^1.18.2",
     "sane": "^4.1.0"
   }
