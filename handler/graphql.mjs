@@ -20,6 +20,7 @@ export const handler = async (req, ctx) => {
             headers: {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
+                'Access-Control-Allow-Headers': '*',
                 'Access-Control-Max-Age': '86400',
             }
           };
@@ -31,6 +32,7 @@ export const handler = async (req, ctx) => {
             ...result.headers,
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
+            'Access-Control-Allow-Headers': '*',
             'Access-Control-Max-Age': '86400',
         }
     }
