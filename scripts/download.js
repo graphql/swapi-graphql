@@ -17,8 +17,8 @@ const resources = [
   'starships',
   'vehicles',
   'species',
-  'films',
   'planets',
+  'films',
 ];
 
 function replaceHttp(url) {
@@ -122,7 +122,7 @@ if (!existsSync(outfile)) {
       writeFileSync(outfile, data, 'utf-8');
       console.log('Cached!');
     })
-    .catch(function(err) {
+    .catch(function (err) {
       console.error(err);
       process.exit(1);
     });
