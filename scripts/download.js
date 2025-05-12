@@ -17,8 +17,8 @@ const resources = [
   'starships',
   'vehicles',
   'species',
-  'planets',
   'films',
+  'planets',
 ];
 
 function replaceHttp(url) {
@@ -93,7 +93,7 @@ async function cacheResources() {
           }),
         );
 
-        data.results = properResults;
+        data.results = properResults.map(r => r.value || {});
         cache[normalizeUrl(url)] = data;
 
         url = data.next ? data.next.replace('http:', 'https:') : null;
@@ -122,7 +122,7 @@ if (!existsSync(outfile)) {
       writeFileSync(outfile, data, 'utf-8');
       console.log('Cached!');
     })
-    .catch(function (err) {
+    .catch(function(err) {
       console.error(err);
       process.exit(1);
     });
