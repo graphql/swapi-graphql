@@ -7,4 +7,5 @@ npm-debug.log
 /cache/data.json
 
 # Local Netlify folder
-.netlify
+.netlify/
+.idea/
