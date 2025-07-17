@@ -39,7 +39,7 @@
     "build": "rimraf lib && babel src --ignore __tests__,public,handler --out-dir lib/",
     "download": "babel-node scripts/download.js cache/data.json",
     "serve-public": "babel-node scripts/serve-public",
-    "prettier": "prettier --write 'src/**/*.js'",
+    "prettier": "prettier --write 'src/**/*.{js,html}'",
     "print-schema": "babel-node scripts/print-schema.js",
     "store-schema": "babel-node scripts/store-schema.js"
   },
