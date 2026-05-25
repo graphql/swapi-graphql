@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8" />
   <meta name="robots" content="noindex" />
@@ -30,10 +29,10 @@
   <link rel="stylesheet" href="https://esm.sh/@graphiql/plugin-explorer@5.1.1/dist/style.css"
     integrity="sha384-vTFGj0krVqwFXLB7kq/VHR0/j2+cCT/B63rge2mULaqnib2OX7DVLUVksTlqvMab" crossorigin="anonymous" />
   <!--
-     * Note:
-     * The ?standalone flag bundles the module along with all of its `dependencies`, excluding `peerDependencies`, into a single JavaScript file.
-     * `@emotion/is-prop-valid` is a shim to remove the console error ` module "@emotion /is-prop-valid" not found`. Upstream issue: https://github.com/motiondivision/motion/issues/3126
-    -->
+    * Note:
+    * The ?standalone flag bundles the module along with all of its `dependencies`, excluding `peerDependencies`, into a single JavaScript file.
+    * `@emotion/is-prop-valid` is a shim to remove the console error ` module "@emotion /is-prop-valid" not found`. Upstream issue: https://github.com/motiondivision/motion/issues/3126
+  -->
   <script type="importmap">
     {
       "imports": {
@@ -77,7 +76,7 @@
     search
       .substr(1)
       .split('&')
-      .forEach(function (entry) {
+      .forEach(function(entry) {
         var eq = entry.indexOf('=');
         if (eq >= 0) {
           parameters[decodeURIComponent(entry.slice(0, eq))] =
@@ -120,10 +119,10 @@
       var newSearch =
         '?' +
         Object.keys(parameters)
-          .filter(function (key) {
+          .filter(function(key) {
             return Boolean(parameters[key]);
           })
-          .map(function (key) {
+          .map(function(key) {
             return (
               encodeURIComponent(key) +
               '=' +
@@ -159,11 +158,9 @@
     root.render(React.createElement(App));
   </script>
 </head>
-
 <body>
-  <div id="graphiql">
-    <div class="loading">Loading…</div>
-  </div>
+<div id="graphiql">
+  <div class="loading">Loading…</div>
+</div>
 </body>
-
 </html>
