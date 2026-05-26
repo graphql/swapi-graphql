@@ -47,21 +47,60 @@ async function cacheResources() {
   const cache = {};
 
   for (const name of resources) {
+    console.log(`Caching resource: "${name}"`);
     let url = `${swapiPath}/${name}`;
 
     while (url != null) {
-      const response = await fetch(url, { agent });
-      const text = await response.text();
+      try {
+        const response = await fetch(url, { agent });
+        const text = await response.text();
 
-      const data = JSON.parse(replaceHttp(text));
+        let data = {};
+        try {
+          data = JSON.parse(replaceHttp(text));
+        } catch (e) {
+          console.error(`Error parsing JSON from ${url}:`, e);
+          break;
+        }
 
-      cache[normalizeUrl(url)] = data;
-      for (const obj of data.result || data.results || []) {
-        const itemUrl = obj.url || obj.properties.url;
-        cache[normalizeUrl(itemUrl)] = obj;
+        const properResults = await Promise.allSettled(
+          (data.result || data.results || []).map(async obj => {
+            const itemUrl = obj.url || obj.properties.url;
+            try {
+              const response = await fetch(itemUrl, { agent });
+              const itemText = await response.text();
+
+              let itemData = {};
+              try {
+                itemData = JSON.parse(replaceHttp(itemText));
+              } catch (e) {
+                console.error(`Error parsing JSON from ${itemUrl}:`, e);
+              }
+
+              const fullObjectData = {
+                ...obj,
+                ...((itemData.result || itemData.results || {}).properties ||
+                  {}),
+              };
+
+              cache[normalizeUrl(itemUrl)] = fullObjectData;
+
+              return fullObjectData;
+            } catch (e) {
+              console.error(`Error fetching item from ${itemUrl}:`, e);
+              return obj; // Return the original object if fetching fails
+            }
+          }),
+        );
+
+        data.results = properResults.map(r => r.value || {});
+        cache[normalizeUrl(url)] = data;
+
+        url = data.next ? data.next.replace('http:', 'https:') : null;
+      } catch (e) {
+        console.error(`Error fetching resource from ${url}:`, e);
+        break;
       }
-
-      url = data.next ? data.next.replace('http:', 'https:') : null;
     }
   }
 
