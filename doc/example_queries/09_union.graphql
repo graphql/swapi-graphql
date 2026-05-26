@@ -1,0 +1,16 @@
+{
+  allMachines {
+    machines {
+      ... on Vehicle {
+        id,
+        name,
+        vehicleClass
+      },
+      ... on Starship {
+        id,
+        name,
+        starshipClass
+      }
+    }
+  }
+}
